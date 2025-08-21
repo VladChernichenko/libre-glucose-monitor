@@ -28,7 +28,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
 
   const formatTooltip = (value: any, name: string, props: any) => {
     if (name === 'glucose') {
-      return [`${value} mg/dL`, 'Glucose Level'];
+      return [`${value} mmol/L`, 'Glucose Level'];
     }
     return [value, name];
   };
@@ -119,8 +119,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
             />
             <YAxis
               stroke="#6b7280"
-              domain={[0, 'dataMax + 50']}
-              tickFormatter={(value) => `${value} mg/dL`}
+              domain={[0, 'dataMax + 3']}
+              tickFormatter={(value) => `${value} mmol/L`}
             />
             <Tooltip
               labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy HH:mm')}

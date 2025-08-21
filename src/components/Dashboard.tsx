@@ -42,11 +42,18 @@ const Dashboard: React.FC = () => {
     return trendMap[direction] || '→';
   };
 
+  // Convert mg/dL to mmol/L (divide by 18)
+  const convertToMmolL = (mgdL: number): number => {
+    return Math.round((mgdL / 18) * 10) / 10; // Round to 1 decimal place
+  };
+
   const calculateGlucoseStatus = (value: number): 'low' | 'normal' | 'high' | 'critical' => {
-    if (value < 70) return 'low';
-    if (value < 180) return 'normal';
-    if (value < 250) return 'high';
-    return 'critical';
+    // Convert to mmol/L for status calculation
+    const mmolL = convertToMmolL(value);
+    if (mmolL < 3.9) return 'low';      // < 70 mg/dL
+    if (mmolL < 10.0) return 'normal';  // 70-180 mg/dL
+    if (mmolL < 13.9) return 'high';    // 180-250 mg/dL
+    return 'critical';                   // > 250 mg/dL
   };
 
   const fetchPatientInfo = useCallback(async () => {
@@ -100,11 +107,11 @@ const Dashboard: React.FC = () => {
           const entry = data[0];
           const reading = {
             timestamp: new Date(entry.date),
-            value: entry.sgv,
+            value: convertToMmolL(entry.sgv),
             trend: entry.trend || 0,
             trendArrow: convertTrendToArrow(entry.direction),
             status: calculateGlucoseStatus(entry.sgv),
-            unit: 'mg/dL',
+            unit: 'mmol/L',
           };
           
           console.log('✅ Processed reading:', reading);
@@ -206,11 +213,11 @@ const Dashboard: React.FC = () => {
         
         const history = glucoseEntries.map((entry: any) => ({
           timestamp: new Date(entry.date),
-          value: entry.sgv,
+          value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
           trendArrow: convertTrendToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
-          unit: 'mg/dL',
+          unit: 'mmol/L',
         }));
         
         // Sort by timestamp to ensure chronological order
@@ -483,19 +490,19 @@ const Dashboard: React.FC = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Low:</span>
-                <span className="font-medium text-red-600">&lt; 70 mg/dL</span>
+                <span className="font-medium text-red-600">&lt; 3.9 mmol/L</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Normal:</span>
-                <span className="font-medium text-green-600">70-180 mg/dL</span>
+                <span className="font-medium text-green-600">3.9-10.0 mmol/L</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">High:</span>
-                <span className="font-medium text-yellow-600">180-250 mg/dL</span>
+                <span className="font-medium text-yellow-600">10.0-13.9 mmol/L</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Critical:</span>
-                <span className="font-medium text-red-600">&gt; 250 mg/dL</span>
+                <span className="font-medium text-red-600">&gt; 13.9 mmol/L</span>
               </div>
             </div>
           </div>

@@ -105,7 +105,8 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = fa
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-gray-500">Target</div>
-            <div className="font-semibold text-gray-900">70-180</div>
+            <div className="font-semibold text-gray-900">3.9-10.0</div>
+            <div className="text-xs text-gray-500">mmol/L</div>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-gray-500">Trend</div>
