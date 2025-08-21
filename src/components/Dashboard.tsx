@@ -109,12 +109,13 @@ const Dashboard: React.FC = () => {
         if (data.length > 0) {
           const entry = data[0];
           const reading = {
-            timestamp: new Date(entry.date),
+            timestamp: new Date(), // Use current time when we fetch the data
             value: convertToMmolL(entry.sgv),
             trend: entry.trend || 0,
             trendArrow: convertTrendToArrow(entry.direction),
             status: calculateGlucoseStatus(entry.sgv),
             unit: 'mmol/L',
+            originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
           };
           
           console.log('✅ Processed reading:', reading);
@@ -203,11 +204,12 @@ const Dashboard: React.FC = () => {
           
           const history = allGlucoseEntries.map((entry: any) => ({
             timestamp: new Date(entry.date),
-            value: entry.sgv,
+            value: convertToMmolL(entry.sgv),
             trend: entry.trend || 0,
             trendArrow: convertTrendToArrow(entry.direction),
             status: calculateGlucoseStatus(entry.sgv),
-            unit: 'mg/dL',
+            unit: 'mmol/L',
+            originalTimestamp: new Date(entry.date),
           }));
           
           // Sort by timestamp
@@ -226,6 +228,7 @@ const Dashboard: React.FC = () => {
           trendArrow: convertTrendToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
           unit: 'mmol/L',
+          originalTimestamp: new Date(entry.date),
         }));
         
         // Sort by timestamp to ensure chronological order

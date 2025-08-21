@@ -100,6 +100,11 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = fa
         <div className="text-gray-600 mb-4">
           <div className="text-lg font-medium">{getTrendIcon(reading.trendArrow)}</div>
           <div className="text-sm">Last updated: {format(reading.timestamp, 'MMM dd, yyyy HH:mm')}</div>
+          {reading.originalTimestamp && (
+            <div className="text-xs text-gray-500 mt-1">
+              Sensor data: {format(reading.originalTimestamp, 'MMM dd, yyyy HH:mm')}
+            </div>
+          )}
         </div>
         
         <div className="grid grid-cols-3 gap-4 text-sm">

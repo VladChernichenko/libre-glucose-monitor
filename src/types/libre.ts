@@ -42,6 +42,7 @@ export interface GlucoseReading {
   trendArrow: string;
   status: 'low' | 'normal' | 'high' | 'critical';
   unit: string;
+  originalTimestamp?: Date; // Optional: original timestamp from sensor data
 }
 
 export interface GlucoseStats {
