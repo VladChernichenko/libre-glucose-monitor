@@ -438,6 +438,29 @@ const Dashboard: React.FC = () => {
 
           {/* Glucose Chart */}
           <div>
+            {/* Time Range Controls - Above Chart */}
+            <div className="mb-4 flex justify-center">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+                {(['1h', '6h', '12h', '24h'] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => {
+                      console.log('🕐 Button clicked:', range);
+                      handleTimeRangeChange(range);
+                    }}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 cursor-pointer ${
+                      timeRange === range
+                        ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-inner'
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 active:bg-gray-200'
+                    }`}
+                    style={{ minWidth: '60px' }}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
             <GlucoseChart 
               data={glucoseHistory} 
               timeRange={timeRange}
@@ -445,28 +468,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Time Range Controls */}
-        <div className="mt-8 flex justify-center">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-            {(['1h', '6h', '12h', '24h'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => {
-                  console.log('🕐 Button clicked:', range);
-                  handleTimeRangeChange(range);
-                }}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 cursor-pointer ${
-                  timeRange === range
-                    ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-inner'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 active:bg-gray-200'
-                }`}
-                style={{ minWidth: '60px' }}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
-        </div>
+
 
         {/* Status Information */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
