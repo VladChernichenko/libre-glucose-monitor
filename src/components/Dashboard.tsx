@@ -15,6 +15,9 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState<number>(0);
   // Nightscout integration enabled - using real data
   const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
   
@@ -120,6 +123,11 @@ const Dashboard: React.FC = () => {
             const newHistory = [...prev, reading];
             return newHistory.slice(-100);
           });
+          
+          // Update refresh times
+          const now = new Date();
+          setLastRefreshTime(now);
+          setNextRefreshTime(new Date(now.getTime() + (1 * 60 * 1000))); // Next refresh in 1 minute
         } else {
           setError('No glucose data available from Nightscout');
         }
@@ -254,24 +262,36 @@ const Dashboard: React.FC = () => {
     fetchCurrentGlucose();
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
 
-  // Fetch current glucose data
-  useEffect(() => {
-    if (selectedConnection) {
-      fetchCurrentGlucose();
-      fetchHistoricalData();
-    }
-  }, [selectedConnection, fetchCurrentGlucose, fetchHistoricalData]);
-
   // Auto-refresh every 1 minute for real-time monitoring
   useEffect(() => {
     if (!autoRefresh || !selectedConnection) return;
     
+    console.log('🔄 Setting up auto-refresh interval (1 minute)');
+    
     const interval = setInterval(() => {
+      console.log('🔄 Auto-refresh triggered at:', new Date().toLocaleTimeString());
       fetchCurrentGlucose();
+      fetchHistoricalData(); // Also update the chart data
     }, 1 * 60 * 1000); // 1 minute
     
-    return () => clearInterval(interval);
-  }, [autoRefresh, selectedConnection, fetchCurrentGlucose]);
+    return () => {
+      console.log('🔄 Clearing auto-refresh interval');
+      clearInterval(interval);
+    };
+  }, [autoRefresh, selectedConnection, fetchCurrentGlucose, fetchHistoricalData]);
+
+  // Countdown timer for next refresh (visual only)
+  useEffect(() => {
+    if (!autoRefresh || !nextRefreshTime) return;
+    
+    const countdownInterval = setInterval(() => {
+      const now = new Date();
+      const timeUntilNext = Math.max(0, Math.floor((nextRefreshTime.getTime() - now.getTime()) / 1000));
+      setCountdown(timeUntilNext);
+    }, 1000); // Update every second
+    
+    return () => clearInterval(countdownInterval);
+  }, [autoRefresh, nextRefreshTime]);
 
 
 
@@ -360,6 +380,15 @@ const Dashboard: React.FC = () => {
                 >
                   {isLoading ? '⏳' : '🔄'} Refresh
                 </button>
+                {lastRefreshTime && (
+                  <div className="text-xs text-gray-500 ml-2">
+                    <div>Last: {lastRefreshTime.toLocaleTimeString()}</div>
+                    <div>Next: {nextRefreshTime?.toLocaleTimeString()}</div>
+                    <div className="font-mono text-blue-600">
+                      {countdown > 0 ? `${countdown}s` : 'Now!'}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {connections.length > 0 && (
