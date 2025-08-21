@@ -262,13 +262,13 @@ const Dashboard: React.FC = () => {
     }
   }, [selectedConnection, fetchCurrentGlucose, fetchHistoricalData]);
 
-  // Auto-refresh every 5 minutes
+  // Auto-refresh every 1 minute for real-time monitoring
   useEffect(() => {
     if (!autoRefresh || !selectedConnection) return;
     
     const interval = setInterval(() => {
       fetchCurrentGlucose();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 1 * 60 * 1000); // 1 minute
     
     return () => clearInterval(interval);
   }, [autoRefresh, selectedConnection, fetchCurrentGlucose]);
@@ -351,6 +351,15 @@ const Dashboard: React.FC = () => {
                   onChange={(e) => setAutoRefresh(e.target.checked)}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
+                <span className="text-xs text-gray-500">(1 min)</span>
+                <button
+                  onClick={fetchCurrentGlucose}
+                  disabled={isLoading}
+                  className="ml-2 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh now"
+                >
+                  {isLoading ? '⏳' : '🔄'} Refresh
+                </button>
               </div>
               
               {connections.length > 0 && (
@@ -393,7 +402,7 @@ const Dashboard: React.FC = () => {
                   🩸 Nightscout Connected - Real Data Active
                 </h3>
                 <div className="mt-2 text-sm text-green-700">
-                  <p>Your app is now connected to Nightscout and displaying real-time glucose data from your Libre 2 Plus sensor. Data updates automatically every 5 minutes.</p>
+                  <p>Your app is now connected to Nightscout and displaying real-time glucose data from your Libre 2 Plus sensor. Data updates automatically every 1 minute for real-time monitoring.</p>
                 </div>
               </div>
             </div>
