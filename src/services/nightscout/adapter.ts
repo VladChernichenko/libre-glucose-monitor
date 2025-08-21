@@ -3,13 +3,16 @@ import { GlucoseReading } from '../../types/libre';
 
 export class NightscoutDataAdapter {
   static convertEntryToGlucoseReading(entry: NightscoutEntry): GlucoseReading {
+    // Convert mg/dL to mmol/L (divide by 18)
+    const mmolL = entry.sgv / 18;
+    
     return {
       timestamp: new Date(entry.date),
-      value: entry.sgv,
+      value: mmolL,
       trend: this.convertTrendToNumber(entry.direction),
       trendArrow: this.convertTrendToArrow(entry.direction),
-      status: this.calculateGlucoseStatus(entry.sgv),
-      unit: 'mg/dL',
+      status: this.calculateGlucoseStatus(mmolL),
+      unit: 'mmol/L',
     };
   }
 
@@ -29,10 +32,11 @@ export class NightscoutDataAdapter {
   }
 
   static calculateGlucoseStatus(value: number): 'low' | 'normal' | 'high' | 'critical' {
-    if (value < 70) return 'low';
-    if (value < 180) return 'normal';
-    if (value < 250) return 'high';
-    return 'critical';
+    // value is now in mmol/L
+    if (value < 3.9) return 'low';      // < 70 mg/dL
+    if (value < 10.0) return 'normal';  // 70-180 mg/dL
+    if (value < 13.9) return 'high';    // 180-250 mg/dL
+    return 'critical';                   // > 250 mg/dL
   }
 
   static convertTrendToNumber(direction: string): number {

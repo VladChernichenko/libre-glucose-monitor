@@ -96,13 +96,16 @@ class LibreApiService {
       const response = await this.api.get(`/patients/${patientId}/glucose/current`);
       const data = response.data;
       
+      // Convert to mmol/L if needed
+      const value = data.unit === 'mg/dL' ? data.value / 18 : data.value;
+      
       return {
         timestamp: new Date(data.timestamp),
-        value: data.value,
+        value,
         trend: data.trend,
         trendArrow: data.trendArrow,
-        status: this.getGlucoseStatus(data.value),
-        unit: data.unit || 'mg/dL',
+        status: this.getGlucoseStatus(value),
+        unit: 'mmol/L',
       };
     } catch (error) {
       console.error('Failed to fetch real-time data:', error);
@@ -111,10 +114,11 @@ class LibreApiService {
   }
 
   private getGlucoseStatus(value: number): 'low' | 'normal' | 'high' | 'critical' {
-    if (value < 70) return 'low';
-    if (value < 180) return 'normal';
-    if (value < 250) return 'high';
-    return 'critical';
+    // value is now in mmol/L
+    if (value < 3.9) return 'low';      // < 70 mg/dL
+    if (value < 10.0) return 'normal';  // 70-180 mg/dL
+    if (value < 13.9) return 'high';    // 180-250 mg/dL
+    return 'critical';                   // > 250 mg/dL
   }
 
   isAuthenticated(): boolean {

@@ -36,20 +36,21 @@ export const generateDemoGlucoseData = (hours: number = 24): GlucoseReading[] =>
       }
     }
     
-    // Determine status
+    // Convert to mmol/L and determine status
+    const mmolL = value / 18;
     let status: 'low' | 'normal' | 'high' | 'critical';
-    if (value < 70) status = 'low';
-    else if (value < 180) status = 'normal';
-    else if (value < 250) status = 'high';
+    if (mmolL < 3.9) status = 'low';
+    else if (mmolL < 10.0) status = 'normal';
+    else if (mmolL < 13.9) status = 'high';
     else status = 'critical';
     
     data.push({
       timestamp,
-      value,
+      value: mmolL,
       trend,
       trendArrow,
       status,
-      unit: 'mg/dL',
+      unit: 'mmol/L',
     });
   }
   
@@ -66,19 +67,21 @@ export const generateCurrentDemoReading = (): GlucoseReading => {
   let value = Math.round(baseValue + variation + randomNoise);
   value = Math.max(60, Math.min(300, value));
   
+  // Convert to mmol/L and determine status
+  const mmolL = value / 18;
   let status: 'low' | 'normal' | 'high' | 'critical';
-  if (value < 70) status = 'low';
-  else if (value < 180) status = 'normal';
-  else if (value < 250) status = 'high';
+  if (mmolL < 3.9) status = 'low';
+  else if (mmolL < 10.0) status = 'normal';
+  else if (mmolL < 13.9) status = 'high';
   else status = 'critical';
   
   return {
     timestamp: now,
-    value,
+    value: mmolL,
     trend: Math.random() > 0.5 ? 1 : -1,
     trendArrow: Math.random() > 0.5 ? '↗' : '↘',
     status,
-    unit: 'mg/dL',
+    unit: 'mmol/L',
   };
 };
 

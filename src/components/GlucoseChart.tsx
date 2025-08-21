@@ -157,7 +157,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="text-center p-3 bg-gray-50 rounded-lg">
           <div className="text-gray-500">Target Range</div>
-          <div className="font-semibold text-gray-900">70-180 mg/dL</div>
+          <div className="font-semibold text-gray-900">3.9-10.0 mmol/L</div>
         </div>
         <div className="text-center p-3 bg-gray-50 rounded-lg">
           <div className="text-gray-500">Current Trend</div>

@@ -67,10 +67,10 @@ A real-time web application for monitoring glucose levels using the Freestyle Li
 
 ### Glucose Level Interpretation
 
-- **Low**: < 70 mg/dL (Red indicator)
-- **Normal**: 70-180 mg/dL (Green indicator)
-- **High**: 180-250 mg/dL (Yellow indicator)
-- **Critical**: > 250 mg/dL (Red indicator)
+- **Low**: < 3.9 mmol/L (Red indicator)
+- **Normal**: 3.9-10.0 mmol/L (Green indicator)
+- **High**: 10.0-13.9 mmol/L (Yellow indicator)
+- **Critical**: > 13.9 mmol/L (Red indicator)
 
 ## API Integration
 
