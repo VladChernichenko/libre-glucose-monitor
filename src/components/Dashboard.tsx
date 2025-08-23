@@ -3,6 +3,7 @@ import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
+import { generateDemoGlucoseData } from '../services/demoData';
 
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -249,9 +250,14 @@ const Dashboard: React.FC = () => {
     fetchPatientInfo();
     fetchConnections();
     
-    // ONLY load data from Nightscout - no demo fallback
+    // If Nightscout is not configured, use demo data for testing
     if (!nightscoutUrl) {
-      setError('Nightscout URL not configured. Please check your environment variables.');
+      console.log('🚀 Nightscout not configured, loading demo data for chart testing');
+      const demoData = generateDemoGlucoseData(24);
+      setGlucoseHistory(demoData);
+      if (demoData.length > 0) {
+        setCurrentReading(demoData[demoData.length - 1]);
+      }
       return;
     }
     
