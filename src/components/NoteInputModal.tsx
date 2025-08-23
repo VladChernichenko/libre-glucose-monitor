@@ -31,8 +31,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
 
   // Display values for inputs (empty string instead of 0 for better UX)
   const [displayValues, setDisplayValues] = useState({
-    carbs: '',
-    insulin: ''
+    carbsInsulin: ''
   });
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -85,8 +84,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         });
         // Set display values for editing
         setDisplayValues({
-          carbs: initialData.carbs.toString(),
-          insulin: initialData.insulin.toString()
+          carbsInsulin: `${initialData.carbs > 0 ? initialData.carbs + 'g' : ''} ${initialData.insulin > 0 ? initialData.insulin + 'u' : ''}`.trim()
         });
       } else {
         // For add mode, start completely fresh with time-based meal type
@@ -101,8 +99,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         });
         // Set display values for adding (completely empty)
         setDisplayValues({
-          carbs: '',
-          insulin: ''
+          carbsInsulin: ''
         });
       }
       setErrors([]);
@@ -123,8 +120,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         glucoseValue: 0
       });
       setDisplayValues({
-        carbs: '',
-        insulin: ''
+        carbsInsulin: ''
       });
       setErrors([]);
     }
@@ -142,28 +138,37 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     }
   };
 
+  // Parse combined carbs and insulin input
+  const parseCarbsInsulin = (input: string): { carbs: number; insulin: number } => {
+    const carbsMatch = input.match(/(\d+)g/i);
+    const insulinMatch = input.match(/(\d+)u/i);
+    
+    return {
+      carbs: carbsMatch ? parseInt(carbsMatch[1]) : 0,
+      insulin: insulinMatch ? parseInt(insulinMatch[1]) : 0
+    };
+  };
+
   const handleDisplayValueChange = (field: keyof typeof displayValues, value: string) => {
-    // For carbs and insulin, only allow digits
-    if (field === 'carbs' || field === 'insulin') {
-      // Filter out non-digit characters
-      const digitsOnly = value.replace(/\D/g, '');
+    if (field === 'carbsInsulin') {
+      // Update display value
       setDisplayValues(prev => ({
         ...prev,
-        [field]: digitsOnly
+        [field]: value
       }));
       
-      // Convert to numeric value
-      const numericValue = parseInt(digitsOnly) || 0;
+      // Parse carbs and insulin from combined input
+      const { carbs, insulin } = parseCarbsInsulin(value);
+      
+      // Update form data
       setFormData(prev => ({
         ...prev,
-        [field]: numericValue
+        carbs,
+        insulin
       }));
       
       // Auto-update meal type based on new values
-      const newCarbs = field === 'carbs' ? numericValue : formData.carbs;
-      const newInsulin = field === 'insulin' ? numericValue : formData.insulin;
-      const smartMealType = getSmartMealType(newCarbs, newInsulin, formData.timestamp);
-      
+      const smartMealType = getSmartMealType(carbs, insulin, formData.timestamp);
       if (smartMealType !== formData.meal) {
         setFormData(prev => ({ ...prev, meal: smartMealType }));
       }
@@ -319,39 +324,24 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             </div>
           </div>
 
-          {/* Second Row: Carbs and Insulin */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="carbs" className="block text-xs font-medium text-gray-700 mb-1">
-                🍞 Carbs (g) <span className="text-gray-500 text-xs">(optional)</span>
-              </label>
-              <input
-                id="carbs"
-                type="text"
-                inputMode="numeric"
-                value={displayValues.carbs}
-                onChange={(e) => handleDisplayValueChange('carbs', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0 (digits only)"
-                autoComplete="off"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label htmlFor="insulin" className="block text-xs font-medium text-gray-700 mb-1">
-                💉 Insulin (u) <span className="text-xs text-gray-500">(optional)</span>
-              </label>
-              <input
-                id="insulin"
-                type="text"
-                inputMode="numeric"
-                value={displayValues.insulin}
-                onChange={(e) => handleDisplayValueChange('insulin', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0 (digits only)"
-                autoComplete="off"
-              />
-            </div>
+          {/* Combined Carbs and Insulin Input */}
+          <div>
+            <label htmlFor="carbsInsulin" className="block text-xs font-medium text-gray-700 mb-1">
+              🍽️ Carbs & Insulin <span className="text-gray-500 text-xs">(optional)</span>
+            </label>
+            <input
+              id="carbsInsulin"
+              type="text"
+              value={displayValues.carbsInsulin}
+              onChange={(e) => handleDisplayValueChange('carbsInsulin', e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., 10g 1u or just 10g or just 1u"
+              autoComplete="off"
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Format: "10g 1u" for 10g carbs + 1u insulin, or just "10g" for carbs only, or just "1u" for insulin only
+            </p>
           </div>
 
 
