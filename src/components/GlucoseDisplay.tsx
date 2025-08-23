@@ -1,16 +1,17 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { GlucoseReading } from '../types/libre';
+import { InsulinDose } from '../types/notes';
 import { InsulinCalculator } from '../services/insulinCalculator';
 
 interface GlucoseDisplayProps {
   reading: GlucoseReading | null;
   isLoading?: boolean;
-  insulinDoses?: any[]; // GlucoseNote[] with insulin doses
+  insulinDoses?: InsulinDose[];
   currentTime?: Date;
 }
 
-const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ 
+const GlucoseDisplay: React.FC<GlucoseDisplayProps> = React.memo(({ 
   reading, 
   isLoading = false, 
   insulinDoses = [], 
@@ -42,34 +43,62 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({
     );
   }
 
+  // Calculate active insulin if doses are available
+  const activeInsulin = insulinDoses.length > 0 
+    ? InsulinCalculator.calculateTotalActiveInsulin(insulinDoses, currentTime)
+    : 0;
+
+  // Get glucose status color
+  const getGlucoseColor = (status: string): string => {
+    switch (status) {
+      case 'low': return '#ef4444';      // red-500
+      case 'normal': return '#10b981';   // emerald-500
+      case 'high': return '#f59e0b';     // amber-500
+      case 'critical': return '#dc2626'; // red-600
+      default: return '#6b7280';         // gray-500
+    }
+  };
+
   return (
     <div className="glucose-card">
       <div className="text-center">
-        
+        {/* Glucose Value */}
         <div className="mb-2">
-          <span className="glucose-value text-6xl" style={{ color: reading.status === 'low' ? '#ef4444' : reading.status === 'normal' ? '#10b981' : reading.status === 'high' ? '#f59e0b' : '#dc2626' }}>
+          <span 
+            className="glucose-value text-6xl" 
+            style={{ color: getGlucoseColor(reading.status) }}
+          >
             {reading.value}
           </span>
-          <span className="text-2xl text-gray-600 ml-2">{reading.unit}</span>
+          <span className="text-2xl text-gray-600 ml-2">
+            {reading.unit || 'mmol/L'}
+          </span>
         </div>
         
+        {/* Timestamp and Additional Info */}
         <div className="text-gray-600 mb-4">
-          <div className="text-sm">Last updated: {format(reading.timestamp, 'MMM dd, yyyy HH:mm')}</div>
+          <div className="text-sm">
+            Last updated: {format(reading.timestamp, 'MMM dd, yyyy HH:mm')}
+          </div>
+          
           {reading.originalTimestamp && (
             <div className="text-xs text-gray-500 mt-1">
               Sensor data: {format(reading.originalTimestamp, 'MMM dd, yyyy HH:mm')}
             </div>
           )}
+          
           {/* Active Insulin Display */}
-          {insulinDoses && insulinDoses.length > 0 && (
+          {activeInsulin > 0 && (
             <div className="text-xs text-blue-600 mt-2">
-              active {InsulinCalculator.calculateTotalActiveInsulin(insulinDoses, currentTime).toFixed(1)}u
+              active {activeInsulin.toFixed(1)}u
             </div>
           )}
         </div>
       </div>
     </div>
   );
-};
+});
+
+GlucoseDisplay.displayName = 'GlucoseDisplay';
 
 export default GlucoseDisplay;

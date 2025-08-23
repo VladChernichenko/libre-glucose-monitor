@@ -21,10 +21,19 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:analyze": "ANALYZE=true npm run build",
+    "build:production": "GENERATE_SOURCEMAP=false npm run build",
     "test": "react-scripts test",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
     "eject": "react-scripts eject",
     "pre-commit": "./scripts/pre-commit-check.sh",
-    "lint": "react-scripts build --no-optimize"
+    "lint": "react-scripts build --no-optimize",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "clean": "rm -rf build node_modules/.cache",
+    "dev": "npm run clean && npm start"
   },
   "eslintConfig": {
     "extends": [
@@ -46,5 +55,9 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   }
 }

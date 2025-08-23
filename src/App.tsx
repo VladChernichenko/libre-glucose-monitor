@@ -1,5 +1,16 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Dashboard from './components/Dashboard';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Loading fallback component
+const LoadingFallback: React.FC = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading Glucose Monitor...</p>
+    </div>
+  </div>
+);
 
 const App: React.FC = () => {
   // 🔓 TEMPORARILY DISABLED AUTHENTICATION
@@ -24,14 +35,7 @@ const App: React.FC = () => {
   // };
   // 
   // if (isLoading) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-  //         <p className="text-gray-600">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
+  //   return <LoadingFallback />;
   // }
   // 
   // return (
@@ -41,9 +45,13 @@ const App: React.FC = () => {
   // );
 
   return (
-    <div className="App">
-      <Dashboard />
-    </div>
+    <ErrorBoundary>
+      <div className="App">
+        <Suspense fallback={<LoadingFallback />}>
+          <Dashboard />
+        </Suspense>
+      </div>
+    </ErrorBoundary>
   );
 };
 
