@@ -376,76 +376,124 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+      <main className="max-w-full mx-auto px-3 sm:px-4 py-3">
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Current Glucose Display */}
-          <div>
-            <GlucoseDisplay 
-              reading={currentReading} 
-              isLoading={isLoading} 
-            />
-          </div>
-
-          {/* Glucose Chart */}
-          <div>
-            {/* Time Range Controls - Above Chart */}
-            <div className="mb-4 flex justify-center">
-              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-                {(['1h', '6h', '12h', '24h'] as const).map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => {
-                      console.log('🕐 Button clicked:', range);
-                      handleTimeRangeChange(range);
-                    }}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 cursor-pointer ${
-                      timeRange === range
-                        ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-inner'
-                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 active:bg-gray-200'
-                    }`}
-                    style={{ minWidth: '60px' }}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
+        {/* Three-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-7rem)]">
+          {/* Left Column: Current Glucose + Quick Actions */}
+          <div className="lg:col-span-3 space-y-4">
+            {/* Current Glucose Display - Compact */}
+            <div className="bg-white rounded-lg shadow-sm p-4 h-fit">
+              <GlucoseDisplay 
+                reading={currentReading} 
+                isLoading={isLoading} 
+              />
             </div>
             
-            <GlucoseChart 
-              data={glucoseHistory} 
-              timeRange={timeRange}
-              notes={notes}
-              onNoteClick={handleNoteClick}
-            />
+            {/* Notes Quick Add & Recent Summary */}
+            <div className="bg-white rounded-lg shadow-sm p-4 flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">🍽️ Meal Tracking</h3>
+                <button
+                  onClick={() => setIsNoteModalOpen(true)}
+                  className="btn-primary text-sm px-3 py-1.5"
+                >
+                  ➕ Add
+                </button>
+              </div>
+              
+              {/* Recent Notes Summary - Scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                {notes.slice(0, 5).map((note) => (
+                  <div 
+                    key={note.id} 
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleEditNote(note)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{note.meal}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(note.timestamp).toLocaleString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <div className="text-blue-600 font-medium">{note.carbs}g</div>
+                      <div className="text-purple-600 font-medium">{note.insulin}u</div>
+                    </div>
+                  </div>
+                ))}
+                {notes.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="text-gray-400 text-3xl mb-2">🍽️</div>
+                    <p className="text-gray-500 text-sm">No notes yet</p>
+                    <p className="text-gray-400 text-xs">Click "Add" to start tracking</p>
+                  </div>
+                )}
+                {notes.length > 5 && (
+                  <div className="text-center py-2">
+                    <span className="text-xs text-gray-400">+{notes.length - 5} more notes</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
-
-
-
-
-        {/* Meal Notes Section */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">🍽️ Meal & Insulin Tracking</h2>
-            <button
-              onClick={() => setIsNoteModalOpen(true)}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <span>➕ Add Note</span>
-            </button>
+          {/* Center Column: Glucose Chart */}
+          <div className="lg:col-span-6">
+            <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
+              {/* Time Range Controls - Compact */}
+              <div className="mb-3 flex justify-center">
+                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                  {(['1h', '6h', '12h', '24h'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => handleTimeRangeChange(range)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        timeRange === range
+                          ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                      }`}
+                    >
+                      {range}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Chart Container - Takes remaining space */}
+              <div className="flex-1 min-h-0">
+                <GlucoseChart 
+                  data={glucoseHistory} 
+                  timeRange={timeRange}
+                  notes={notes}
+                  onNoteClick={handleNoteClick}
+                />
+              </div>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Notes List */}
-            <div className="lg:col-span-2">
-              <NotesList
-                notes={notes}
-                onEditNote={handleEditNote}
-                onDeleteNote={handleNoteDelete}
-              />
+          {/* Right Column: All Notes List */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">📋 All Notes</h3>
+                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  {notes.length}
+                </span>
+              </div>
+              
+              {/* Notes List - Scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <NotesList
+                  notes={notes}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleNoteDelete}
+                />
+              </div>
             </div>
           </div>
         </div>
