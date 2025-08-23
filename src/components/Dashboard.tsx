@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
-import { generateDemoGlucoseData } from '../services/demoData';
+// import { generateDemoGlucoseData } from '../services/demoData';
 
 import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -118,12 +118,9 @@ const Dashboard: React.FC = () => {
     fetchPatientInfo();
     fetchConnections();
     
-    // Always load demo data first for immediate chart display
-    const demoData = generateDemoGlucoseData(24);
-    setGlucoseHistory(demoData);
-    if (demoData.length > 0) {
-      setCurrentReading(demoData[demoData.length - 1]);
-    }
+    // Initialize with empty data - will be populated by Nightscout or remain empty
+    setGlucoseHistory([]);
+    setCurrentReading(null);
     
     // If Nightscout is configured, try to fetch real data
     if (nightscoutUrl) {
@@ -132,7 +129,7 @@ const Dashboard: React.FC = () => {
     }
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl]);
 
-  // Update glucose status when data changes
+  // Update glucose status when data changes - only run once when data is first loaded
   useEffect(() => {
     if (glucoseHistory.length > 0) {
       const updatedHistory = glucoseHistory.map(reading => ({
@@ -140,15 +137,18 @@ const Dashboard: React.FC = () => {
         status: calculateGlucoseStatus(reading.value)
       }));
       setGlucoseHistory(updatedHistory);
-      
-      if (currentReading) {
-        setCurrentReading(prev => prev ? {
-          ...prev,
-          status: calculateGlucoseStatus(prev.value)
-        } : null);
-      }
     }
-  }, [glucoseHistory, currentReading]);
+  }, [glucoseHistory.length]); // Only depend on length, not the array itself
+
+  // Update current reading status separately
+  useEffect(() => {
+    if (currentReading) {
+      setCurrentReading(prev => prev ? {
+        ...prev,
+        status: calculateGlucoseStatus(prev.value)
+      } : null);
+    }
+  }, [currentReading?.value]); // Only depend on the value, not the entire object
 
   // Fetch new data when time range changes
   useEffect(() => {
