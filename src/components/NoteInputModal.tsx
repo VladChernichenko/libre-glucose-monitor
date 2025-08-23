@@ -138,14 +138,28 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     }
   };
 
-  // Parse combined carbs and insulin input
+  // Parse combined carbs and insulin input with multiple food items
   const parseCarbsInsulin = (input: string): { carbs: number; insulin: number } => {
-    const carbsMatch = input.match(/(\d+)g/i);
-    const insulinMatch = input.match(/(\d+)u/i);
+    // Find all carbs (numbers followed by 'g')
+    const carbsMatches = input.match(/(\d+(?:\.\d+)?)g/gi);
+    // Find all insulin doses (numbers followed by 'u')
+    const insulinMatches = input.match(/(\d+(?:\.\d+)?)u/gi);
+    
+    // Sum up all carbs
+    const totalCarbs = carbsMatches ? carbsMatches.reduce((sum, match) => {
+      const carbs = parseFloat(match.replace(/g/i, ''));
+      return sum + carbs;
+    }, 0) : 0;
+    
+    // Sum up all insulin doses
+    const totalInsulin = insulinMatches ? insulinMatches.reduce((sum, match) => {
+      const insulin = parseFloat(match.replace(/u/i, ''));
+      return sum + insulin;
+    }, 0) : 0;
     
     return {
-      carbs: carbsMatch ? parseInt(carbsMatch[1]) : 0,
-      insulin: insulinMatch ? parseInt(insulinMatch[1]) : 0
+      carbs: Math.round(totalCarbs * 100) / 100, // Round to 2 decimal places
+      insulin: Math.round(totalInsulin * 100) / 100 // Round to 2 decimal places
     };
   };
 
@@ -329,19 +343,19 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             <label htmlFor="carbsInsulin" className="block text-xs font-medium text-gray-700 mb-1">
               🍽️ Carbs & Insulin <span className="text-gray-500 text-xs">(optional)</span>
             </label>
-            <input
-              id="carbsInsulin"
-              type="text"
-              value={displayValues.carbsInsulin}
-              onChange={(e) => handleDisplayValueChange('carbsInsulin', e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., 10g 1u or just 10g or just 1u"
-              autoComplete="off"
-              autoFocus
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Format: "10g 1u" for 10g carbs + 1u insulin, or just "10g" for carbs only, or just "1u" for insulin only
-            </p>
+                          <input
+                id="carbsInsulin"
+                type="text"
+                value={displayValues.carbsInsulin}
+                onChange={(e) => handleDisplayValueChange('carbsInsulin', e.target.value)}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., 50g soup 5u 20g bread 2u"
+                autoComplete="off"
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Format: "50g soup 5u 20g bread 2u" (auto-sums to 70g carbs + 7u insulin), or "10g 1u", or just "10g", or just "1u"
+              </p>
           </div>
 
 
