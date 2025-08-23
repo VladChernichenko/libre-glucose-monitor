@@ -54,14 +54,10 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   // Ensure data is sorted by timestamp
   const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
-  // For 24h view, ensure we show a full 24-hour timeline
+  // Create chart data with proper time handling
   let chartData: ChartDataPoint[];
   
-  if (timeRange === '24h' && sortedData.length > 0) {
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    
-    // Create a 24-hour timeline with data points
+  if (sortedData.length > 0) {
     chartData = sortedData.map((reading, index) => ({
       time: reading.timestamp.getTime(),
       glucose: reading.value,
@@ -69,19 +65,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       color: getGlucoseColor(reading.value),
       isFirstPoint: index === 0, // Mark the first data point
     }));
-    
-    // If we don't have 24 hours of data, extend the timeline
-    if (sortedData[0].timestamp > twentyFourHoursAgo) {
-      console.log('📊 Extending 24h chart to show full timeline');
-    }
   } else {
-    chartData = sortedData.map((reading, index) => ({
-      time: reading.timestamp.getTime(),
-      glucose: reading.value,
-      status: reading.status,
-      color: getGlucoseColor(reading.value),
-      isFirstPoint: index === 0, // Mark the first data point
-    }));
+    chartData = [];
   }
 
   return (
@@ -105,10 +90,16 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               tickFormatter={formatXAxis}
               type="number"
               domain={
-                timeRange === '24h' && data.length > 0
+                timeRange === '24h' && sortedData.length > 0
                   ? [
-                      new Date().getTime() - (24 * 60 * 60 * 1000), // 24 hours ago
-                      new Date().getTime() // now
+                      Math.min(
+                        sortedData[0].timestamp.getTime(), // Start of data
+                        new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours ago
+                      ),
+                      Math.max(
+                        sortedData[sortedData.length - 1].timestamp.getTime(), // End of data
+                        new Date().getTime() // now
+                      )
                     ]
                   : ['dataMin', 'dataMax']
               }
