@@ -121,26 +121,28 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   };
 
   const handleDisplayValueChange = (field: keyof typeof displayValues, value: string) => {
-    setDisplayValues(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // Convert display value to actual form data
-    let numericValue: number;
+    // For carbs and insulin, only allow digits
     if (field === 'carbs' || field === 'insulin') {
-      numericValue = parseInt(value) || 0;
-    } else if (field === 'glucoseValue') {
-      numericValue = parseFloat(value) || 0;
+      // Filter out non-digit characters
+      const digitsOnly = value.replace(/\D/g, '');
+      setDisplayValues(prev => ({
+        ...prev,
+        [field]: digitsOnly
+      }));
+      
+      // Convert to numeric value
+      const numericValue = parseInt(digitsOnly) || 0;
+      setFormData(prev => ({
+        ...prev,
+        [field]: numericValue
+      }));
     } else {
-      return;
+      // For other fields, allow normal input
+      setDisplayValues(prev => ({
+        ...prev,
+        [field]: value
+      }));
     }
-    
-    // Update form data with numeric value
-    setFormData(prev => ({
-      ...prev,
-      [field]: numericValue
-    }));
     
     // Clear errors when user starts typing
     if (errors.length > 0) {
@@ -259,7 +261,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 value={displayValues.carbs}
                 onChange={(e) => handleDisplayValueChange('carbs', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0"
+                placeholder="0 (digits only)"
                 required
                 autoFocus
               />
@@ -275,7 +277,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 value={displayValues.insulin}
                 onChange={(e) => handleDisplayValueChange('insulin', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0"
+                placeholder="0 (digits only)"
                 required
               />
             </div>
