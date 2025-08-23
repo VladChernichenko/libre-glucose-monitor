@@ -2,8 +2,13 @@
 
 # Pre-commit check script for libre-glucose-monitor
 # This script ensures the project compiles successfully before allowing commits
+# 
+# USAGE: Only run this when you've made code changes that could affect compilation
+#        Skip this for documentation updates, git operations, or when no code changed
 
 echo "🔍 Running pre-commit checks..."
+echo "💡 Remember: Only run this when you've made code changes!"
+echo ""
 
 # Check if we're in the right directory
 if [ ! -f "package.json" ]; then
@@ -39,5 +44,7 @@ else
     echo "Run 'npm run lint' to see details."
 fi
 
+echo ""
 echo "🚀 All pre-commit checks passed! Ready to commit."
+echo "💡 Tip: You can now safely commit your code changes."
 exit 0

@@ -2,9 +2,9 @@
 
 ## ✅ Pre-Commit Checklist
 
-**ALWAYS run these checks before committing and pushing:**
+**Run these checks ONLY when you've made changes or suspect compilation issues:**
 
-### 1. **Compilation Check** (REQUIRED)
+### 1. **Compilation Check** (REQUIRED - Only when making changes)
 ```bash
 npm run build
 ```
@@ -12,7 +12,7 @@ npm run build
 - ❌ **NO COMMITS** if build fails
 - Fix all TypeScript compilation errors first
 
-### 2. **Development Server Test** (REQUIRED)
+### 2. **Development Server Test** (REQUIRED - Only when making changes)
 ```bash
 npm start
 ```
@@ -20,38 +20,39 @@ npm start
 - ✅ Must be accessible at http://localhost:3000
 - ❌ **NO COMMITS** if server fails to start
 
-### 3. **Pre-Commit Script** (RECOMMENDED)
+### 3. **Pre-Commit Script** (ONLY when needed)
 ```bash
 npm run pre-commit
 ```
 - ✅ Runs compilation and linting checks
 - ✅ Provides clear feedback on issues
-- ✅ Exits with error code if compilation fails
+- ✅ **Only use when you've made code changes**
+- ✅ **Skip if no changes or working on existing stable code**
 
-### 4. **Manual Verification** (REQUIRED)
+### 4. **Manual Verification** (REQUIRED - Only when making changes)
 - ✅ App loads in browser
 - ✅ No console errors
 - ✅ All features working as expected
 - ✅ Insulin calculator functionality working
 
-## 🚨 Common Issues to Check
+## 🚨 When to Run Pre-Commit Checks
 
-### **Import Errors**
-- Check all import paths are correct
-- Verify new service files exist
-- Ensure TypeScript can resolve all modules
+### **RUN Pre-Commit When:**
+- ✅ **Adding new features** or components
+- ✅ **Modifying existing code** that could break compilation
+- ✅ **Adding new imports** or dependencies
+- ✅ **Changing TypeScript interfaces** or types
+- ✅ **After resolving merge conflicts**
+- ✅ **When switching between branches** with different code
 
-### **Type Errors**
-- Fix all TypeScript type mismatches
-- Ensure interfaces are properly defined
-- Check for missing properties
+### **SKIP Pre-Commit When:**
+- ✅ **No code changes** made
+- ✅ **Working on existing stable code**
+- ✅ **Just viewing or testing** the application
+- ✅ **Documentation updates** only
+- ✅ **Git operations** (branch switching, etc.)
 
-### **Build Artifacts**
-- Verify build/ directory is updated
-- Check for any missing CSS/JS files
-- Ensure no broken references
-
-## 📋 Commit Process
+## 📋 Smart Commit Process
 
 ### **Step 1: Development**
 ```bash
@@ -59,27 +60,27 @@ npm run pre-commit
 git add .
 ```
 
-### **Step 2: Pre-Commit Check**
+### **Step 2: Quick Assessment**
+**Ask yourself: "Did I make code changes that could break compilation?"**
+
+- **If YES** → Run pre-commit checks
+- **If NO** → Skip to Step 4
+
+### **Step 3: Pre-Commit Check (Only if needed)**
 ```bash
 npm run pre-commit
 ```
 
-### **Step 3: Manual Test**
+### **Step 4: Manual Test (Only if needed)**
 ```bash
 npm start
-# Test in browser
+# Test in browser only if you made changes
 # Check console for errors
 ```
 
-### **Step 4: Commit Only If All Checks Pass**
+### **Step 5: Commit**
 ```bash
 git commit -m "✅ Descriptive commit message"
-```
-
-### **Step 5: Final Build Check**
-```bash
-npm run build
-# Must succeed before pushing
 ```
 
 ### **Step 6: Push**
@@ -87,80 +88,53 @@ npm run build
 git push origin main
 ```
 
-## 🆘 If Build Fails
-
-### **Don't Panic - Follow These Steps:**
-
-1. **Stop and Fix**
-   - ❌ **NEVER commit broken code**
-   - ❌ **NEVER push compilation errors**
-
-2. **Identify the Issue**
-   ```bash
-   npm run build
-   # Read error messages carefully
-   ```
-
-3. **Fix the Problem**
-   - Fix TypeScript errors
-   - Resolve import issues
-   - Update broken references
-
-4. **Re-test**
-   ```bash
-   npm run build  # Must succeed
-   npm start      # Must work
-   ```
-
-5. **Then Commit**
-   - Only commit after all issues are resolved
-
 ## 🔍 Quick Health Check
 
-### **Before Every Commit:**
+### **Before Committing Code Changes:**
 ```bash
 # Quick compilation check
 npm run build
 
-# Quick server test
+# Quick server test (only if needed)
 npm start &
 sleep 10
 curl -s http://localhost:3000 | head -5
 pkill -f "react-scripts"
 ```
 
-### **If Any Step Fails:**
-- ❌ **STOP** the commit process
-- 🔧 **FIX** the issue
-- ✅ **RE-TEST** everything
-- 🚀 **THEN** commit
+### **For Documentation/Config Changes:**
+```bash
+# Skip compilation checks
+git commit -m "📚 Update documentation"
+```
 
 ## 📚 Best Practices
 
-1. **Small, Focused Commits**
-   - One feature per commit
-   - Easy to revert if needed
+1. **Smart Testing**
+   - Test compilation only when making code changes
+   - Skip unnecessary checks for stable code
 
-2. **Descriptive Commit Messages**
-   - Clear what was changed
-   - Include emojis for quick identification
+2. **Efficient Workflow**
+   - Don't run pre-commit for every git operation
+   - Use it strategically when needed
 
-3. **Test-Driven Development**
-   - Test features before committing
-   - Verify both development and production builds
+3. **Risk Assessment**
+   - Evaluate what could break before running checks
+   - Focus on high-risk changes
 
 4. **Regular Health Checks**
-   - Run pre-commit script frequently
+   - Run full checks periodically (weekly/monthly)
    - Don't let issues accumulate
 
 ## 🎯 Remember
 
-**The goal is to maintain a stable, working main branch at all times.**
+**The goal is to maintain a stable, working main branch while being efficient:**
 
-- ✅ **Working code** → Commit
-- ❌ **Broken code** → Fix first, then commit
-- 🚫 **Never commit broken code**
+- ✅ **Code changes** → Run pre-commit checks
+- ✅ **No code changes** → Skip unnecessary checks
+- ❌ **Broken code** → Never commit (always fix first)
+- 🚫 **Never commit broken code** regardless of workflow
 
 ---
 
-*This workflow ensures that our main branch is always stable and deployable.*
+*This workflow balances code quality with development efficiency.*
