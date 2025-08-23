@@ -1,14 +1,25 @@
 import React from 'react';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceDot } from 'recharts';
 import { format } from 'date-fns';
 import { GlucoseReading } from '../types/libre';
+import { GlucoseNote } from '../types/notes';
 
 interface GlucoseChartProps {
   data: GlucoseReading[];
   timeRange: '1h' | '6h' | '12h' | '24h';
+  notes?: GlucoseNote[];
+  onNoteClick?: (note: GlucoseNote) => void;
 }
 
-const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
+interface ChartDataPoint {
+  time: number;
+  glucose: number;
+  status: string;
+  color: string;
+  isFirstPoint: boolean;
+}
+
+const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = [], onNoteClick }) => {
   const formatXAxis = (tickItem: any) => {
     if (!tickItem) return '';
     const date = new Date(tickItem);
@@ -44,7 +55,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
   const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
   // For 24h view, ensure we show a full 24-hour timeline
-  let chartData;
+  let chartData: ChartDataPoint[];
+  
   if (timeRange === '24h' && sortedData.length > 0) {
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
@@ -150,6 +162,30 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange }) => {
               }}
               activeDot={{ r: 6, fill: '#3b82f6' }}
             />
+            
+            {/* Notes as markers on the timeline */}
+            {notes.map((note) => {
+              const noteTime = note.timestamp.getTime();
+              const noteDataPoint = chartData.find(point => 
+                Math.abs(point.time - noteTime) < 5 * 60 * 1000 // Within 5 minutes
+              );
+              
+              if (!noteDataPoint) return null;
+              
+              return (
+                <ReferenceDot
+                  key={note.id}
+                  x={noteDataPoint.time}
+                  y={noteDataPoint.glucose}
+                  r={6}
+                  fill="#f59e0b"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  onClick={() => onNoteClick?.(note)}
+                  style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
+                />
+              );
+            })}
           </AreaChart>
         </ResponsiveContainer>
       </div>

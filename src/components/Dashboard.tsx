@@ -2,7 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
+import NoteInputModal from './NoteInputModal';
+import NotesList from './NotesList';
 import { GlucoseReading, LibrePatient, LibreConnection } from '../types/libre';
+import { GlucoseNote } from '../types/notes';
+import { notesStorageService } from '../services/notesStorage';
 
 
 const Dashboard: React.FC = () => {
@@ -18,6 +22,12 @@ const Dashboard: React.FC = () => {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState<number>(0);
+  
+  // Notes management
+  const [notes, setNotes] = useState<GlucoseNote[]>([]);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  
   // Nightscout integration enabled - using real data
   const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
   
@@ -50,14 +60,14 @@ const Dashboard: React.FC = () => {
     return Math.round((mgdL / 18) * 10) / 10; // Round to 1 decimal place
   };
 
-  const calculateGlucoseStatus = (value: number): 'low' | 'normal' | 'high' | 'critical' => {
+  const calculateGlucoseStatus = useCallback((value: number): 'low' | 'normal' | 'high' | 'critical' => {
     // Convert to mmol/L for status calculation
     const mmolL = convertToMmolL(value);
     if (mmolL < 3.9) return 'low';      // < 70 mg/dL
     if (mmolL < 10.0) return 'normal';  // 70-180 mg/dL
     if (mmolL < 13.9) return 'high';    // 180-250 mg/dL
     return 'critical';                   // > 250 mg/dL
-  };
+  }, []);
 
   const fetchPatientInfo = useCallback(async () => {
     // Set empty patient info since we're using Nightscout
@@ -141,7 +151,7 @@ const Dashboard: React.FC = () => {
     }
     
     setIsLoading(false);
-  }, [selectedConnection, nightscoutUrl]);
+  }, [selectedConnection, nightscoutUrl, calculateGlucoseStatus]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!selectedConnection) return;
@@ -246,7 +256,7 @@ const Dashboard: React.FC = () => {
       console.error('❌ Nightscout historical fetch failed:', err);
       setError(`Failed to fetch historical data from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  }, [selectedConnection, timeRange, nightscoutUrl]);
+  }, [selectedConnection, timeRange, nightscoutUrl, calculateGlucoseStatus]);
 
   // Initial data fetch
   useEffect(() => {
@@ -296,7 +306,51 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(countdownInterval);
   }, [autoRefresh, nextRefreshTime]);
 
+  // Notes management functions
+  const loadNotes = useCallback(() => {
+    const allNotes = notesStorageService.getNotes();
+    setNotes(allNotes);
+  }, []);
 
+  const handleNoteSave = (note: GlucoseNote) => {
+    setNotes(prev => [...prev, note]);
+    console.log('✅ Note saved:', note);
+  };
+
+  const handleNoteUpdate = (note: GlucoseNote) => {
+    setNotes(prev => prev.map(n => n.id === note.id ? note : n));
+    console.log('✏️ Note updated:', note);
+  };
+
+  const handleNoteDelete = (noteId: string) => {
+    const success = notesStorageService.deleteNote(noteId);
+    if (success) {
+      setNotes(prev => prev.filter(note => note.id !== noteId));
+      console.log('🗑️ Note deleted:', noteId);
+    } else {
+      console.error('❌ Failed to delete note from localStorage:', noteId);
+    }
+  };
+
+  const handleEditNote = (note: GlucoseNote) => {
+    setEditingNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  const handleNoteModalClose = () => {
+    setIsNoteModalOpen(false);
+    setEditingNote(null);
+  };
+
+  const handleNoteClick = (note: GlucoseNote) => {
+    setEditingNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  // Load notes on component mount
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
 
   const handleLogout = () => {
     libreApiService.logout();
@@ -496,6 +550,8 @@ const Dashboard: React.FC = () => {
             <GlucoseChart 
               data={glucoseHistory} 
               timeRange={timeRange}
+              notes={notes}
+              onNoteClick={handleNoteClick}
             />
           </div>
         </div>
@@ -569,6 +625,40 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Meal Notes Section */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">🍽️ Meal & Insulin Tracking</h2>
+            <button
+              onClick={() => setIsNoteModalOpen(true)}
+              className="btn-primary flex items-center space-x-2"
+            >
+              <span>➕ Add Note</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Notes List */}
+            <div className="lg:col-span-2">
+              <NotesList
+                notes={notes}
+                onEditNote={handleEditNote}
+                onDeleteNote={handleNoteDelete}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Note Input Modal */}
+        <NoteInputModal
+          isOpen={isNoteModalOpen}
+          onClose={handleNoteModalClose}
+          onSave={editingNote ? handleNoteUpdate : handleNoteSave}
+          initialData={editingNote || undefined}
+          currentGlucose={currentReading?.value}
+          mode={editingNote ? 'edit' : 'add'}
+        />
       </main>
     </div>
   );
