@@ -135,6 +135,14 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       console.error('❌ Nightscout fetch failed:', err);
       setError(`Failed to fetch from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      
+      // Fallback to demo data if Nightscout fails
+      console.log('🔄 Falling back to demo data due to Nightscout failure');
+      const demoData = generateDemoGlucoseData(24);
+      setGlucoseHistory(demoData);
+      if (demoData.length > 0) {
+        setCurrentReading(demoData[demoData.length - 1]);
+      }
     }
     
     setIsLoading(false);
@@ -242,30 +250,56 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       console.error('❌ Nightscout historical fetch failed:', err);
       setError(`Failed to fetch historical data from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      
+      // Fallback to demo data if Nightscout fails
+      console.log('🔄 Falling back to demo data due to Nightscout historical fetch failure');
+      const demoData = generateDemoGlucoseData(24);
+      setGlucoseHistory(demoData);
     }
   }, [selectedConnection, timeRange, nightscoutUrl, calculateGlucoseStatus]);
 
   // Initial data fetch
   useEffect(() => {
+    console.log('🚀 Dashboard useEffect triggered');
+    console.log('🚀 Current state:', { 
+      nightscoutUrl, 
+      glucoseHistoryLength: glucoseHistory.length,
+      currentReading: !!currentReading 
+    });
+    
     fetchPatientInfo();
     fetchConnections();
     
-    // If Nightscout is not configured, use demo data for testing
-    if (!nightscoutUrl) {
-      console.log('🚀 Nightscout not configured, loading demo data for chart testing');
-      const demoData = generateDemoGlucoseData(24);
-      setGlucoseHistory(demoData);
-      if (demoData.length > 0) {
-        setCurrentReading(demoData[demoData.length - 1]);
-      }
-      return;
+    // Always try to load demo data first for immediate chart display
+    console.log('🚀 Loading demo data for immediate chart display');
+    const demoData = generateDemoGlucoseData(24);
+    console.log('📊 Demo data generated:', demoData.length, 'entries');
+    console.log('📊 Demo data sample:', demoData.slice(0, 3));
+    setGlucoseHistory(demoData);
+    if (demoData.length > 0) {
+      setCurrentReading(demoData[demoData.length - 1]);
+      console.log('✅ Current reading set from demo data:', demoData[demoData.length - 1]);
     }
     
-    console.log('🚀 Loading initial data from Nightscout');
-    // Fetch initial data from Nightscout
-    fetchHistoricalData();
-    fetchCurrentGlucose();
+    // If Nightscout is configured, try to fetch real data
+    if (nightscoutUrl) {
+      console.log('🚀 Nightscout configured, attempting to fetch real data');
+      fetchHistoricalData();
+      fetchCurrentGlucose();
+    } else {
+      console.log('🚀 Nightscout not configured, using demo data only');
+    }
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
+
+  // Monitor glucoseHistory changes
+  useEffect(() => {
+    console.log('🔄 glucoseHistory state changed:', {
+      length: glucoseHistory.length,
+      hasData: glucoseHistory.length > 0,
+      firstEntry: glucoseHistory[0],
+      lastEntry: glucoseHistory[glucoseHistory.length - 1]
+    });
+  }, [glucoseHistory]);
 
 
 
