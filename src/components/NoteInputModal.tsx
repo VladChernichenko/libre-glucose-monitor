@@ -80,11 +80,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           insulin: initialData.insulin,
           meal: initialData.meal,
           comment: initialData.comment || '',
-          glucoseValue: initialData.glucoseValue
+          glucoseValue: initialData.glucoseValue,
+          detailedInput: initialData.detailedInput || ''
         });
         // Set display values for editing
         setDisplayValues({
-          carbsInsulin: `${initialData.carbs > 0 ? initialData.carbs + 'g' : ''} ${initialData.insulin > 0 ? initialData.insulin + 'u' : ''}`.trim()
+          carbsInsulin: initialData.detailedInput || `${initialData.carbs > 0 ? initialData.carbs + 'g' : ''} ${initialData.insulin > 0 ? initialData.insulin + 'u' : ''}`.trim()
         });
       } else {
         // For add mode, start completely fresh with time-based meal type
@@ -95,7 +96,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           insulin: 0,
           meal: getMealTypeByTime(currentTime),
           comment: '',
-          glucoseValue: currentGlucose
+          glucoseValue: currentGlucose,
+          detailedInput: ''
         });
         // Set display values for adding (completely empty)
         setDisplayValues({
@@ -117,7 +119,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         insulin: 0,
         meal: getMealTypeByTime(currentTime),
         comment: '',
-        glucoseValue: 0
+        glucoseValue: 0,
+        detailedInput: ''
       });
       setDisplayValues({
         carbsInsulin: ''
@@ -178,7 +181,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       setFormData(prev => ({
         ...prev,
         carbs,
-        insulin
+        insulin,
+        detailedInput: value
       }));
       
       // Auto-update meal type based on new values

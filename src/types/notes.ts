@@ -6,6 +6,7 @@ export interface GlucoseNote {
   meal: string;                 // Meal type
   comment?: string;             // Optional additional notes
   glucoseValue?: number;        // Optional: glucose reading when note was created
+  detailedInput?: string;       // Detailed input text (e.g., "50g soup 20g bread 7u")
 }
 
 export interface NoteInputData {
@@ -15,6 +16,7 @@ export interface NoteInputData {
   meal: string;
   comment?: string;
   glucoseValue?: number;
+  detailedInput?: string;       // Detailed input text (e.g., "50g soup 20g bread 7u")
 }
 
 export const MEAL_CATEGORIES = [
