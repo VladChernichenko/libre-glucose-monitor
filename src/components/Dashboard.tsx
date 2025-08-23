@@ -279,7 +279,15 @@ const Dashboard: React.FC = () => {
     console.log('✏️ Note updated:', note);
   };
 
-
+  const handleNoteDelete = (noteId: string) => {
+    const success = notesStorageService.deleteNote(noteId);
+    if (success) {
+      setNotes(prev => prev.filter(note => note.id !== noteId));
+      console.log('🗑️ Note deleted:', noteId);
+    } else {
+      console.error('❌ Failed to delete note from localStorage:', noteId);
+    }
+  };
 
   const handleEditNote = (note: GlucoseNote) => {
     setEditingNote(note);
@@ -399,10 +407,12 @@ const Dashboard: React.FC = () => {
                 {notes.slice(0, 8).map((note) => (
                   <div 
                     key={note.id} 
-                    className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleEditNote(note)}
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 hover:bg-gray-100 transition-colors"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleEditNote(note)}
+                    >
                       <div className="font-medium truncate">{note.meal}</div>
                       <div className="text-xs text-gray-500">
                         {new Date(note.timestamp).toLocaleString('en-US', { 
@@ -413,9 +423,25 @@ const Dashboard: React.FC = () => {
                         })}
                       </div>
                     </div>
-                    <div className="text-right text-xs">
-                      <div className="text-blue-600 font-medium">{note.carbs}g</div>
-                      <div className="text-purple-600 font-medium">{note.insulin}u</div>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-right text-xs">
+                        <div className="text-blue-600 font-medium">{note.carbs}g</div>
+                        <div className="text-purple-600 font-medium">{note.insulin}u</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete this ${note.meal} note?`)) {
+                            handleNoteDelete(note.id);
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                        title="Delete note"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 ))}
