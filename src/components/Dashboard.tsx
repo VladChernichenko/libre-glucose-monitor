@@ -3,7 +3,7 @@ import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
-import NotesList from './NotesList';
+
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
 import { notesStorageService } from '../services/notesStorage';
@@ -279,15 +279,7 @@ const Dashboard: React.FC = () => {
     console.log('✏️ Note updated:', note);
   };
 
-  const handleNoteDelete = (noteId: string) => {
-    const success = notesStorageService.deleteNote(noteId);
-    if (success) {
-      setNotes(prev => prev.filter(note => note.id !== noteId));
-      console.log('🗑️ Note deleted:', noteId);
-    } else {
-      console.error('❌ Failed to delete note from localStorage:', noteId);
-    }
-  };
+
 
   const handleEditNote = (note: GlucoseNote) => {
     setEditingNote(note);
@@ -378,7 +370,7 @@ const Dashboard: React.FC = () => {
       {/* Main Content */}
       <main className="max-w-full mx-auto px-3 sm:px-4 py-3">
         
-        {/* Three-Column Responsive Layout */}
+        {/* Two-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-7rem)]">
           {/* Left Column: Current Glucose + Quick Actions */}
           <div className="lg:col-span-3 space-y-4">
@@ -404,7 +396,7 @@ const Dashboard: React.FC = () => {
               
               {/* Recent Notes Summary - Scrollable */}
               <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                {notes.slice(0, 5).map((note) => (
+                {notes.slice(0, 8).map((note) => (
                   <div 
                     key={note.id} 
                     className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 cursor-pointer hover:bg-gray-100 transition-colors"
@@ -434,17 +426,17 @@ const Dashboard: React.FC = () => {
                     <p className="text-gray-400 text-xs">Click "Add" to start tracking</p>
                   </div>
                 )}
-                {notes.length > 5 && (
+                {notes.length > 8 && (
                   <div className="text-center py-2">
-                    <span className="text-xs text-gray-400">+{notes.length - 5} more notes</span>
+                    <span className="text-xs text-gray-400">+{notes.length - 8} more notes</span>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Center Column: Glucose Chart */}
-          <div className="lg:col-span-6">
+          {/* Right Column: Glucose Chart - Expanded */}
+          <div className="lg:col-span-9">
             <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
               {/* Time Range Controls - Compact */}
               <div className="mb-3 flex justify-center">
@@ -472,26 +464,6 @@ const Dashboard: React.FC = () => {
                   timeRange={timeRange}
                   notes={notes}
                   onNoteClick={handleNoteClick}
-                />
-              </div>
-            </div>
-          </div>
-          {/* Right Column: All Notes List */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">📋 All Notes</h3>
-                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                  {notes.length}
-                </span>
-              </div>
-              
-              {/* Notes List - Scrollable */}
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                <NotesList
-                  notes={notes}
-                  onEditNote={handleEditNote}
-                  onDeleteNote={handleNoteDelete}
                 />
               </div>
             </div>
