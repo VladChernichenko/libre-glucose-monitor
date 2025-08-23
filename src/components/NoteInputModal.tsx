@@ -264,7 +264,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         </div>
 
         {/* Form - Scrollable if needed */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-3 flex-1 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3 flex-1 overflow-y-auto" autoComplete="off">
           {/* Top Row: Timestamp and Meal Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -277,6 +277,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 value={format(formData.timestamp, "yyyy-MM-dd'T'HH:mm")}
                 onChange={(e) => handleInputChange('timestamp', new Date(e.target.value))}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoComplete="off"
                 required
               />
             </div>
@@ -314,6 +315,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 onChange={(e) => handleDisplayValueChange('carbs', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0 (digits only)"
+                autoComplete="off"
                 autoFocus
               />
             </div>
@@ -329,6 +331,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 onChange={(e) => handleDisplayValueChange('insulin', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0 (digits only)"
+                autoComplete="off"
               />
             </div>
           </div>
@@ -366,6 +369,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               onChange={(e) => handleInputChange('comment', e.target.value)}
               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="What did you eat? Any special notes?"
+              autoComplete="off"
             />
           </div>
 
