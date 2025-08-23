@@ -309,6 +309,22 @@ const Dashboard: React.FC = () => {
     loadNotes();
   }, [loadNotes]);
 
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Command+N (Mac) or Ctrl+N (Windows/Linux) to open note modal
+      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+        event.preventDefault();
+        setIsNoteModalOpen(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleLogout = () => {
     libreApiService.logout();
     window.location.reload();
@@ -397,6 +413,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
                   className="btn-primary text-sm px-3 py-1.5"
+                  title="Add new note (⌘+N)"
                 >
                   ➕ Add
                 </button>
