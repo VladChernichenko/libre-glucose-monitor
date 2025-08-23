@@ -449,9 +449,7 @@ const Dashboard: React.FC = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Delete this ${note.meal} note?`)) {
-                            handleNoteDelete(note.id);
-                          }
+                          handleNoteDelete(note.id);
                         }}
                         className="text-red-400 hover:text-red-600 transition-colors p-1"
                         title="Delete note"
