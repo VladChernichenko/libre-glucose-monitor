@@ -13,6 +13,10 @@
     @apply bg-white rounded-xl shadow-lg p-6 border border-gray-200;
   }
   
+  .insulin-activity-card {
+    @apply bg-white rounded-lg shadow-sm p-4;
+  }
+  
   .glucose-value {
     @apply text-4xl font-bold tracking-tight;
   }

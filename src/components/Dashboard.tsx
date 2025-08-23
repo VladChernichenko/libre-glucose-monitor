@@ -15,7 +15,7 @@ const Dashboard: React.FC = () => {
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [patient, setPatient] = useState<LibrePatient | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('24h');
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('6h');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -301,6 +301,17 @@ const Dashboard: React.FC = () => {
     });
   }, [glucoseHistory]);
 
+  // Real-time insulin calculations update
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
 
 
   // Notes management functions
@@ -452,7 +463,16 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm p-4 h-fit">
               <GlucoseDisplay 
                 reading={currentReading} 
-                isLoading={isLoading} 
+                isLoading={isLoading}
+                insulinDoses={notes.filter(note => note.insulin > 0).map(note => ({
+                  id: note.id,
+                  timestamp: note.timestamp,
+                  units: note.insulin,
+                  type: note.meal === 'Correction' ? 'correction' : 'bolus',
+                  note: note.comment,
+                  mealType: note.meal
+                }))}
+                currentTime={currentTime}
               />
             </div>
             
