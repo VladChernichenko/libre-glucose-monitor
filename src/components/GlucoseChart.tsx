@@ -20,6 +20,74 @@ interface ChartDataPoint {
 }
 
 const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = [], onNoteClick }) => {
+  // Debug logging
+  console.log('🔍 GlucoseChart render:', { 
+    dataLength: data?.length || 0, 
+    timeRange, 
+    notesLength: notes?.length || 0,
+    hasData: !!data && data.length > 0
+  });
+
+  // Helper functions must be defined before useMemo
+  const getGlucoseColor = (value: number) => {
+    if (value < 70) return '#ef4444'; // red for low
+    if (value < 180) return '#10b981'; // green for normal
+    if (value < 250) return '#f59e0b'; // yellow for high
+    return '#dc2626'; // red for critical
+  };
+
+  // Memoize chart data to prevent unnecessary re-renders
+  const chartData = React.useMemo(() => {
+    if (!data || data.length === 0) {
+      console.log('📊 No data provided to chart');
+      return [];
+    }
+    
+    // Ensure data is properly sorted and valid
+    const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    
+    // Filter out invalid data points
+    const validData = sortedData.filter(reading => 
+      reading && 
+      reading.timestamp && 
+      !isNaN(reading.timestamp.getTime()) && 
+      !isNaN(reading.value) && 
+      reading.value > 0
+    );
+    
+    if (validData.length === 0) {
+      console.warn('⚠️ No valid data points found after filtering');
+      return [];
+    }
+    
+    if (validData.length !== sortedData.length) {
+      console.warn(`⚠️ Filtered out ${sortedData.length - validData.length} invalid data points`);
+    }
+    
+    // Create chart data points
+    const result = validData.map((reading, index) => ({
+      time: reading.timestamp.getTime(),
+      glucose: reading.value,
+      status: reading.status,
+      color: getGlucoseColor(reading.value),
+      isFirstPoint: index === 0,
+    }));
+    
+    if (result.length > 0) {
+      console.log(`📊 Chart data prepared: ${result.length} valid points, time range: ${new Date(result[0].time).toISOString()} to ${new Date(result[result.length - 1].time).toISOString()}`);
+    } else {
+      console.log('📊 Chart data prepared: 0 valid points');
+    }
+    
+    return result;
+  }, [data]);
+
+  // Get sorted data for display purposes
+  const sortedData = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [data]);
+
   const formatXAxis = (tickItem: any) => {
     if (!tickItem) return '';
     const date = new Date(tickItem);
@@ -29,7 +97,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       case '6h':
         return format(date, 'HH:mm');
       case '12h':
-        return format(date, 'HH:mm');
+        return format(date, 'MM/dd');
       case '24h':
         return format(date, 'MM/dd');
       default:
@@ -44,45 +112,42 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
     return [value, name];
   };
 
-  const getGlucoseColor = (value: number) => {
-    if (value < 70) return '#ef4444'; // red for low
-    if (value < 180) return '#10b981'; // green for normal
-    if (value < 250) return '#f59e0b'; // yellow for high
-    return '#dc2626'; // red for critical
-  };
+  // Error boundary for chart rendering
+  const [chartError, setChartError] = React.useState<string | null>(null);
 
-  // Ensure data is sorted by timestamp
-  const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  
-  // For 24h view, ensure we show a full 24-hour timeline
-  let chartData: ChartDataPoint[];
-  
-  if (timeRange === '24h' && sortedData.length > 0) {
-    const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    
-    // Create a 24-hour timeline with data points
-    chartData = sortedData.map((reading, index) => ({
-      time: reading.timestamp.getTime(),
-      glucose: reading.value,
-      status: reading.status,
-      color: getGlucoseColor(reading.value),
-      isFirstPoint: index === 0, // Mark the first data point
-    }));
-    
-    // If we don't have 24 hours of data, extend the timeline
-    if (sortedData[0].timestamp > twentyFourHoursAgo) {
-      console.log('📊 Extending 24h chart to show full timeline');
-    }
-  } else {
-    chartData = sortedData.map((reading, index) => ({
-      time: reading.timestamp.getTime(),
-      glucose: reading.value,
-      status: reading.status,
-      color: getGlucoseColor(reading.value),
-      isFirstPoint: index === 0, // Mark the first data point
-    }));
+  React.useEffect(() => {
+    setChartError(null); // Clear errors when data changes
+  }, [data]);
+
+  if (chartError) {
+    return (
+      <div className="glucose-card">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Glucose Trend</h3>
+        </div>
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center text-red-600">
+            <div className="text-2xl mb-2">⚠️</div>
+            <div>Chart Error</div>
+            <div className="text-sm">{chartError}</div>
+            <button 
+              onClick={() => setChartError(null)}
+              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
+
+  // Debug chart rendering decision
+  console.log('🔍 Chart rendering decision:', { 
+    chartDataLength: chartData.length, 
+    willShowChart: chartData.length > 0,
+    chartDataSample: chartData.slice(0, 2)
+  });
 
   return (
     <div className="glucose-card">
@@ -91,8 +156,25 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       </div>
 
       <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+        {chartData.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <div className="text-2xl mb-2">📊</div>
+              <div>No glucose data available</div>
+              <div className="text-sm">Select a different time range or check your data</div>
+            </div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center h-full">
+                <div className="text-gray-500">Loading chart...</div>
+              </div>
+            }>
+              <AreaChart 
+                data={chartData}
+                key={`chart-${timeRange}-${chartData.length}-${chartData[0]?.time || 0}`}
+              >
             <defs>
               <linearGradient id="glucoseGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -105,15 +187,22 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               tickFormatter={formatXAxis}
               type="number"
               domain={
-                timeRange === '24h' && data.length > 0
+                timeRange === '24h' && chartData.length > 0
                   ? [
-                      new Date().getTime() - (24 * 60 * 60 * 1000), // 24 hours ago
-                      new Date().getTime() // now
+                      Math.min(
+                        chartData[0].time, // Start of data
+                        new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours ago
+                      ),
+                      Math.max(
+                        chartData[chartData.length - 1].time, // End of data
+                        new Date().getTime() // now
+                      )
                     ]
                   : ['dataMin', 'dataMax']
               }
               stroke="#6b7280"
               allowDataOverflow={false}
+              scale="time"
             />
             <YAxis
               stroke="#6b7280"
@@ -187,7 +276,9 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               );
             })}
           </AreaChart>
+            </React.Suspense>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
