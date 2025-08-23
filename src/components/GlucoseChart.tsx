@@ -20,6 +20,54 @@ interface ChartDataPoint {
 }
 
 const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = [], onNoteClick }) => {
+  // Memoize chart data to prevent unnecessary re-renders
+  const chartData = React.useMemo(() => {
+    if (!data || data.length === 0) {
+      console.log('📊 No data provided to chart');
+      return [];
+    }
+    
+    // Ensure data is properly sorted and valid
+    const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    
+    // Filter out invalid data points
+    const validData = sortedData.filter(reading => 
+      reading && 
+      reading.timestamp && 
+      !isNaN(reading.timestamp.getTime()) && 
+      !isNaN(reading.value) && 
+      reading.value > 0
+    );
+    
+    if (validData.length === 0) {
+      console.warn('⚠️ No valid data points found after filtering');
+      return [];
+    }
+    
+    if (validData.length !== sortedData.length) {
+      console.warn(`⚠️ Filtered out ${sortedData.length - validData.length} invalid data points`);
+    }
+    
+    // Create chart data points
+    const result = validData.map((reading, index) => ({
+      time: reading.timestamp.getTime(),
+      glucose: reading.value,
+      status: reading.status,
+      color: getGlucoseColor(reading.value),
+      isFirstPoint: index === 0,
+    }));
+    
+    console.log(`📊 Chart data prepared: ${result.length} valid points, time range: ${new Date(result[0].time).toISOString()} to ${new Date(result[result.length - 1].time).toISOString()}`);
+    
+    return result;
+  }, [data]);
+
+  // Get sorted data for display purposes
+  const sortedData = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [data]);
+
   const formatXAxis = (tickItem: any) => {
     if (!tickItem) return '';
     const date = new Date(tickItem);
@@ -29,7 +77,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       case '6h':
         return format(date, 'HH:mm');
       case '12h':
-        return format(date, 'HH:mm');
+        return format(date, 'MM/dd');
       case '24h':
         return format(date, 'MM/dd');
       default:
@@ -51,33 +99,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
     return '#dc2626'; // red for critical
   };
 
-  // Ensure data is sorted by timestamp
-  const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  
-  // Create chart data with proper time handling
-  let chartData: ChartDataPoint[];
-  
-  if (sortedData.length > 0) {
-    chartData = sortedData.map((reading, index) => ({
-      time: reading.timestamp.getTime(),
-      glucose: reading.value,
-      status: reading.status,
-      color: getGlucoseColor(reading.value),
-      isFirstPoint: index === 0, // Mark the first data point
-    }));
-    
-    // Validate that we have valid time data
-    const validChartData = chartData.filter(point => 
-      !isNaN(point.time) && !isNaN(point.glucose) && point.time > 0
-    );
-    
-    if (validChartData.length !== chartData.length) {
-      console.warn('⚠️ Some chart data points were invalid and filtered out');
-      chartData = validChartData;
-    }
-  } else {
-    chartData = [];
-  }
+
 
   return (
     <div className="glucose-card">
@@ -96,7 +118,10 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
+            <AreaChart 
+              data={chartData}
+              key={`chart-${timeRange}-${chartData.length}-${chartData[0]?.time || 0}`}
+            >
             <defs>
               <linearGradient id="glucoseGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -109,14 +134,14 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               tickFormatter={formatXAxis}
               type="number"
               domain={
-                timeRange === '24h' && sortedData.length > 0
+                timeRange === '24h' && chartData.length > 0
                   ? [
                       Math.min(
-                        sortedData[0].timestamp.getTime(), // Start of data
+                        chartData[0].time, // Start of data
                         new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours ago
                       ),
                       Math.max(
-                        sortedData[sortedData.length - 1].timestamp.getTime(), // End of data
+                        chartData[chartData.length - 1].time, // End of data
                         new Date().getTime() // now
                       )
                     ]
