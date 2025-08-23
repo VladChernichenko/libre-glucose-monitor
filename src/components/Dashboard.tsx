@@ -318,13 +318,22 @@ const Dashboard: React.FC = () => {
         event.preventDefault();
         setIsNoteModalOpen(true);
       }
+      
+      // Command+Z (Mac) or Ctrl+Z (Windows/Linux) to delete last note
+      if ((event.metaKey || event.ctrlKey) && event.code === 'KeyZ' && !event.shiftKey) {
+        event.preventDefault();
+        if (notes.length > 0) {
+          const lastNote = notes[notes.length - 1];
+          handleNoteDelete(lastNote.id);
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [notes]);
 
   const handleLogout = () => {
     libreApiService.logout();
@@ -414,7 +423,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
                   className="btn-primary text-sm px-3 py-1.5"
-                  title="Add new note (⌘+⇧+O)"
+                  title="Add new note (⌘+⇧+O) • Undo last note (⌘+Z)"
                 >
                   ➕ Add
                 </button>
