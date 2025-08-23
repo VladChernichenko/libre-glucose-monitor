@@ -1,13 +1,21 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { GlucoseReading } from '../types/libre';
+import { InsulinCalculator } from '../services/insulinCalculator';
 
 interface GlucoseDisplayProps {
   reading: GlucoseReading | null;
   isLoading?: boolean;
+  insulinDoses?: any[]; // GlucoseNote[] with insulin doses
+  currentTime?: Date;
 }
 
-const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = false }) => {
+const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ 
+  reading, 
+  isLoading = false, 
+  insulinDoses = [], 
+  currentTime = new Date() 
+}) => {
   if (isLoading) {
     return (
       <div className="glucose-card">
@@ -64,23 +72,6 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = fa
     }
   };
 
-  const getTrendIcon = (trendArrow: string) => {
-    switch (trendArrow) {
-      case '↗':
-        return '↗️ Rising';
-      case '↘':
-        return '↘️ Falling';
-      case '→':
-        return '→ Stable';
-      case '↗↗':
-        return '↗️↗️ Rapidly Rising';
-      case '↘↘':
-        return '↘️↘️ Rapidly Falling';
-      default:
-        return '→ Stable';
-    }
-  };
-
   return (
     <div className="glucose-card">
       <div className="text-center">
@@ -98,7 +89,6 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = fa
         </div>
         
         <div className="text-gray-600 mb-4">
-          <div className="text-lg font-medium">{getTrendIcon(reading.trendArrow)}</div>
           <div className="text-sm">Last updated: {format(reading.timestamp, 'MMM dd, yyyy HH:mm')}</div>
           {reading.originalTimestamp && (
             <div className="text-xs text-gray-500 mt-1">
@@ -109,13 +99,11 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({ reading, isLoading = fa
         
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-gray-500">Target</div>
-            <div className="font-semibold text-gray-900">3.9-10.0</div>
-            <div className="text-xs text-gray-500">mmol/L</div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-gray-500">Trend</div>
-            <div className="font-semibold text-gray-900">{reading.trend}</div>
+            <div className="text-gray-500">Active Insulin</div>
+            <div className="font-semibold text-gray-900">
+              {InsulinCalculator.calculateTotalActiveInsulin(insulinDoses, currentTime).toFixed(1)} U
+            </div>
+            <div className="text-xs text-gray-500">U</div>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-gray-500">Status</div>

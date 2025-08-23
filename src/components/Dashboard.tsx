@@ -3,6 +3,7 @@ import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
+import { generateDemoGlucoseData } from '../services/demoData';
 
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -261,6 +262,27 @@ const Dashboard: React.FC = () => {
     fetchCurrentGlucose();
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
 
+  // Monitor glucoseHistory changes
+  useEffect(() => {
+    console.log('🔄 glucoseHistory state changed:', {
+      length: glucoseHistory.length,
+      hasData: glucoseHistory.length > 0,
+      firstEntry: glucoseHistory[0],
+      lastEntry: glucoseHistory[glucoseHistory.length - 1]
+    });
+  }, [glucoseHistory]);
+
+  // Real-time insulin calculations update
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
 
 
   // Notes management functions
@@ -412,7 +434,16 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm p-4 h-fit">
               <GlucoseDisplay 
                 reading={currentReading} 
-                isLoading={isLoading} 
+                isLoading={isLoading}
+                insulinDoses={notes.filter(note => note.insulin > 0).map(note => ({
+                  id: note.id,
+                  timestamp: note.timestamp,
+                  units: note.insulin,
+                  type: note.meal === 'Correction' ? 'correction' : 'bolus',
+                  note: note.comment,
+                  mealType: note.meal
+                }))}
+                currentTime={currentTime}
               />
             </div>
             
@@ -484,6 +515,7 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             </div>
+            
           </div>
 
           {/* Right Column: Glucose Chart - Expanded */}

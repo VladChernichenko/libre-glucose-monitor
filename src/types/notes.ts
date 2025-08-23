@@ -1,12 +1,13 @@
 export interface GlucoseNote {
-  id: string;                    // Unique identifier for CRUD operations
-  timestamp: Date;              // When the note was created (positioned on timeline)
-  carbs: number;                // Carbs in grams
-  insulin: number;              // Insulin dose in units
-  meal: string;                 // Meal type
-  comment?: string;             // Optional additional notes
-  glucoseValue?: number;        // Optional: glucose reading when note was created
-  detailedInput?: string;       // Detailed input text (e.g., "50g soup 20g bread 7u")
+  id: string;
+  timestamp: Date;
+  carbs: number;
+  insulin: number;
+  meal: string;
+  comment?: string;
+  glucoseValue?: number;
+  detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
+  insulinDose?: InsulinDose; // Insulin dose information for tracking
 }
 
 export interface NoteInputData {
@@ -16,12 +17,23 @@ export interface NoteInputData {
   meal: string;
   comment?: string;
   glucoseValue?: number;
-  detailedInput?: string;       // Detailed input text (e.g., "50g soup 20g bread 7u")
+  detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
+  insulinDose?: InsulinDose; // Insulin dose information for tracking
+}
+
+// Insulin dose tracking
+export interface InsulinDose {
+  id: string;
+  timestamp: Date;
+  units: number;
+  type: 'bolus' | 'correction' | 'basal';
+  note?: string;
+  mealType?: string; // Associated meal type
 }
 
 export const MEAL_CATEGORIES = [
   'Breakfast',
-  'Lunch', 
+  'Lunch',
   'Dinner',
   'Snack',
   'Correction',
