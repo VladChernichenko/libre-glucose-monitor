@@ -65,6 +65,16 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       color: getGlucoseColor(reading.value),
       isFirstPoint: index === 0, // Mark the first data point
     }));
+    
+    // Validate that we have valid time data
+    const validChartData = chartData.filter(point => 
+      !isNaN(point.time) && !isNaN(point.glucose) && point.time > 0
+    );
+    
+    if (validChartData.length !== chartData.length) {
+      console.warn('⚠️ Some chart data points were invalid and filtered out');
+      chartData = validChartData;
+    }
   } else {
     chartData = [];
   }
@@ -76,8 +86,17 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       </div>
 
       <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+        {chartData.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <div className="text-2xl mb-2">📊</div>
+              <div>No glucose data available</div>
+              <div className="text-sm">Select a different time range or check your data</div>
+            </div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
             <defs>
               <linearGradient id="glucoseGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -105,6 +124,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               }
               stroke="#6b7280"
               allowDataOverflow={false}
+              scale="time"
             />
             <YAxis
               stroke="#6b7280"
@@ -179,6 +199,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
             })}
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
