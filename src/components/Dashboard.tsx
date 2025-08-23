@@ -313,7 +313,8 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Command+Shift+O (Mac) or Ctrl+Shift+O (Windows/Linux) to open note modal
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'O') {
+      // Use event.code for language-independent key detection
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === 'KeyO') {
         event.preventDefault();
         setIsNoteModalOpen(true);
       }
