@@ -136,6 +136,15 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         ...prev,
         [field]: numericValue
       }));
+      
+      // Auto-update meal type based on new values
+      const newCarbs = field === 'carbs' ? numericValue : formData.carbs;
+      const newInsulin = field === 'insulin' ? numericValue : formData.insulin;
+      const smartMealType = getSmartMealType(newCarbs, newInsulin);
+      
+      if (smartMealType !== formData.meal) {
+        setFormData(prev => ({ ...prev, meal: smartMealType }));
+      }
     } else {
       // For other fields, allow normal input
       setDisplayValues(prev => ({
@@ -150,8 +159,31 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     }
   };
 
+  // Smart meal type selection based on inputs
+  const getSmartMealType = (carbs: number, insulin: number): string => {
+    if (carbs > 0 && insulin > 0) {
+      // Both filled - keep current selection or default to Breakfast
+      return formData.meal;
+    } else if (carbs > 0 && insulin === 0) {
+      // Only carbs filled - likely a meal
+      return formData.meal === 'Correction' ? 'Breakfast' : formData.meal;
+    } else if (carbs === 0 && insulin > 0) {
+      // Only insulin filled - likely a correction dose
+      return 'Correction';
+    } else {
+      // Neither filled - keep current selection
+      return formData.meal;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Auto-select meal type based on inputs
+    const smartMealType = getSmartMealType(formData.carbs, formData.insulin);
+    if (smartMealType !== formData.meal) {
+      setFormData(prev => ({ ...prev, meal: smartMealType }));
+    }
     
     // Validate form data
     const validation = notesStorageService.validateNoteData(formData);
