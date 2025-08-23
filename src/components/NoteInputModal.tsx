@@ -38,22 +38,37 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Handle escape key to close modal
+  // Handle keyboard shortcuts
   useEffect(() => {
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      // Escape key to close modal
+      if (event.key === 'Escape') {
         onClose();
+      }
+      
+      // Command+Return (Mac) or Ctrl+Return (Windows/Linux) to save note
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        if (!isSubmitting) {
+          // Trigger form submission programmatically
+          const form = document.querySelector('form');
+          if (form) {
+            form.requestSubmit();
+          }
+        }
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscapeKey);
+      document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscapeKey);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   // Initialize form data when modal opens
   useEffect(() => {
@@ -327,6 +342,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               type="submit"
               disabled={isSubmitting}
               className="flex-1 px-3 py-2 text-sm text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Save note (⌘+Return)"
             >
               {isSubmitting ? 'Saving...' : 'Save Note'}
             </button>
