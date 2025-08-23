@@ -29,6 +29,13 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     glucoseValue: currentGlucose
   });
 
+  // Display values for inputs (empty string instead of 0 for better UX)
+  const [displayValues, setDisplayValues] = useState({
+    carbs: '',
+    insulin: '',
+    glucoseValue: currentGlucose ? currentGlucose.toString() : ''
+  });
+
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,6 +52,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           comment: initialData.comment || '',
           glucoseValue: initialData.glucoseValue
         });
+        // Set display values for editing
+        setDisplayValues({
+          carbs: initialData.carbs.toString(),
+          insulin: initialData.insulin.toString(),
+          glucoseValue: initialData.glucoseValue ? initialData.glucoseValue.toString() : ''
+        });
       } else {
         // For add mode, use defaults
         setFormData({
@@ -55,6 +68,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           comment: '',
           glucoseValue: currentGlucose
         });
+        // Set display values for adding (empty for carbs/insulin)
+        setDisplayValues({
+          carbs: '',
+          insulin: '',
+          glucoseValue: currentGlucose ? currentGlucose.toString() : ''
+        });
       }
       setErrors([]);
     }
@@ -64,6 +83,34 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+    
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
+  };
+
+  const handleDisplayValueChange = (field: keyof typeof displayValues, value: string) => {
+    setDisplayValues(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Convert display value to actual form data
+    let numericValue: number;
+    if (field === 'carbs' || field === 'insulin') {
+      numericValue = parseInt(value) || 0;
+    } else if (field === 'glucoseValue') {
+      numericValue = parseFloat(value) || 0;
+    } else {
+      return;
+    }
+    
+    // Update form data with numeric value
+    setFormData(prev => ({
+      ...prev,
+      [field]: numericValue
     }));
     
     // Clear errors when user starts typing
@@ -156,12 +203,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             </label>
             <input
               id="carbs"
-              type="number"
-              min="0"
-              max="1000"
-              value={formData.carbs}
-              onChange={(e) => handleInputChange('carbs', parseInt(e.target.value) || 0)}
+              type="text"
+              inputMode="numeric"
+              value={displayValues.carbs}
+              onChange={(e) => handleDisplayValueChange('carbs', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0"
               required
             />
           </div>
@@ -228,11 +275,10 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               </label>
               <input
                 id="glucose"
-                type="number"
-                min="0"
-                step="0.1"
-                value={formData.glucoseValue || ''}
-                onChange={(e) => handleInputChange('glucoseValue', parseFloat(e.target.value) || undefined)}
+                type="text"
+                inputMode="decimal"
+                value={displayValues.glucoseValue}
+                onChange={(e) => handleDisplayValueChange('glucoseValue', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder={`Current: ${currentGlucose} mmol/L`}
               />
