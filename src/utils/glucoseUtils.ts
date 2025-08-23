@@ -25,12 +25,12 @@ export const convertTrendToArrow = (direction: string): string => {
  * Calculate glucose status based on mmol/L value
  */
 export const calculateGlucoseStatus = (value: number): 'low' | 'normal' | 'high' | 'critical' => {
-  const mmolL = convertToMmolL(value);
+  // Value is already in mmol/L format, no need to convert
   const { GLUCOSE_THRESHOLDS } = APP_CONFIG;
   
-  if (mmolL < GLUCOSE_THRESHOLDS.LOW) return 'low';
-  if (mmolL < GLUCOSE_THRESHOLDS.NORMAL) return 'normal';
-  if (mmolL < GLUCOSE_THRESHOLDS.HIGH) return 'high';
+  if (value < GLUCOSE_THRESHOLDS.LOW) return 'low';
+  if (value < GLUCOSE_THRESHOLDS.NORMAL) return 'normal';
+  if (value < GLUCOSE_THRESHOLDS.HIGH) return 'high';
   return 'critical';
 };
 
