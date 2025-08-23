@@ -4,7 +4,7 @@ import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import NotesList from './NotesList';
-import { GlucoseReading, LibrePatient, LibreConnection } from '../types/libre';
+import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
 import { notesStorageService } from '../services/notesStorage';
 
@@ -13,15 +13,11 @@ const Dashboard: React.FC = () => {
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [patient, setPatient] = useState<LibrePatient | null>(null);
-  const [connections, setConnections] = useState<LibreConnection[]>([]);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('24h');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
-  const [countdown, setCountdown] = useState<number>(0);
+
   
   // Notes management
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
@@ -81,13 +77,6 @@ const Dashboard: React.FC = () => {
 
   const fetchConnections = useCallback(async () => {
     // Set default connection for Nightscout
-    const defaultConnection = {
-      id: 'nightscout-connection',
-      patientId: 'nightscout-user',
-      status: 'active' as const,
-      lastSync: new Date().toISOString()
-    };
-    setConnections([defaultConnection]);
     setSelectedConnection('nightscout-connection');
   }, []);
 
@@ -135,10 +124,7 @@ const Dashboard: React.FC = () => {
             return newHistory.slice(-100);
           });
           
-          // Update refresh times
-          const now = new Date();
-          setLastRefreshTime(now);
-          setNextRefreshTime(new Date(now.getTime() + (1 * 60 * 1000))); // Next refresh in 1 minute
+
         } else {
           setError('No glucose data available from Nightscout');
         }
@@ -275,36 +261,7 @@ const Dashboard: React.FC = () => {
     fetchCurrentGlucose();
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
 
-  // Auto-refresh every 1 minute for real-time monitoring
-  useEffect(() => {
-    if (!autoRefresh || !selectedConnection) return;
-    
-    console.log('🔄 Setting up auto-refresh interval (1 minute)');
-    
-    const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh triggered at:', new Date().toLocaleTimeString());
-      fetchCurrentGlucose();
-      fetchHistoricalData(); // Also update the chart data
-    }, 1 * 60 * 1000); // 1 minute
-    
-    return () => {
-      console.log('🔄 Clearing auto-refresh interval');
-      clearInterval(interval);
-    };
-  }, [autoRefresh, selectedConnection, fetchCurrentGlucose, fetchHistoricalData]);
 
-  // Countdown timer for next refresh (visual only)
-  useEffect(() => {
-    if (!autoRefresh || !nextRefreshTime) return;
-    
-    const countdownInterval = setInterval(() => {
-      const now = new Date();
-      const timeUntilNext = Math.max(0, Math.floor((nextRefreshTime.getTime() - now.getTime()) / 1000));
-      setCountdown(timeUntilNext);
-    }, 1000); // Update every second
-    
-    return () => clearInterval(countdownInterval);
-  }, [autoRefresh, nextRefreshTime]);
 
   // Notes management functions
   const loadNotes = useCallback(() => {
@@ -357,10 +314,7 @@ const Dashboard: React.FC = () => {
     window.location.reload();
   };
 
-  const handleConnectionChange = (connectionId: string) => {
-    setSelectedConnection(connectionId);
-    setGlucoseHistory([]);
-  };
+
 
   const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
     console.log('🕐 handleTimeRangeChange called with:', range);
@@ -410,58 +364,6 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {nightscoutUrl ? (
-                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  🩸 Nightscout Connected
-                </div>
-              ) : (
-                <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-                  ❌ Nightscout Not Configured
-                </div>
-              )}
-              
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600">Auto-refresh</label>
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span className="text-xs text-gray-500">(1 min)</span>
-                <button
-                  onClick={fetchCurrentGlucose}
-                  disabled={isLoading}
-                  className="ml-2 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Refresh now"
-                >
-                  {isLoading ? '⏳' : '🔄'} Refresh
-                </button>
-                {lastRefreshTime && (
-                  <div className="text-xs text-gray-500 ml-2">
-                    <div>Last: {lastRefreshTime.toLocaleTimeString()}</div>
-                    <div>Next: {nextRefreshTime?.toLocaleTimeString()}</div>
-                    <div className="font-mono text-blue-600">
-                      {countdown > 0 ? `${countdown}s` : 'Now!'}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {connections.length > 0 && (
-                <select
-                  value={selectedConnection}
-                  onChange={(e) => handleConnectionChange(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {connections.map(connection => (
-                    <option key={connection.id} value={connection.id}>
-                      Sensor {connection.id.slice(-4)}
-                    </option>
-                  ))}
-                </select>
-              )}
-              
               <button
                 onClick={handleLogout}
                 className="btn-secondary"
@@ -475,43 +377,7 @@ const Dashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {nightscoutUrl ? (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-green-800">
-                  🩸 Nightscout Connected - Real Data Active
-                </h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>Your app is now connected to Nightscout and displaying real-time glucose data from your Libre 2 Plus sensor. Data updates automatically every 1 minute for real-time monitoring.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  ❌ Nightscout Not Configured
-                </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>Nightscout URL is not configured. Please check your .env file and restart the app.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Current Glucose Display */}
@@ -558,73 +424,7 @@ const Dashboard: React.FC = () => {
 
 
 
-        {/* Status Information */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Sensor Status</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Connection:</span>
-                <span className="font-medium text-gray-900">
-                  {selectedConnection ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Last Sync:</span>
-                <span className="font-medium text-gray-900">
-                  {currentReading ? currentReading.timestamp.toLocaleTimeString() : 'Never'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Auto-refresh:</span>
-                <span className="font-medium text-gray-900">
-                  {autoRefresh ? 'Enabled' : 'Disabled'}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Glucose Ranges</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Low:</span>
-                <span className="font-medium text-red-600">&lt; 3.9 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Normal:</span>
-                <span className="font-medium text-green-600">3.9-10.0 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">High:</span>
-                <span className="font-medium text-yellow-600">10.0-13.9 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Critical:</span>
-                <span className="font-medium text-red-600">&gt; 13.9 mmol/L</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button
-                onClick={fetchCurrentGlucose}
-                disabled={isLoading}
-                className="w-full btn-primary"
-              >
-                {isLoading ? 'Refreshing...' : 'Refresh Now'}
-              </button>
-              <button
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`w-full ${autoRefresh ? 'btn-secondary' : 'btn-primary'}`}
-              >
-                {autoRefresh ? 'Disable Auto-refresh' : 'Enable Auto-refresh'}
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* Meal Notes Section */}
         <div className="mt-8">
