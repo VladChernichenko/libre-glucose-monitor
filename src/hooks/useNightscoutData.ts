@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { GlucoseReading } from '../types/libre';
 import { generateDemoGlucoseData } from '../services/demoData';
 import { APP_CONFIG } from '../constants/app';
+import { convertToMmolL } from '../utils/glucoseUtils';
 
 interface UseNightscoutDataReturn {
   isLoading: boolean;
@@ -47,7 +48,7 @@ export const useNightscoutData = (
         const entry = data[0];
         const reading: GlucoseReading = {
           timestamp: new Date(entry.dateString || entry.date),
-          value: entry.sgv || 0,
+          value: convertToMmolL(entry.sgv || 0), // Convert mg/dL to mmol/L
           trend: entry.trend || 0,
           trendArrow: entry.direction || 'Flat',
           status: 'normal', // Will be calculated by the component
@@ -99,7 +100,7 @@ export const useNightscoutData = (
           .filter((entry: any) => entry.sgv && entry.dateString)
           .map((entry: any) => ({
             timestamp: new Date(entry.dateString),
-            value: entry.sgv,
+            value: convertToMmolL(entry.sgv), // Convert mg/dL to mmol/L
             trend: entry.trend || 0,
             trendArrow: entry.direction || 'Flat',
             status: 'normal' as const, // Will be calculated by the component
