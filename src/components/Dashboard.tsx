@@ -130,7 +130,7 @@ const Dashboard: React.FC = () => {
       fetchHistoricalData();
       fetchCurrentGlucose();
     }
-  }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
+  }, [fetchPatientInfo, fetchConnections, nightscoutUrl]);
 
   // Update glucose status when data changes
   useEffect(() => {
@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
     if (nightscoutUrl && timeRange) {
       fetchHistoricalData();
     }
-  }, [timeRange, nightscoutUrl, fetchHistoricalData]);
+  }, [timeRange, nightscoutUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50">
