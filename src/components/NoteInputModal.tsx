@@ -252,7 +252,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="carbs" className="block text-xs font-medium text-gray-700 mb-1">
-                🍞 Carbs (g)
+                🍞 Carbs (g) <span className="text-gray-500 text-xs">(optional)</span>
               </label>
               <input
                 id="carbs"
@@ -262,13 +262,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 onChange={(e) => handleDisplayValueChange('carbs', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0 (digits only)"
-                required
                 autoFocus
               />
             </div>
             <div>
               <label htmlFor="insulin" className="block text-xs font-medium text-gray-700 mb-1">
-                💉 Insulin (u)
+                💉 Insulin (u) <span className="text-xs text-gray-500">(optional)</span>
               </label>
               <input
                 id="insulin"
@@ -278,7 +277,6 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 onChange={(e) => handleDisplayValueChange('insulin', e.target.value)}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0 (digits only)"
-                required
               />
             </div>
           </div>
