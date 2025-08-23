@@ -101,6 +101,11 @@ const Dashboard: React.FC = () => {
 
   const handleTimeRangeChange = (newRange: typeof APP_CONFIG.TIME_RANGES[number]) => {
     setTimeRange(newRange);
+    
+    // Fetch new data for the selected time range
+    if (nightscoutUrl) {
+      fetchHistoricalData();
+    }
   };
 
   // Load notes on component mount
@@ -144,6 +149,13 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [glucoseHistory, currentReading]);
+
+  // Fetch new data when time range changes
+  useEffect(() => {
+    if (nightscoutUrl && timeRange) {
+      fetchHistoricalData();
+    }
+  }, [timeRange, nightscoutUrl, fetchHistoricalData]);
 
   return (
     <div className="min-h-screen bg-gray-50">
