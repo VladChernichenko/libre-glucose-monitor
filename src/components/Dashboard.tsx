@@ -2,22 +2,28 @@ import React, { useState, useEffect, useCallback } from 'react';
 import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
-import { GlucoseReading, LibrePatient, LibreConnection } from '../types/libre';
+import NoteInputModal from './NoteInputModal';
+
+import { GlucoseReading, LibrePatient } from '../types/libre';
+import { GlucoseNote } from '../types/notes';
+import { notesStorageService } from '../services/notesStorage';
 
 
 const Dashboard: React.FC = () => {
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [patient, setPatient] = useState<LibrePatient | null>(null);
-  const [connections, setConnections] = useState<LibreConnection[]>([]);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('24h');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
-  const [countdown, setCountdown] = useState<number>(0);
+
+  
+  // Notes management
+  const [notes, setNotes] = useState<GlucoseNote[]>([]);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  
   // Nightscout integration enabled - using real data
   const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
   
@@ -50,14 +56,14 @@ const Dashboard: React.FC = () => {
     return Math.round((mgdL / 18) * 10) / 10; // Round to 1 decimal place
   };
 
-  const calculateGlucoseStatus = (value: number): 'low' | 'normal' | 'high' | 'critical' => {
+  const calculateGlucoseStatus = useCallback((value: number): 'low' | 'normal' | 'high' | 'critical' => {
     // Convert to mmol/L for status calculation
     const mmolL = convertToMmolL(value);
     if (mmolL < 3.9) return 'low';      // < 70 mg/dL
     if (mmolL < 10.0) return 'normal';  // 70-180 mg/dL
     if (mmolL < 13.9) return 'high';    // 180-250 mg/dL
     return 'critical';                   // > 250 mg/dL
-  };
+  }, []);
 
   const fetchPatientInfo = useCallback(async () => {
     // Set empty patient info since we're using Nightscout
@@ -71,13 +77,6 @@ const Dashboard: React.FC = () => {
 
   const fetchConnections = useCallback(async () => {
     // Set default connection for Nightscout
-    const defaultConnection = {
-      id: 'nightscout-connection',
-      patientId: 'nightscout-user',
-      status: 'active' as const,
-      lastSync: new Date().toISOString()
-    };
-    setConnections([defaultConnection]);
     setSelectedConnection('nightscout-connection');
   }, []);
 
@@ -125,10 +124,7 @@ const Dashboard: React.FC = () => {
             return newHistory.slice(-100);
           });
           
-          // Update refresh times
-          const now = new Date();
-          setLastRefreshTime(now);
-          setNextRefreshTime(new Date(now.getTime() + (1 * 60 * 1000))); // Next refresh in 1 minute
+
         } else {
           setError('No glucose data available from Nightscout');
         }
@@ -141,7 +137,7 @@ const Dashboard: React.FC = () => {
     }
     
     setIsLoading(false);
-  }, [selectedConnection, nightscoutUrl]);
+  }, [selectedConnection, nightscoutUrl, calculateGlucoseStatus]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!selectedConnection) return;
@@ -246,7 +242,7 @@ const Dashboard: React.FC = () => {
       console.error('❌ Nightscout historical fetch failed:', err);
       setError(`Failed to fetch historical data from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  }, [selectedConnection, timeRange, nightscoutUrl]);
+  }, [selectedConnection, timeRange, nightscoutUrl, calculateGlucoseStatus]);
 
   // Initial data fetch
   useEffect(() => {
@@ -265,48 +261,86 @@ const Dashboard: React.FC = () => {
     fetchCurrentGlucose();
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
 
-  // Auto-refresh every 1 minute for real-time monitoring
+
+
+  // Notes management functions
+  const loadNotes = useCallback(() => {
+    const allNotes = notesStorageService.getNotes();
+    setNotes(allNotes);
+  }, []);
+
+  const handleNoteSave = (note: GlucoseNote) => {
+    setNotes(prev => [...prev, note]);
+    console.log('✅ Note saved:', note);
+  };
+
+  const handleNoteUpdate = (note: GlucoseNote) => {
+    setNotes(prev => prev.map(n => n.id === note.id ? note : n));
+    console.log('✏️ Note updated:', note);
+  };
+
+  const handleNoteDelete = (noteId: string) => {
+    const success = notesStorageService.deleteNote(noteId);
+    if (success) {
+      setNotes(prev => prev.filter(note => note.id !== noteId));
+      console.log('🗑️ Note deleted:', noteId);
+    } else {
+      console.error('❌ Failed to delete note from localStorage:', noteId);
+    }
+  };
+
+  const handleEditNote = (note: GlucoseNote) => {
+    setEditingNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  const handleNoteModalClose = () => {
+    setIsNoteModalOpen(false);
+    setEditingNote(null);
+  };
+
+  const handleNoteClick = (note: GlucoseNote) => {
+    setEditingNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  // Load notes on component mount
   useEffect(() => {
-    if (!autoRefresh || !selectedConnection) return;
-    
-    console.log('🔄 Setting up auto-refresh interval (1 minute)');
-    
-    const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh triggered at:', new Date().toLocaleTimeString());
-      fetchCurrentGlucose();
-      fetchHistoricalData(); // Also update the chart data
-    }, 1 * 60 * 1000); // 1 minute
-    
-    return () => {
-      console.log('🔄 Clearing auto-refresh interval');
-      clearInterval(interval);
+    loadNotes();
+  }, [loadNotes]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Command+Shift+O (Mac) or Ctrl+Shift+O (Windows/Linux) to open note modal
+      // Use event.code for language-independent key detection
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === 'KeyO') {
+        event.preventDefault();
+        setIsNoteModalOpen(true);
+      }
+      
+      // Command+Z (Mac) or Ctrl+Z (Windows/Linux) to delete last note
+      if ((event.metaKey || event.ctrlKey) && event.code === 'KeyZ' && !event.shiftKey) {
+        event.preventDefault();
+        if (notes.length > 0) {
+          const lastNote = notes[notes.length - 1];
+          handleNoteDelete(lastNote.id);
+        }
+      }
     };
-  }, [autoRefresh, selectedConnection, fetchCurrentGlucose, fetchHistoricalData]);
 
-  // Countdown timer for next refresh (visual only)
-  useEffect(() => {
-    if (!autoRefresh || !nextRefreshTime) return;
-    
-    const countdownInterval = setInterval(() => {
-      const now = new Date();
-      const timeUntilNext = Math.max(0, Math.floor((nextRefreshTime.getTime() - now.getTime()) / 1000));
-      setCountdown(timeUntilNext);
-    }, 1000); // Update every second
-    
-    return () => clearInterval(countdownInterval);
-  }, [autoRefresh, nextRefreshTime]);
-
-
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [notes]);
 
   const handleLogout = () => {
     libreApiService.logout();
     window.location.reload();
   };
 
-  const handleConnectionChange = (connectionId: string) => {
-    setSelectedConnection(connectionId);
-    setGlucoseHistory([]);
-  };
+
 
   const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
     console.log('🕐 handleTimeRangeChange called with:', range);
@@ -356,58 +390,6 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {nightscoutUrl ? (
-                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  🩸 Nightscout Connected
-                </div>
-              ) : (
-                <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
-                  ❌ Nightscout Not Configured
-                </div>
-              )}
-              
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600">Auto-refresh</label>
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span className="text-xs text-gray-500">(1 min)</span>
-                <button
-                  onClick={fetchCurrentGlucose}
-                  disabled={isLoading}
-                  className="ml-2 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Refresh now"
-                >
-                  {isLoading ? '⏳' : '🔄'} Refresh
-                </button>
-                {lastRefreshTime && (
-                  <div className="text-xs text-gray-500 ml-2">
-                    <div>Last: {lastRefreshTime.toLocaleTimeString()}</div>
-                    <div>Next: {nextRefreshTime?.toLocaleTimeString()}</div>
-                    <div className="font-mono text-blue-600">
-                      {countdown > 0 ? `${countdown}s` : 'Now!'}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {connections.length > 0 && (
-                <select
-                  value={selectedConnection}
-                  onChange={(e) => handleConnectionChange(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {connections.map(connection => (
-                    <option key={connection.id} value={connection.id}>
-                      Sensor {connection.id.slice(-4)}
-                    </option>
-                  ))}
-                </select>
-              )}
-              
               <button
                 onClick={handleLogout}
                 className="btn-secondary"
@@ -420,155 +402,134 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {nightscoutUrl ? (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-green-800">
-                  🩸 Nightscout Connected - Real Data Active
-                </h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>Your app is now connected to Nightscout and displaying real-time glucose data from your Libre 2 Plus sensor. Data updates automatically every 1 minute for real-time monitoring.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  ❌ Nightscout Not Configured
-                </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>Nightscout URL is not configured. Please check your .env file and restart the app.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+      <main className="max-w-full mx-auto px-3 sm:px-4 py-3">
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Current Glucose Display */}
-          <div>
-            <GlucoseDisplay 
-              reading={currentReading} 
-              isLoading={isLoading} 
-            />
-          </div>
-
-          {/* Glucose Chart */}
-          <div>
-            {/* Time Range Controls - Above Chart */}
-            <div className="mb-4 flex justify-center">
-              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-                {(['1h', '6h', '12h', '24h'] as const).map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => {
-                      console.log('🕐 Button clicked:', range);
-                      handleTimeRangeChange(range);
-                    }}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 cursor-pointer ${
-                      timeRange === range
-                        ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-inner'
-                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 active:bg-gray-200'
-                    }`}
-                    style={{ minWidth: '60px' }}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
+        {/* Two-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-7rem)]">
+          {/* Left Column: Current Glucose + Quick Actions */}
+          <div className="lg:col-span-3 space-y-4">
+            {/* Current Glucose Display - Compact */}
+            <div className="bg-white rounded-lg shadow-sm p-4 h-fit">
+              <GlucoseDisplay 
+                reading={currentReading} 
+                isLoading={isLoading} 
+              />
             </div>
             
-            <GlucoseChart 
-              data={glucoseHistory} 
-              timeRange={timeRange}
-            />
+            {/* Notes Quick Add & Recent Summary */}
+            <div className="bg-white rounded-lg shadow-sm p-4 flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">🍽️ Meal Tracking</h3>
+                <button
+                  onClick={() => setIsNoteModalOpen(true)}
+                  className="btn-primary text-sm px-3 py-1.5"
+                  title="Add new note (⌘+⇧+O) • Undo last note (⌘+Z)"
+                >
+                  ➕ Add
+                </button>
+              </div>
+              
+              {/* Recent Notes Summary - Scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+                {notes.slice(0, 8).map((note) => (
+                  <div 
+                    key={note.id} 
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 hover:bg-gray-100 transition-colors"
+                  >
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleEditNote(note)}
+                    >
+                      <div className="font-medium truncate">{note.meal}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(note.timestamp).toLocaleString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-right text-xs">
+                        <div className="text-blue-600 font-medium">{note.carbs}g</div>
+                        <div className="text-purple-600 font-medium">{note.insulin}u</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNoteDelete(note.id);
+                        }}
+                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                        title="Delete note"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {notes.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="text-gray-400 text-3xl mb-2">🍽️</div>
+                    <p className="text-gray-500 text-sm">No notes yet</p>
+                    <p className="text-gray-400 text-xs">Click "Add" to start tracking</p>
+                  </div>
+                )}
+                {notes.length > 8 && (
+                  <div className="text-center py-2">
+                    <span className="text-xs text-gray-400">+{notes.length - 8} more notes</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Glucose Chart - Expanded */}
+          <div className="lg:col-span-9">
+            <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
+              {/* Time Range Controls - Compact */}
+              <div className="mb-3 flex justify-center">
+                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                  {(['1h', '6h', '12h', '24h'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => handleTimeRangeChange(range)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        timeRange === range
+                          ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                      }`}
+                    >
+                      {range}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Chart Container - Takes remaining space */}
+              <div className="flex-1 min-h-0">
+                <GlucoseChart 
+                  data={glucoseHistory} 
+                  timeRange={timeRange}
+                  notes={notes}
+                  onNoteClick={handleNoteClick}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-
-
-        {/* Status Information */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Sensor Status</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Connection:</span>
-                <span className="font-medium text-gray-900">
-                  {selectedConnection ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Last Sync:</span>
-                <span className="font-medium text-gray-900">
-                  {currentReading ? currentReading.timestamp.toLocaleTimeString() : 'Never'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Auto-refresh:</span>
-                <span className="font-medium text-gray-900">
-                  {autoRefresh ? 'Enabled' : 'Disabled'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Glucose Ranges</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Low:</span>
-                <span className="font-medium text-red-600">&lt; 3.9 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Normal:</span>
-                <span className="font-medium text-green-600">3.9-10.0 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">High:</span>
-                <span className="font-medium text-yellow-600">10.0-13.9 mmol/L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Critical:</span>
-                <span className="font-medium text-red-600">&gt; 13.9 mmol/L</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button
-                onClick={fetchCurrentGlucose}
-                disabled={isLoading}
-                className="w-full btn-primary"
-              >
-                {isLoading ? 'Refreshing...' : 'Refresh Now'}
-              </button>
-              <button
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`w-full ${autoRefresh ? 'btn-secondary' : 'btn-primary'}`}
-              >
-                {autoRefresh ? 'Disable Auto-refresh' : 'Enable Auto-refresh'}
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Note Input Modal */}
+        <NoteInputModal
+          isOpen={isNoteModalOpen}
+          onClose={handleNoteModalClose}
+          onSave={editingNote ? handleNoteUpdate : handleNoteSave}
+          initialData={editingNote || undefined}
+          currentGlucose={currentReading?.value}
+          mode={editingNote ? 'edit' : 'add'}
+        />
       </main>
     </div>
   );
