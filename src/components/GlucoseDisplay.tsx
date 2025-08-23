@@ -42,47 +42,12 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'low':
-        return 'bg-glucose-low text-white';
-      case 'normal':
-        return 'bg-glucose-normal text-white';
-      case 'high':
-        return 'bg-glucose-high text-white';
-      case 'critical':
-        return 'bg-glucose-critical text-white';
-      default:
-        return 'bg-gray-500 text-white';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'low':
-        return 'Low';
-      case 'normal':
-        return 'Normal';
-      case 'high':
-        return 'High';
-      case 'critical':
-        return 'Critical';
-      default:
-        return 'Unknown';
-    }
-  };
-
   return (
     <div className="glucose-card">
       <div className="text-center">
-        <div className="mb-4">
-          <span className={`glucose-status ${getStatusColor(reading.status)}`}>
-            {getStatusText(reading.status)}
-          </span>
-        </div>
         
         <div className="mb-2">
-          <span className="glucose-value text-6xl" style={{ color: getStatusColor(reading.status).includes('low') ? '#ef4444' : getStatusColor(reading.status).includes('normal') ? '#10b981' : getStatusColor(reading.status).includes('high') ? '#f59e0b' : '#dc2626' }}>
+          <span className="glucose-value text-6xl" style={{ color: reading.status === 'low' ? '#ef4444' : reading.status === 'normal' ? '#10b981' : reading.status === 'high' ? '#f59e0b' : '#dc2626' }}>
             {reading.value}
           </span>
           <span className="text-2xl text-gray-600 ml-2">{reading.unit}</span>
@@ -95,20 +60,12 @@ const GlucoseDisplay: React.FC<GlucoseDisplayProps> = ({
               Sensor data: {format(reading.originalTimestamp, 'MMM dd, yyyy HH:mm')}
             </div>
           )}
-        </div>
-        
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-gray-500">Active Insulin</div>
-            <div className="font-semibold text-gray-900">
-              {InsulinCalculator.calculateTotalActiveInsulin(insulinDoses, currentTime).toFixed(1)} U
+          {/* Active Insulin Display */}
+          {insulinDoses && insulinDoses.length > 0 && (
+            <div className="text-xs text-blue-600 mt-2">
+              active {InsulinCalculator.calculateTotalActiveInsulin(insulinDoses, currentTime).toFixed(1)}u
             </div>
-            <div className="text-xs text-gray-500">U</div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-gray-500">Status</div>
-            <div className="font-semibold text-gray-900">{reading.status}</div>
-          </div>
+          )}
         </div>
       </div>
     </div>

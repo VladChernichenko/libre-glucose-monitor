@@ -15,7 +15,7 @@ const Dashboard: React.FC = () => {
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [patient, setPatient] = useState<LibrePatient | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('24h');
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('6h');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
