@@ -32,8 +32,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   // Display values for inputs (empty string instead of 0 for better UX)
   const [displayValues, setDisplayValues] = useState({
     carbs: '',
-    insulin: '',
-    glucoseValue: currentGlucose ? currentGlucose.toString() : ''
+    insulin: ''
   });
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -72,8 +71,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         // Set display values for editing
         setDisplayValues({
           carbs: initialData.carbs.toString(),
-          insulin: initialData.insulin.toString(),
-          glucoseValue: initialData.glucoseValue ? initialData.glucoseValue.toString() : ''
+          insulin: initialData.insulin.toString()
         });
       } else {
         // For add mode, use defaults
@@ -88,8 +86,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         // Set display values for adding (empty for carbs/insulin)
         setDisplayValues({
           carbs: '',
-          insulin: '',
-          glucoseValue: currentGlucose ? currentGlucose.toString() : ''
+          insulin: ''
         });
       }
       setErrors([]);
@@ -270,26 +267,20 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
 
 
 
-          {/* Current Glucose (if available) */}
+          {/* Current Glucose (always read-only) */}
           {currentGlucose && (
             <div>
               <label htmlFor="glucose" className="block text-xs font-medium text-gray-700 mb-1">
-                📊 Glucose (mmol/L) {mode === 'edit' && <span className="text-gray-500 text-xs">(read-only)</span>}
+                📊 Current Glucose (mmol/L) <span className="text-gray-500 text-xs">(read-only)</span>
               </label>
               <input
                 id="glucose"
                 type="text"
-                inputMode="decimal"
-                value={displayValues.glucoseValue}
-                onChange={(e) => handleDisplayValueChange('glucoseValue', e.target.value)}
-                className={`w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  mode === 'edit' 
-                    ? 'border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed' 
-                    : 'border-gray-300 bg-white'
-                }`}
+                value={formData.glucoseValue ? formData.glucoseValue.toString() : ''}
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed rounded-md"
                 placeholder={`Current: ${currentGlucose}`}
-                readOnly={mode === 'edit'}
-                disabled={mode === 'edit'}
+                readOnly
+                disabled
               />
             </div>
           )}
