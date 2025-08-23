@@ -246,6 +246,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0"
                 required
+                autoFocus
               />
             </div>
             <div>
