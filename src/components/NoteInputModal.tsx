@@ -89,7 +89,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           insulin: initialData.insulin.toString()
         });
       } else {
-        // For add mode, use defaults
+        // For add mode, start completely fresh
         setFormData({
           timestamp: new Date(),
           carbs: 0,
@@ -98,7 +98,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           comment: '',
           glucoseValue: currentGlucose
         });
-        // Set display values for adding (empty for carbs/insulin)
+        // Set display values for adding (completely empty)
         setDisplayValues({
           carbs: '',
           insulin: ''
@@ -107,6 +107,26 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       setErrors([]);
     }
   }, [isOpen, initialData, currentGlucose, mode]);
+
+  // Clean up form data when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset all form data when modal closes
+      setFormData({
+        timestamp: new Date(),
+        carbs: 0,
+        insulin: 0,
+        meal: 'Breakfast',
+        comment: '',
+        glucoseValue: 0
+      });
+      setDisplayValues({
+        carbs: '',
+        insulin: ''
+      });
+      setErrors([]);
+    }
+  }, [isOpen]);
 
   const handleInputChange = (field: keyof NoteInputData, value: any) => {
     setFormData(prev => ({
