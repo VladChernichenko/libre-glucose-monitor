@@ -39,6 +39,23 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen, onClose]);
+
   // Initialize form data when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -172,6 +189,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             onClick={onClose}
             disabled={isSubmitting}
             className="text-gray-400 hover:text-gray-600 transition-colors"
+            title="Close (Esc)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
