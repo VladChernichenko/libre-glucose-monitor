@@ -312,8 +312,8 @@ const Dashboard: React.FC = () => {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Command+N (Mac) or Ctrl+N (Windows/Linux) to open note modal
-      if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+      // Command+Shift+O (Mac) or Ctrl+Shift+O (Windows/Linux) to open note modal
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'O') {
         event.preventDefault();
         setIsNoteModalOpen(true);
       }
@@ -413,7 +413,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
                   className="btn-primary text-sm px-3 py-1.5"
-                  title="Add new note (⌘+N)"
+                  title="Add new note (⌘+⇧+O)"
                 >
                   ➕ Add
                 </button>
