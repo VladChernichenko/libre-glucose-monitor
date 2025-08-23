@@ -89,12 +89,13 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           insulin: initialData.insulin.toString()
         });
       } else {
-        // For add mode, start completely fresh
+        // For add mode, start completely fresh with time-based meal type
+        const currentTime = new Date();
         setFormData({
-          timestamp: new Date(),
+          timestamp: currentTime,
           carbs: 0,
           insulin: 0,
-          meal: 'Breakfast',
+          meal: getMealTypeByTime(currentTime),
           comment: '',
           glucoseValue: currentGlucose
         });
@@ -112,11 +113,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       // Reset all form data when modal closes
+      const currentTime = new Date();
       setFormData({
-        timestamp: new Date(),
+        timestamp: currentTime,
         carbs: 0,
         insulin: 0,
-        meal: 'Breakfast',
+        meal: getMealTypeByTime(currentTime),
         comment: '',
         glucoseValue: 0
       });
@@ -160,7 +162,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       // Auto-update meal type based on new values
       const newCarbs = field === 'carbs' ? numericValue : formData.carbs;
       const newInsulin = field === 'insulin' ? numericValue : formData.insulin;
-      const smartMealType = getSmartMealType(newCarbs, newInsulin);
+      const smartMealType = getSmartMealType(newCarbs, newInsulin, formData.timestamp);
       
       if (smartMealType !== formData.meal) {
         setFormData(prev => ({ ...prev, meal: smartMealType }));
@@ -179,28 +181,44 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     }
   };
 
-  // Smart meal type selection based on inputs
-  const getSmartMealType = (carbs: number, insulin: number): string => {
+  // Get meal type based on time of day
+  const getMealTypeByTime = (timestamp: Date): string => {
+    const hour = timestamp.getHours();
+    
+    if (hour >= 6 && hour < 12) {
+      return 'Breakfast';
+    } else if (hour >= 12 && hour < 16) {
+      return 'Lunch';
+    } else if (hour >= 16 && hour < 21) {
+      return 'Dinner';
+    } else {
+      // Outside meal hours (9pm - 6am) - default to Snack
+      return 'Snack';
+    }
+  };
+
+  // Smart meal type selection based on inputs and time
+  const getSmartMealType = (carbs: number, insulin: number, timestamp: Date): string => {
     if (carbs > 0 && insulin > 0) {
-      // Both filled - keep current selection or default to Breakfast
-      return formData.meal;
+      // Both filled - use time-based meal type
+      return getMealTypeByTime(timestamp);
     } else if (carbs > 0 && insulin === 0) {
-      // Only carbs filled - likely a meal
-      return formData.meal === 'Correction' ? 'Breakfast' : formData.meal;
+      // Only carbs filled - likely a meal, use time-based selection
+      return getMealTypeByTime(timestamp);
     } else if (carbs === 0 && insulin > 0) {
       // Only insulin filled - likely a correction dose
       return 'Correction';
     } else {
-      // Neither filled - keep current selection
-      return formData.meal;
+      // Neither filled - use time-based meal type
+      return getMealTypeByTime(timestamp);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Auto-select meal type based on inputs
-    const smartMealType = getSmartMealType(formData.carbs, formData.insulin);
+    // Auto-select meal type based on inputs and time
+    const smartMealType = getSmartMealType(formData.carbs, formData.insulin, formData.timestamp);
     if (smartMealType !== formData.meal) {
       setFormData(prev => ({ ...prev, meal: smartMealType }));
     }
