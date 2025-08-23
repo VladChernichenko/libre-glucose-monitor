@@ -274,7 +274,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           {currentGlucose && (
             <div>
               <label htmlFor="glucose" className="block text-xs font-medium text-gray-700 mb-1">
-                📊 Glucose (mmol/L)
+                📊 Glucose (mmol/L) {mode === 'edit' && <span className="text-gray-500 text-xs">(read-only)</span>}
               </label>
               <input
                 id="glucose"
@@ -282,8 +282,14 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 inputMode="decimal"
                 value={displayValues.glucoseValue}
                 onChange={(e) => handleDisplayValueChange('glucoseValue', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  mode === 'edit' 
+                    ? 'border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed' 
+                    : 'border-gray-300 bg-white'
+                }`}
                 placeholder={`Current: ${currentGlucose}`}
+                readOnly={mode === 'edit'}
+                disabled={mode === 'edit'}
               />
             </div>
           )}
