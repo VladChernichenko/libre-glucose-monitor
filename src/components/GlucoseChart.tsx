@@ -57,7 +57,11 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       isFirstPoint: index === 0,
     }));
     
-    console.log(`📊 Chart data prepared: ${result.length} valid points, time range: ${new Date(result[0].time).toISOString()} to ${new Date(result[result.length - 1].time).toISOString()}`);
+    if (result.length > 0) {
+      console.log(`📊 Chart data prepared: ${result.length} valid points, time range: ${new Date(result[0].time).toISOString()} to ${new Date(result[result.length - 1].time).toISOString()}`);
+    } else {
+      console.log('📊 Chart data prepared: 0 valid points');
+    }
     
     return result;
   }, [data]);
@@ -101,6 +105,36 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
 
 
 
+  // Error boundary for chart rendering
+  const [chartError, setChartError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setChartError(null); // Clear errors when data changes
+  }, [data]);
+
+  if (chartError) {
+    return (
+      <div className="glucose-card">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Glucose Trend</h3>
+        </div>
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center text-red-600">
+            <div className="text-2xl mb-2">⚠️</div>
+            <div>Chart Error</div>
+            <div className="text-sm">{chartError}</div>
+            <button 
+              onClick={() => setChartError(null)}
+              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glucose-card">
       <div className="mb-4">
@@ -118,10 +152,15 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart 
-              data={chartData}
-              key={`chart-${timeRange}-${chartData.length}-${chartData[0]?.time || 0}`}
-            >
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center h-full">
+                <div className="text-gray-500">Loading chart...</div>
+              </div>
+            }>
+              <AreaChart 
+                data={chartData}
+                key={`chart-${timeRange}-${chartData.length}-${chartData[0]?.time || 0}`}
+              >
             <defs>
               <linearGradient id="glucoseGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -223,6 +262,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               );
             })}
           </AreaChart>
+            </React.Suspense>
         </ResponsiveContainer>
         )}
       </div>
