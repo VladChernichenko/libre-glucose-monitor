@@ -20,6 +20,22 @@ interface ChartDataPoint {
 }
 
 const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = [], onNoteClick }) => {
+  // Debug logging
+  console.log('🔍 GlucoseChart render:', { 
+    dataLength: data?.length || 0, 
+    timeRange, 
+    notesLength: notes?.length || 0,
+    hasData: !!data && data.length > 0
+  });
+
+  // Helper functions must be defined before useMemo
+  const getGlucoseColor = (value: number) => {
+    if (value < 70) return '#ef4444'; // red for low
+    if (value < 180) return '#10b981'; // green for normal
+    if (value < 250) return '#f59e0b'; // yellow for high
+    return '#dc2626'; // red for critical
+  };
+
   // Memoize chart data to prevent unnecessary re-renders
   const chartData = React.useMemo(() => {
     if (!data || data.length === 0) {
@@ -96,15 +112,6 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
     return [value, name];
   };
 
-  const getGlucoseColor = (value: number) => {
-    if (value < 70) return '#ef4444'; // red for low
-    if (value < 180) return '#10b981'; // green for normal
-    if (value < 250) return '#f59e0b'; // yellow for high
-    return '#dc2626'; // red for critical
-  };
-
-
-
   // Error boundary for chart rendering
   const [chartError, setChartError] = React.useState<string | null>(null);
 
@@ -134,6 +141,13 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
       </div>
     );
   }
+
+  // Debug chart rendering decision
+  console.log('🔍 Chart rendering decision:', { 
+    chartDataLength: chartData.length, 
+    willShowChart: chartData.length > 0,
+    chartDataSample: chartData.slice(0, 2)
+  });
 
   return (
     <div className="glucose-card">
