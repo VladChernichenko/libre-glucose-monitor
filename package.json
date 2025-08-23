@@ -22,7 +22,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "pre-commit": "./scripts/pre-commit-check.sh",
+    "lint": "react-scripts build --no-optimize"
   },
   "eslintConfig": {
     "extends": [
