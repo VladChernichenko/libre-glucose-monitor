@@ -474,8 +474,8 @@ const handleDataSourceChange = async (sourceId: string) => {
 ### **Environment Variables**
 ```env
 # Nightscout Configuration
-REACT_APP_NIGHTSCOUT_URL=https://your-nightscout-instance.herokuapp.com
-REACT_APP_NIGHTSCOUT_SECRET=your-api-secret
+REACT_APP_NIGHTSCOUT_URL=https://vladchernichenko.eu.nightscoutpro.com
+REACT_APP_NIGHTSCOUT_SECRET=k:4KuxU25Ok04qv
 
 # Libre LinkUp Configuration
 REACT_APP_LIBRE_API_URL=https://api.libreview.com

@@ -1,0 +1,66 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: libre-glucose-monitor-backend
+  
+  datasource:
+    url: jdbc:h2:mem:glucose_db
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  webflux:
+    base-path: /api
+
+# Nightscout Configuration
+nightscout:
+  url: ${NIGHTSCOUT_URL:https://vladchernichenko.eu.nightscoutpro.com}
+  secret: ${NIGHTSCOUT_SECRET:k:4KuxU25Ok04qv}
+  api:
+    entries: /api/v2/entries.json
+    current: /api/v2/entries.json?count=1
+
+# Application Configuration
+app:
+  glucose:
+    update-interval: 60000 # 1 minute in milliseconds
+    history-retention: 24 # hours to keep in memory
+    demo-mode: ${ENABLE_DEMO_MODE:false}
+
+# Logging
+logging:
+  level:
+    com.glucose.monitor: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+

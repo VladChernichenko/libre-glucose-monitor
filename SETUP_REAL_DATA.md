@@ -80,8 +80,8 @@ Create a `.env` file in your project root:
 
 ```env
 # Nightscout Configuration (if using Nightscout)
-REACT_APP_NIGHTSCOUT_URL=https://your-app-name.herokuapp.com
-REACT_APP_NIGHTSCOUT_SECRET=your-api-secret
+REACT_APP_NIGHTSCOUT_URL=https://vladchernichenko.eu.nightscoutpro.com/
+REACT_APP_NIGHTSCOUT_SECRET=k:4KuxU25Ok04qv
 
 # Libre LinkUp Configuration (if using Libre API)
 REACT_APP_LIBRE_API_URL=https://api.libreview.com
