@@ -3,11 +3,15 @@ import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
+import COBDisplay from './COBDisplay';
+import COBChart from './COBChart';
+import COBSettings from './COBSettings';
 import { generateDemoGlucoseData } from '../services/demoData';
 
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
 import { notesStorageService } from '../services/notesStorage';
+import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 
 
 const Dashboard: React.FC = () => {
@@ -24,6 +28,17 @@ const Dashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  
+  // COB management
+  const [cobStatus, setCobStatus] = useState<COBStatus>({
+    currentCOB: 0,
+    activeEntries: [],
+    estimatedGlucoseImpact: 0,
+    timeToZero: 0,
+    insulinOnBoard: 0
+  });
+  const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
+  const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
   
   // Nightscout integration enabled - using real data
   const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
@@ -320,6 +335,33 @@ const Dashboard: React.FC = () => {
     setNotes(allNotes);
   }, []);
 
+  // COB management functions
+  const calculateCOB = useCallback(() => {
+    // Convert notes to COB entries
+    const cobEntries: COBEntry[] = notes.map(note => ({
+      id: note.id,
+      timestamp: note.timestamp,
+      carbs: note.carbs,
+      insulin: note.insulin,
+      mealType: note.meal,
+      comment: note.comment,
+      glucoseValue: note.glucoseValue
+    }));
+
+    // Calculate current COB status
+    const status = carbsOnBoardService.calculateCOB(cobEntries);
+    setCobStatus(status);
+
+    // Calculate COB projection for chart
+    const projection = carbsOnBoardService.getCOBProjection(cobEntries, 24); // 6 hours in 15-min intervals
+    setCobProjection(projection);
+  }, [notes]);
+
+  const handleCOBConfigChange = useCallback((newConfig: any) => {
+    carbsOnBoardService.updateConfig(newConfig);
+    calculateCOB(); // Recalculate with new settings
+  }, [calculateCOB]);
+
   const handleNoteSave = (note: GlucoseNote) => {
     setNotes(prev => [...prev, note]);
     console.log('✅ Note saved:', note);
@@ -359,6 +401,20 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     loadNotes();
   }, [loadNotes]);
+
+  // Calculate COB whenever notes change
+  useEffect(() => {
+    calculateCOB();
+  }, [calculateCOB]);
+
+  // Refresh COB calculations every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      calculateCOB();
+    }, 300000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [calculateCOB]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -441,6 +497,18 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsCOBSettingsOpen(true)}
+                className="btn-secondary text-sm px-3 py-1.5 flex items-center space-x-2"
+                title="Configure COB settings"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>COB Settings</span>
+              </button>
+              
               <button
                 onClick={handleLogout}
                 className="btn-secondary"
@@ -544,6 +612,27 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* COB Display */}
+            <COBDisplay 
+              cobStatus={cobStatus}
+              onEditEntry={(entry) => {
+                // Find the corresponding note and edit it
+                const note = notes.find(n => n.id === entry.id);
+                if (note) {
+                  handleEditNote(note);
+                }
+              }}
+              onDeleteEntry={(entryId) => {
+                handleNoteDelete(entryId);
+              }}
+            />
+
+            {/* COB Chart */}
+            <COBChart 
+              projection={cobProjection}
+              timeRange={timeRange}
+            />
           </div>
 
           {/* Right Column: Glucose Chart - Expanded */}
@@ -590,6 +679,15 @@ const Dashboard: React.FC = () => {
           currentGlucose={currentReading?.value}
           mode={editingNote ? 'edit' : 'add'}
         />
+
+        {/* COB Settings Modal */}
+        {isCOBSettingsOpen && (
+          <COBSettings
+            config={carbsOnBoardService.getConfig()}
+            onConfigChange={handleCOBConfigChange}
+            onClose={() => setIsCOBSettingsOpen(false)}
+          />
+        )}
       </main>
     </div>
   );
