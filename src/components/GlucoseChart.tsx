@@ -87,7 +87,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   return (
     <div className="glucose-card">
 
-      <div className="h-full w-full">
+      <div className="h-full w-full min-h-96">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>

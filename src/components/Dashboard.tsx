@@ -527,7 +527,7 @@ const Dashboard: React.FC = () => {
         <div className="h-full grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-16 gap-2 sm:gap-3">
           
           {/* Left Column: Current Glucose + Quick Actions */}
-          <div className="lg:col-span-3 xl:col-span-4 space-y-2 sm:space-y-3 flex flex-col">
+          <div className="lg:col-span-2 xl:col-span-3 space-y-2 sm:space-y-3 flex flex-col">
             
             {/* Current Glucose Display - Compact */}
             <div className="bg-white rounded-lg shadow-sm p-3 flex-shrink-0">
@@ -641,7 +641,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Right Column: Glucose Chart - Expanded */}
-          <div className="lg:col-span-9 xl:col-span-12">
+          <div className="lg:col-span-10 xl:col-span-13">
             <div className="bg-white rounded-lg shadow-sm p-3 h-full flex flex-col">
               {/* Time Range Controls - Compact */}
               <div className="mb-2 flex justify-center">
@@ -664,6 +664,7 @@ const Dashboard: React.FC = () => {
               
               {/* Chart Container - Takes remaining space */}
               <div className="flex-1 min-h-0 h-full">
+                {console.log("🎯 Rendering GlucoseChart with:", { dataLength: glucoseHistory.length, timeRange, notesLength: notes.length });
                 <GlucoseChart 
                   data={glucoseHistory} 
                   timeRange={timeRange}
