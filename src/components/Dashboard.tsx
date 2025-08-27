@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+
 import libreApiService from '../services/libreApi';
 import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
@@ -13,7 +14,6 @@ import { GlucoseNote } from '../types/notes';
 import { notesStorageService } from '../services/notesStorage';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 
-
 const Dashboard: React.FC = () => {
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
@@ -23,12 +23,11 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  
   // Notes management
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
-  
+
   // COB management
   const [cobStatus, setCobStatus] = useState<COBStatus>({
     currentCOB: 0,
@@ -39,10 +38,10 @@ const Dashboard: React.FC = () => {
   });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
-  
+
   // Nightscout integration enabled - using real data
   const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
-  
+
   // Debug: Log environment variables
   console.log('Environment variables:', {
     NIGHTSCOUT_URL: process.env.REACT_APP_NIGHTSCOUT_URL,
@@ -96,7 +95,7 @@ const Dashboard: React.FC = () => {
     setSelectedConnection('nightscout-connection');
   }, []);
 
-    const fetchCurrentGlucose = useCallback(async () => {
+  const fetchCurrentGlucose = useCallback(async () => {
     if (!selectedConnection) return;
     
     setIsLoading(true);
@@ -111,6 +110,7 @@ const Dashboard: React.FC = () => {
     
     try {
       console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
+
       const response = await fetch(`${nightscoutUrl}/api/v2/entries.json?count=1`, {
         headers: {
           'Content-Type': 'application/json',
@@ -139,8 +139,6 @@ const Dashboard: React.FC = () => {
             const newHistory = [...prev, reading];
             return newHistory.slice(-100);
           });
-          
-
         } else {
           setError('No glucose data available from Nightscout');
         }
@@ -153,6 +151,7 @@ const Dashboard: React.FC = () => {
       
       // Fallback to demo data if Nightscout fails
       console.log('🔄 Falling back to demo data due to Nightscout failure');
+
       const demoData = generateDemoGlucoseData(24);
       setGlucoseHistory(demoData);
       if (demoData.length > 0) {
@@ -174,7 +173,7 @@ const Dashboard: React.FC = () => {
     
     try {
       console.log('🔍 Fetching historical data from Nightscout:', nightscoutUrl);
-      
+
       // Calculate date range based on time range
       const endDate = new Date();
       const startDate = new Date();
@@ -190,7 +189,7 @@ const Dashboard: React.FC = () => {
       }
       
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
-      
+
       // Use a large count to ensure we get enough data, then filter by date
       const response = await fetch(
         `${nightscoutUrl}/api/v2/entries.json?count=500`,
@@ -204,7 +203,7 @@ const Dashboard: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Historical data response:', data.length, 'entries');
-        
+
         // Filter data to only include glucose readings (type: 'sgv') within the time range
         const glucoseEntries = data.filter((entry: any) => {
           if (entry.type !== 'sgv') return false;
@@ -215,13 +214,14 @@ const Dashboard: React.FC = () => {
         
         console.log(`📊 Filtered glucose entries for ${timeRange}:`, glucoseEntries.length);
         console.log(`📊 Time range: ${startDate.toLocaleString()} to ${endDate.toLocaleString()}`);
-        
+
         // If no data in the time range, show available data with a warning
         if (glucoseEntries.length === 0) {
           console.log('⚠️ No data in selected time range, showing all available data');
+ 
           const allGlucoseEntries = data.filter((entry: any) => entry.type === 'sgv');
           console.log(`📊 Showing all available glucose entries: ${allGlucoseEntries.length}`);
-          
+
           const history = allGlucoseEntries.map((entry: any) => ({
             timestamp: new Date(entry.date),
             value: convertToMmolL(entry.sgv),
@@ -234,9 +234,10 @@ const Dashboard: React.FC = () => {
           
           // Sort by timestamp
           history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
-          
+
           console.log('⚠️ Processed all available data:', history.length, 'entries');
           console.log('⚠️ Available data span: ', history[0]?.timestamp.toLocaleString(), 'to', history[history.length - 1]?.timestamp.toLocaleString());
+ 
           setGlucoseHistory(history);
           return;
         }
@@ -253,7 +254,7 @@ const Dashboard: React.FC = () => {
         
         // Sort by timestamp to ensure chronological order
         history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
-        
+
         console.log('✅ Processed historical data:', history.length, 'entries');
         console.log('✅ First entry:', history[0]?.timestamp.toLocaleString());
         console.log('✅ Last entry:', history[history.length - 1]?.timestamp.toLocaleString());
@@ -268,6 +269,7 @@ const Dashboard: React.FC = () => {
       
       // Fallback to demo data if Nightscout fails
       console.log('🔄 Falling back to demo data due to Nightscout historical fetch failure');
+
       const demoData = generateDemoGlucoseData(24);
       setGlucoseHistory(demoData);
     }
@@ -287,9 +289,11 @@ const Dashboard: React.FC = () => {
     
     // Always try to load demo data first for immediate chart display
     console.log('🚀 Loading demo data for immediate chart display');
+
     const demoData = generateDemoGlucoseData(24);
     console.log('📊 Demo data generated:', demoData.length, 'entries');
     console.log('📊 Demo data sample:', demoData.slice(0, 3));
+
     setGlucoseHistory(demoData);
     if (demoData.length > 0) {
       setCurrentReading(demoData[demoData.length - 1]);
@@ -327,8 +331,6 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-
-
   // Notes management functions
   const loadNotes = useCallback(() => {
     const allNotes = notesStorageService.getNotes();
@@ -353,7 +355,7 @@ const Dashboard: React.FC = () => {
     setCobStatus(status);
 
     // Calculate COB projection for chart
-    const projection = carbsOnBoardService.getCOBProjection(cobEntries, 24); // 6 hours in 15-min intervals
+    const projection = carbsOnBoardService.getCOBProjection(cobEntries, 24); // 6 hours in 15-min intervals 
     setCobProjection(projection);
   }, [notes]);
 
@@ -447,8 +449,6 @@ const Dashboard: React.FC = () => {
     window.location.reload();
   };
 
-
-
   const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
     console.log('🕐 handleTimeRangeChange called with:', range);
     console.log('🕐 Previous timeRange was:', timeRange);
@@ -459,7 +459,7 @@ const Dashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="text-center">
             <div className="mx-auto h-12 w-12 text-red-500 mb-4">
@@ -482,36 +482,37 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+    <div className="h-screen bg-gray-50 overflow-hidden flex flex-col">
+      {/* Compact Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0">
+        <div className="max-w-full mx-auto px-3 sm:px-4">
+          <div className="flex justify-between items-center py-2">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Libre Glucose Monitor</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Libre Glucose Monitor</h1>
               {patient && (
-                <span className="ml-4 text-sm text-gray-600">
+                <span className="ml-2 sm:ml-4 text-xs sm:text-sm text-gray-600">
                   Welcome, {patient.firstName} {patient.lastName}
                 </span>
               )}
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => setIsCOBSettingsOpen(true)}
-                className="btn-secondary text-sm px-3 py-1.5 flex items-center space-x-2"
+                className="btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 flex items-center space-x-1 sm:space-x-2"
                 title="Configure COB settings"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>COB Settings</span>
+                <span className="hidden sm:inline">COB Settings</span>
+                <span className="sm:hidden">COB</span>
               </button>
               
               <button
                 onClick={handleLogout}
-                className="btn-secondary"
+                className="btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5"
               >
                 Logout
               </button>
@@ -520,15 +521,16 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-full mx-auto px-3 sm:px-4 py-3">
-        
-        {/* Two-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-7rem)]">
+      {/* Main Content - Takes remaining space */}
+      <main className="flex-1 overflow-hidden p-2 sm:p-3">
+        {/* Responsive Grid Layout */}
+        <div className="h-full grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-16 gap-2 sm:gap-3">
+          
           {/* Left Column: Current Glucose + Quick Actions */}
-          <div className="lg:col-span-3 space-y-4">
+          <div className="lg:col-span-3 xl:col-span-4 space-y-2 sm:space-y-3 flex flex-col">
+            
             {/* Current Glucose Display - Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-4 h-fit">
+            <div className="bg-white rounded-lg shadow-sm p-3 flex-shrink-0">
               <GlucoseDisplay 
                 reading={currentReading} 
                 isLoading={isLoading}
@@ -545,12 +547,12 @@ const Dashboard: React.FC = () => {
             </div>
             
             {/* Notes Quick Add & Recent Summary */}
-            <div className="bg-white rounded-lg shadow-sm p-4 flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">🍽️ Meal Tracking</h3>
+            <div className="bg-white rounded-lg shadow-sm p-3 flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm sm:text-base font-semibold text-gray-900">🍽️ Meal Tracking</h3>
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
-                  className="btn-primary text-sm px-3 py-1.5"
+                  className="btn-primary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5"
                   title="Add new note (⌘+⇧+O) • Undo last note (⌘+Z)"
                 >
                   ➕ Add
@@ -558,11 +560,11 @@ const Dashboard: React.FC = () => {
               </div>
               
               {/* Recent Notes Summary - Scrollable */}
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                {notes.slice(0, 8).map((note) => (
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-1 sm:space-y-2">
+                {notes.slice(0, 6).map((note) => (
                   <div 
                     key={note.id} 
-                    className="flex items-center justify-between text-sm bg-gray-50 rounded p-2 hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between text-xs sm:text-sm bg-gray-50 rounded p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
                   >
                     <div 
                       className="flex-1 min-w-0 cursor-pointer"
@@ -570,7 +572,7 @@ const Dashboard: React.FC = () => {
                     >
                       <div className="font-medium truncate">{note.meal}</div>
                       <div className="text-xs text-gray-500">
-                        {new Date(note.timestamp).toLocaleString('en-US', { 
+                        {new Date(note.timestamp).toLocaleString('en-US', {
                           month: 'short', 
                           day: 'numeric', 
                           hour: '2-digit', 
@@ -578,7 +580,7 @@ const Dashboard: React.FC = () => {
                         })}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <div className="text-right text-xs">
                         <div className="text-blue-600 font-medium">{note.carbs}g</div>
                         <div className="text-purple-600 font-medium">{note.insulin}u</div>
@@ -588,10 +590,10 @@ const Dashboard: React.FC = () => {
                           e.stopPropagation();
                           handleNoteDelete(note.id);
                         }}
-                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                        className="text-red-400 hover:text-red-600 transition-colors p-0.5 sm:p-1"
                         title="Delete note"
                       >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
@@ -599,53 +601,56 @@ const Dashboard: React.FC = () => {
                   </div>
                 ))}
                 {notes.length === 0 && (
-                  <div className="text-center py-6">
-                    <div className="text-gray-400 text-3xl mb-2">🍽️</div>
-                    <p className="text-gray-500 text-sm">No notes yet</p>
+                  <div className="text-center py-4">
+                    <div className="text-gray-400 text-2xl sm:text-3xl mb-1 sm:mb-2">🍽️</div>
+                    <p className="text-gray-500 text-xs sm:text-sm">No notes yet</p>
                     <p className="text-gray-400 text-xs">Click "Add" to start tracking</p>
                   </div>
                 )}
-                {notes.length > 8 && (
-                  <div className="text-center py-2">
-                    <span className="text-xs text-gray-400">+{notes.length - 8} more notes</span>
+                {notes.length > 6 && (
+                  <div className="text-center py-1 sm:py-2">
+                    <span className="text-xs text-gray-400">+{notes.length - 6} more notes</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* COB Display */}
-            <COBDisplay 
-              cobStatus={cobStatus}
-              onEditEntry={(entry) => {
-                // Find the corresponding note and edit it
-                const note = notes.find(n => n.id === entry.id);
-                if (note) {
-                  handleEditNote(note);
-                }
-              }}
-              onDeleteEntry={(entryId) => {
-                handleNoteDelete(entryId);
-              }}
-            />
+            {/* COB Display - Compact */}
+            <div className="flex-shrink-0">
+              <COBDisplay 
+                cobStatus={cobStatus}
+                onEditEntry={(entry) => {
+                  const note = notes.find(n => n.id === entry.id);
+                  if (note) {
+                    handleEditNote(note);
+                  }
+                }}
+                onDeleteEntry={(entryId) => {
+                  handleNoteDelete(entryId);
+                }}
+              />
+            </div>
 
-            {/* COB Chart */}
-            <COBChart 
-              projection={cobProjection}
-              timeRange={timeRange}
-            />
+            {/* COB Chart - Compact */}
+            <div className="flex-shrink-0">
+              <COBChart 
+                projection={cobProjection}
+                timeRange={timeRange}
+              />
+            </div>
           </div>
 
           {/* Right Column: Glucose Chart - Expanded */}
-          <div className="lg:col-span-9">
-            <div className="bg-white rounded-lg shadow-sm p-4 h-full flex flex-col">
+          <div className="lg:col-span-9 xl:col-span-12">
+            <div className="bg-white rounded-lg shadow-sm p-3 h-full flex flex-col">
               {/* Time Range Controls - Compact */}
-              <div className="mb-3 flex justify-center">
+              <div className="mb-2 flex justify-center">
                 <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
                   {(['1h', '6h', '12h', '24h'] as const).map((range) => (
                     <button
                       key={range}
                       onClick={() => handleTimeRangeChange(range)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                         timeRange === range
                           ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
                           : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
