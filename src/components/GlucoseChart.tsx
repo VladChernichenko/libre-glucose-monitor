@@ -86,11 +86,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
 
   return (
     <div className="glucose-card">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Glucose Trend</h3>
-      </div>
 
-      <div className="h-80">
+      <div className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>

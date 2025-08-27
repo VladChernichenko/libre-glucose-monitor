@@ -663,7 +663,7 @@ const Dashboard: React.FC = () => {
               </div>
               
               {/* Chart Container - Takes remaining space */}
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 h-full">
                 <GlucoseChart 
                   data={glucoseHistory} 
                   timeRange={timeRange}
