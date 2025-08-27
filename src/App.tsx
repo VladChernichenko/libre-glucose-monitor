@@ -5,13 +5,13 @@ import CarbsOnBoardTest from './components/CarbsOnBoardTest';
 const App: React.FC = () => {
   return (
     <div className="App">
-      {/* Temporary: COB Test Component */}
-      <div className="min-h-screen bg-gray-100 py-8">
-        <CarbsOnBoardTest />
-      </div>
+      {/* Main Dashboard */}
+      <Dashboard />
       
-      {/* Original Dashboard - Commented out for testing */}
-      {/* <Dashboard /> */}
+      {/* COB Test Component - Commented out for production */}
+      {/* <div className="min-h-screen bg-gray-100 py-8">
+        <CarbsOnBoardTest />
+      </div> */}
     </div>
   );
 };
