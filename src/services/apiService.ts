@@ -7,6 +7,8 @@ export interface ApiConfig {
   nightscoutToken?: string;
   libreApiUrl?: string;
   cobApiUrl?: string;
+  enableCorsProxy?: boolean;
+  corsProxyUrl?: string;
 }
 
 export interface GlucoseEntry {
@@ -123,6 +125,9 @@ class ApiService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        // Add CORS handling
+        withCredentials: false,
+        timeout: 10000,
       });
 
       if (this.config.nightscoutSecret) {
@@ -165,17 +170,44 @@ class ApiService {
   // ===== NIGHTSCOUT API METHODS =====
 
   async getNightscoutGlucoseEntries(count: number = 100): Promise<NightscoutEntry[]> {
-    if (!this.nightscoutApi) {
+    if (!this.config.nightscoutUrl) {
       throw new Error('Nightscout API not configured');
     }
 
     try {
-      const response: AxiosResponse<NightscoutEntry[]> = await this.nightscoutApi.get(`/api/v2/entries.json?count=${count}`);
-      return response.data;
+      // Try direct API call first
+      if (this.nightscoutApi) {
+        const response: AxiosResponse<NightscoutEntry[]> = await this.nightscoutApi.get(`/api/v2/entries.json?count=${count}`);
+        return response.data;
+      }
     } catch (error) {
-      console.error('Failed to fetch glucose entries:', error);
-      throw new Error('Failed to fetch glucose data from Nightscout');
+      console.warn('Direct Nightscout API call failed, trying CORS proxy:', error);
+      
+      // Fallback to CORS proxy if direct call fails
+      try {
+        const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}/api/v2/entries.json?count=${count}`;
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(this.config.nightscoutSecret && { 'api-secret': this.config.nightscoutSecret }),
+            ...(this.config.nightscoutToken && { 'Authorization': `Bearer ${this.config.nightscoutToken}` }),
+          },
+        });
+        
+        if (response.ok) {
+          const data: NightscoutEntry[] = await response.json();
+          return data;
+        }
+      } catch (proxyError) {
+        console.error('CORS proxy also failed:', proxyError);
+      }
+      
+      throw new Error('Failed to fetch glucose data from Nightscout (CORS issue)');
     }
+    
+    return [];
   }
 
   async getNightscoutGlucoseEntriesByDate(startDate: Date, endDate: Date): Promise<NightscoutEntry[]> {
@@ -197,17 +229,44 @@ class ApiService {
   }
 
   async getNightscoutCurrentGlucose(): Promise<NightscoutEntry | null> {
-    if (!this.nightscoutApi) {
+    if (!this.config.nightscoutUrl) {
       throw new Error('Nightscout API not configured');
     }
 
     try {
-      const response: AxiosResponse<NightscoutEntry[]> = await this.nightscoutApi.get('/api/v2/entries.json?count=1');
-      return response.data.length > 0 ? response.data[0] : null;
+      // Try direct API call first
+      if (this.nightscoutApi) {
+        const response: AxiosResponse<NightscoutEntry[]> = await this.nightscoutApi.get('/api/v2/entries.json?count=1');
+        return response.data.length > 0 ? response.data[0] : null;
+      }
     } catch (error) {
-      console.error('Failed to fetch current glucose:', error);
-      throw new Error('Failed to fetch current glucose from Nightscout');
+      console.warn('Direct Nightscout API call failed, trying CORS proxy:', error);
+      
+      // Fallback to CORS proxy if direct call fails
+      try {
+        const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}/api/v2/entries.json?count=1`;
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(this.config.nightscoutSecret && { 'api-secret': this.config.nightscoutSecret }),
+            ...(this.config.nightscoutToken && { 'Authorization': `Bearer ${this.config.nightscoutToken}` }),
+          },
+        });
+        
+        if (response.ok) {
+          const data: NightscoutEntry[] = await response.json();
+          return data.length > 0 ? data[0] : null;
+        }
+      } catch (proxyError) {
+        console.error('CORS proxy also failed:', proxyError);
+      }
+      
+      throw new Error('Failed to fetch current glucose from Nightscout (CORS issue)');
     }
+    
+    return null;
   }
 
   async getNightscoutDeviceStatus(): Promise<NightscoutDeviceStatus[]> {
@@ -253,16 +312,40 @@ class ApiService {
   }
 
   async testNightscoutConnection(): Promise<boolean> {
-    if (!this.nightscoutApi) {
+    if (!this.config.nightscoutUrl) {
       return false;
     }
 
     try {
-      await this.nightscoutApi.get('/api/v2/status.json');
-      return true;
+      // Try direct API call first
+      if (this.nightscoutApi) {
+        await this.nightscoutApi.get('/api/v2/status.json');
+        return true;
+      }
     } catch (error) {
-      return false;
+      console.warn('Direct Nightscout connection test failed, trying CORS proxy:', error);
+      
+      // Fallback to CORS proxy if direct call fails
+      try {
+        const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}/api/v2/status.json`;
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(this.config.nightscoutSecret && { 'api-secret': this.config.nightscoutSecret }),
+            ...(this.config.nightscoutToken && { 'Authorization': `Bearer ${this.config.nightscoutToken}` }),
+          },
+        });
+        
+        return response.ok;
+      } catch (proxyError) {
+        console.error('CORS proxy connection test also failed:', proxyError);
+        return false;
+      }
     }
+    
+    return false;
   }
 
   // ===== LIBRE API METHODS =====
@@ -432,6 +515,15 @@ class ApiService {
 
   // ===== UTILITY METHODS =====
 
+  private async checkCorsIssue(url: string): Promise<boolean> {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
   private getGlucoseStatus(value: number): 'low' | 'normal' | 'high' | 'critical' {
     // value is in mmol/L
     if (value < 3.9) return 'low';      // < 70 mg/dL
@@ -459,6 +551,8 @@ export const apiService = new ApiService({
   nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
   libreApiUrl: process.env.REACT_APP_LIBRE_API_URL || 'https://api.libreview.com',
   cobApiUrl: process.env.REACT_APP_COB_API_URL || 'http://localhost:8080',
+  enableCorsProxy: true,
+  corsProxyUrl: process.env.REACT_APP_CORS_PROXY_URL || 'https://cors-anywhere.herokuapp.com',
 });
 
 export default apiService;
