@@ -174,6 +174,12 @@ class ApiService {
       throw new Error('Nightscout API not configured');
     }
 
+    // Test API connection first
+    const isConnected = await this.testNightscoutConnection();
+    if (!isConnected) {
+      throw new Error('Nightscout API is not accessible (CORS/403 error)');
+    }
+
     try {
       // Try direct API call first
       if (this.nightscoutApi) {
@@ -231,6 +237,12 @@ class ApiService {
   async getNightscoutCurrentGlucose(): Promise<NightscoutEntry | null> {
     if (!this.config.nightscoutUrl) {
       throw new Error('Nightscout API not configured');
+    }
+
+    // Test API connection first
+    const isConnected = await this.testNightscoutConnection();
+    if (!isConnected) {
+      throw new Error('Nightscout API is not accessible (CORS/403 error)');
     }
 
     try {
@@ -316,18 +328,33 @@ class ApiService {
       return false;
     }
 
-    try {
-      // Try direct API call first
-      if (this.nightscoutApi) {
-        await this.nightscoutApi.get('/api/v2/status.json');
-        return true;
-      }
-    } catch (error) {
-      console.warn('Direct Nightscout connection test failed, trying CORS proxy:', error);
-      
-      // Fallback to CORS proxy if direct call fails
+    console.log('🔍 Testing Nightscout connection...');
+
+    // Test multiple endpoints to ensure API is working
+    const testEndpoints = [
+      '/api/v2/status.json',
+      '/api/v2/entries.json?count=1'
+    ];
+
+    for (const endpoint of testEndpoints) {
       try {
-        const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}/api/v2/status.json`;
+        // Try direct API call first
+        if (this.nightscoutApi) {
+          console.log(`🔍 Testing direct API call to: ${endpoint}`);
+          const response = await this.nightscoutApi.get(endpoint);
+          if (response.status === 200) {
+            console.log('✅ Direct API call successful');
+            return true;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Direct API call to ${endpoint} failed:`, error);
+      }
+
+      // Try CORS proxy if direct call fails
+      try {
+        console.log(`🔍 Testing CORS proxy for: ${endpoint}`);
+        const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}${endpoint}`;
         const response = await fetch(proxyUrl, {
           method: 'GET',
           headers: {
@@ -338,13 +365,18 @@ class ApiService {
           },
         });
         
-        return response.ok;
+        if (response.status === 200) {
+          console.log('✅ CORS proxy call successful');
+          return true;
+        } else {
+          console.warn(`⚠️ CORS proxy returned status: ${response.status}`);
+        }
       } catch (proxyError) {
-        console.error('CORS proxy connection test also failed:', proxyError);
-        return false;
+        console.error(`❌ CORS proxy call to ${endpoint} failed:`, proxyError);
       }
     }
     
+    console.error('❌ All Nightscout connection tests failed');
     return false;
   }
 
@@ -533,6 +565,65 @@ class ApiService {
   }
 
   // ===== CONFIGURATION METHODS =====
+
+  async getDetailedConnectionStatus(): Promise<{
+    direct: boolean;
+    proxy: boolean;
+    errors: string[];
+    nightscoutUrl: string;
+    hasSecret: boolean;
+    hasToken: boolean;
+  }> {
+    const result = {
+      direct: false,
+      proxy: false,
+      errors: [] as string[],
+      nightscoutUrl: this.config.nightscoutUrl || 'Not configured',
+      hasSecret: !!this.config.nightscoutSecret,
+      hasToken: !!this.config.nightscoutToken,
+    };
+
+    if (!this.config.nightscoutUrl) {
+      result.errors.push('Nightscout URL not configured');
+      return result;
+    }
+
+    // Test direct connection
+    try {
+      if (this.nightscoutApi) {
+        const response = await this.nightscoutApi.get('/api/v2/status.json');
+        if (response.status === 200) {
+          result.direct = true;
+        }
+      }
+    } catch (error) {
+      result.errors.push(`Direct connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Test proxy connection
+    try {
+      const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}/api/v2/status.json`;
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(this.config.nightscoutSecret && { 'api-secret': this.config.nightscoutSecret }),
+          ...(this.config.nightscoutToken && { 'Authorization': `Bearer ${this.config.nightscoutToken}` }),
+        },
+      });
+      
+      if (response.status === 200) {
+        result.proxy = true;
+      } else {
+        result.errors.push(`Proxy connection returned status: ${response.status}`);
+      }
+    } catch (error) {
+      result.errors.push(`Proxy connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    return result;
+  }
 
   updateConfig(newConfig: Partial<ApiConfig>) {
     this.config = { ...this.config, ...newConfig };
