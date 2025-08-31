@@ -1,6 +1,5 @@
 import React from 'react';
 import Dashboard from './components/Dashboard';
-import CarbsOnBoardTest from './components/CarbsOnBoardTest';
 
 const App: React.FC = () => {
   return (
