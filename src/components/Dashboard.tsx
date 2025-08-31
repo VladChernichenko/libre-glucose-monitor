@@ -48,6 +48,9 @@ const Dashboard: React.FC = () => {
     ENABLE_DEMO: process.env.REACT_APP_ENABLE_DEMO_MODE
   });
   console.log('Nightscout URL state:', nightscoutUrl);
+  
+  // Debug: Log API service configuration
+  console.log('API Service config:', apiService.getConfig());
 
   // Helper functions for Nightscout data conversion
   const convertTrendToArrow = (direction: string): string => {
@@ -522,6 +525,22 @@ const Dashboard: React.FC = () => {
               <div className="text-xs text-gray-600">
                 <div>⌘+⇧+O: Add note</div>
                 <div>⌘+Z: Undo last</div>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🧪 Testing API connection...');
+                      const status = await apiService.getDetailedConnectionStatus();
+                      console.log('🧪 API Connection Status:', status);
+                      alert(`API Status:\nDirect: ${status.direct}\nProxy: ${status.proxy}\nErrors: ${status.errors.join(', ')}`);
+                    } catch (error) {
+                      console.error('🧪 API test failed:', error);
+                      alert(`API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }}
+                  className="bg-green-500 hover:bg-green-600 text-white px-1 py-0.5 rounded text-xs mt-1 w-full"
+                >
+                  🧪 Test API
+                </button>
               </div>
             </div>
 
