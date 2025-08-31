@@ -16,6 +16,23 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
     setIsDirty(false);
   }, [config]);
 
+  // Add ESC key handler to close modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    // Add event listener when component mounts
+    document.addEventListener('keydown', handleEscKey);
+
+    // Cleanup event listener when component unmounts
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [onClose]);
+
   const handleInputChange = (field: keyof COBConfig, value: number) => {
     setLocalConfig(prev => ({ ...prev, [field]: value }));
     setIsDirty(true);
