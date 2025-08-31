@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiService from '../services/apiService';
 
 export const CarbsOnBoardTest: React.FC = () => {
   const [userId, setUserId] = useState<string>('test-user-1');
@@ -34,19 +35,11 @@ export const CarbsOnBoardTest: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`http://localhost:8080/api/cob/calculate?userId=${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          carbs,
-          timestamp: new Date(timestamp).toISOString(),
-          userId
-        }),
+      const result = await apiService.calculateCOB(userId, {
+        carbs,
+        timestamp: new Date(timestamp).toISOString(),
+        userId
       });
-
-      const result = await response.json();
       setCalculationResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -61,15 +54,7 @@ export const CarbsOnBoardTest: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`http://localhost:8080/api/cob/status?userId=${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ entries: sampleEntries }),
-      });
-
-      const result = await response.json();
+      const result = await apiService.getCOBStatus(userId);
       setCobStatus(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -84,21 +69,7 @@ export const CarbsOnBoardTest: React.FC = () => {
     setError(null);
     
     try {
-      const entry = {
-        carbs,
-        timestamp: new Date(timestamp).toISOString(),
-        mealType: 'Test Meal'
-      };
-      
-      const response = await fetch(`http://localhost:8080/api/cob/timeline?userId=${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ entry, durationHours }),
-      });
-
-      const result = await response.json();
+      const result = await apiService.getCOBTimeline(userId);
       setTimelineResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
