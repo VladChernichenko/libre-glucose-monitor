@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 import libreApiService from '../services/libreApi';
-import GlucoseDisplay from './GlucoseDisplay';
 import GlucoseChart from './GlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBDisplay from './COBDisplay';
@@ -522,101 +521,39 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* Main Content - Takes remaining space */}
-      <main className="flex-1 overflow-hidden p-2 sm:p-3">
-        {/* Responsive Grid Layout */}
-        <div className="h-full grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-16 gap-2 sm:gap-3">
+              <main className="flex-1 overflow-hidden p-1">
+        {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
+        <div className="h-full flex flex-col gap-1">
           
-          {/* Left Column: Current Glucose + Quick Actions */}
-          <div className="lg:col-span-2 xl:col-span-3 space-y-2 sm:space-y-3 flex flex-col">
+          {/* Top Row: Quick Actions + COB + COB Projection - Ultra Compact */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1 flex-shrink-0 h-[15vh]">
             
-            {/* Current Glucose Display - Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-3 flex-shrink-0">
-              <GlucoseDisplay 
-                reading={currentReading} 
-                isLoading={isLoading}
-                insulinDoses={notes.filter(note => note.insulin > 0).map(note => ({
-                  id: note.id,
-                  timestamp: note.timestamp,
-                  units: note.insulin,
-                  type: note.meal === 'Correction' ? 'correction' : 'bolus',
-                  note: note.comment,
-                  mealType: note.meal
-                }))}
-                currentTime={currentTime}
-              />
-            </div>
-            
-            {/* Notes Quick Add & Recent Summary */}
-            <div className="bg-white rounded-lg shadow-sm p-3 flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">🍽️ Meal Tracking</h3>
+            {/* Quick Actions - Ultra Compact */}
+            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-xs font-semibold text-gray-900">⚡ Quick Actions</h3>
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
-                  className="btn-primary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5"
-                  title="Add new note (⌘+⇧+O) • Undo last note (⌘+Z)"
+                  className="btn-primary text-xs px-2 py-1"
+                  title="Add new note (⌘+⇧+O)"
                 >
                   ➕ Add
                 </button>
               </div>
-              
-              {/* Recent Notes Summary - Scrollable */}
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-1 sm:space-y-2">
-                {notes.slice(0, 6).map((note) => (
-                  <div 
-                    key={note.id} 
-                    className="flex items-center justify-between text-xs sm:text-sm bg-gray-50 rounded p-1.5 sm:p-2 hover:bg-gray-100 transition-colors"
-                  >
-                    <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => handleEditNote(note)}
-                    >
-                      <div className="font-medium truncate">{note.meal}</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(note.timestamp).toLocaleString('en-US', {
-                          month: 'short', 
-                          day: 'numeric', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <div className="text-right text-xs">
-                        <div className="text-blue-600 font-medium">{note.carbs}g</div>
-                        <div className="text-purple-600 font-medium">{note.insulin}u</div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleNoteDelete(note.id);
-                        }}
-                        className="text-red-400 hover:text-red-600 transition-colors p-0.5 sm:p-1"
-                        title="Delete note"
-                      >
-                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {notes.length === 0 && (
-                  <div className="text-center py-4">
-                    <div className="text-gray-400 text-2xl sm:text-3xl mb-1 sm:mb-2">🍽️</div>
-                    <p className="text-gray-500 text-xs sm:text-sm">No notes yet</p>
-                    <p className="text-gray-400 text-xs">Click "Add" to start tracking</p>
-                  </div>
-                )}
-                {notes.length > 6 && (
-                  <div className="text-center py-1 sm:py-2">
-                    <span className="text-xs text-gray-400">+{notes.length - 6} more notes</span>
-                  </div>
-                )}
+              <div className="text-xs text-gray-600">
+                <div>⌘+⇧+O: Add note</div>
+                <div>⌘+Z: Undo last</div>
               </div>
+              <button
+                onClick={() => setIsCOBSettingsOpen(true)}
+                className="btn-secondary text-xs px-2 py-1 mt-1 w-full"
+              >
+                ⚙️ COB Settings
+              </button>
             </div>
 
-            {/* COB Display - Compact */}
-            <div className="flex-shrink-0">
+            {/* COB Display - Ultra Compact */}
+            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
               <COBDisplay 
                 cobStatus={cobStatus}
                 onEditEntry={(entry) => {
@@ -631,26 +568,46 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
-            {/* COB Chart - Compact */}
-            <div className="flex-shrink-0">
-              <COBChart 
-                projection={cobProjection}
-                timeRange={timeRange}
-              />
+            {/* COB & IOB Projection - Ultra Compact */}
+            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
+              <h3 className="text-xs font-semibold text-gray-900 mb-1">📊 COB & IOB</h3>
+              <div className="h-12">
+                <COBChart 
+                  projection={cobProjection}
+                  timeRange={timeRange}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Right Column: Glucose Chart - Expanded */}
-          <div className="lg:col-span-10 xl:col-span-13">
-            <div className="bg-white rounded-lg shadow-sm p-3 h-full flex flex-col">
-              {/* Time Range Controls - Compact */}
-              <div className="mb-2 flex justify-center">
+          {/* Main Chart Area - Exactly 50% of screen height */}
+          <div className="h-[50vh] flex-shrink-0">
+            <div className="bg-white rounded-lg shadow-sm p-1 h-full flex flex-col">
+              {/* Current Glucose Level at Top - Ultra Compact */}
+              <div className="mb-1 flex justify-center flex-shrink-0">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1">
+                  <div className="text-center">
+                    <div className="text-xs text-blue-600 font-medium">Current Glucose</div>
+                    <div className="text-lg font-bold text-blue-800">
+                      {currentReading ? `${currentReading.value} ${currentReading.unit}` : '--'}
+                    </div>
+                    {currentReading && (
+                      <div className="text-xs text-blue-600">
+                        {currentReading.trendArrow} {currentReading.trend}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Time Range Controls - Ultra Compact */}
+              <div className="mb-1 flex justify-center flex-shrink-0">
                 <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
                   {(['1h', '6h', '12h', '24h'] as const).map((range) => (
                     <button
                       key={range}
                       onClick={() => handleTimeRangeChange(range)}
-                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                      className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
                         timeRange === range
                           ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
                           : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
@@ -663,14 +620,82 @@ const Dashboard: React.FC = () => {
               </div>
               
               {/* Chart Container - Takes remaining space */}
-              <div className="flex-1 min-h-0 h-full">
-                {console.log("🎯 Rendering GlucoseChart with:", { dataLength: glucoseHistory.length, timeRange, notesLength: notes.length });
+              <div className="flex-1 min-h-0">
                 <GlucoseChart 
                   data={glucoseHistory} 
                   timeRange={timeRange}
                   notes={notes}
                   onNoteClick={handleNoteClick}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Row: Notes Summary - Full width since COB Projection moved to top */}
+          <div className="flex-shrink-0 h-[20vh]">
+            
+            {/* Notes Summary - Full Width */}
+            <div className="bg-white rounded-lg shadow-sm p-1 h-full">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-xs font-semibold text-gray-900">🍽️ Recent Notes</h3>
+                <button
+                  onClick={() => setIsNoteModalOpen(true)}
+                  className="btn-primary text-xs px-2 py-1"
+                >
+                  ➕ Add
+                </button>
+              </div>
+              
+              {/* Recent Notes List - Ultra Compact */}
+              <div className="space-y-0.5 max-h-16 overflow-y-auto">
+                {notes.slice(0, 4).map((note) => (
+                  <div 
+                    key={note.id} 
+                    className="flex items-center justify-between text-xs bg-gray-50 rounded p-1 hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => handleEditNote(note)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{note.meal}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(note.timestamp).toLocaleString('en-US', {
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="text-right text-xs">
+                        <div className="text-blue-600 font-medium">{note.carbs}g</div>
+                        <div className="text-purple-600 font-medium">{note.insulin}u</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNoteDelete(note.id);
+                        }}
+                        className="text-red-400 hover:text-red-600 transition-colors p-0.5"
+                        title="Delete note"
+                      >
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {notes.length === 0 && (
+                  <div className="text-center py-1">
+                    <div className="text-gray-400 text-sm mb-1">🍽️</div>
+                    <p className="text-gray-500 text-xs">No notes yet</p>
+                  </div>
+                )}
+                {notes.length > 4 && (
+                  <div className="text-center py-1">
+                    <span className="text-xs text-gray-400">+{notes.length - 4} more</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

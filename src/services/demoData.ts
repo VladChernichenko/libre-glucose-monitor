@@ -51,6 +51,7 @@ export const generateDemoGlucoseData = (hours: number = 24): GlucoseReading[] =>
       trendArrow,
       status,
       unit: 'mmol/L',
+      originalTimestamp: timestamp,
     });
   }
   
@@ -82,6 +83,7 @@ export const generateCurrentDemoReading = (): GlucoseReading => {
     trendArrow: Math.random() > 0.5 ? '↗' : '↘',
     status,
     unit: 'mmol/L',
+    originalTimestamp: now, // Add missing property
   };
 };
 

@@ -20,6 +20,55 @@ interface ChartDataPoint {
 }
 
 const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = [], onNoteClick }) => {
+  // Add data validation and debugging
+  console.log('📊 GlucoseChart received data:', {
+    dataLength: data.length,
+    timeRange,
+    sampleData: data.slice(0, 3),
+    hasValidData: data.length > 0 && data.every(item => item && item.timestamp && typeof item.value === 'number')
+  });
+
+  // Early return if no data at all
+  if (!data || data.length === 0) {
+    console.log('❌ No data provided to GlucoseChart');
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <div className="text-4xl mb-2">📊</div>
+          <div className="text-lg font-medium">No glucose data available</div>
+          <div className="text-sm">Please check your data source or try refreshing</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple validation - just check if we have basic structure
+  const validData = data.filter(item => 
+    item && 
+    item.timestamp && 
+    typeof item.value === 'number'
+  );
+
+  console.log('📊 Data validation results:', {
+    originalLength: data.length,
+    validLength: validData.length,
+    firstValidItem: validData[0],
+    sampleValidData: validData.slice(0, 3)
+  });
+
+  if (validData.length === 0) {
+    console.log('❌ No valid data after filtering');
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <div className="text-4xl mb-2">⚠️</div>
+          <div className="text-lg font-medium">Invalid data format</div>
+          <div className="text-sm">Please check your data source</div>
+        </div>
+      </div>
+    );
+  }
+
   const formatXAxis = (tickItem: any) => {
     if (!tickItem) return '';
     const date = new Date(tickItem);
@@ -45,14 +94,14 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   };
 
   const getGlucoseColor = (value: number) => {
-    if (value < 70) return '#ef4444'; // red for low
-    if (value < 180) return '#10b981'; // green for normal
-    if (value < 250) return '#f59e0b'; // yellow for high
-    return '#dc2626'; // red for critical
+    if (value < 3.9) return '#ef4444'; // red for low (mmol/L)
+    if (value < 10.0) return '#10b981'; // green for normal (mmol/L)
+    if (value < 13.9) return '#f59e0b'; // yellow for high (mmol/L)
+    return '#dc2626'; // red for critical (mmol/L)
   };
 
   // Ensure data is sorted by timestamp
-  const sortedData = [...data].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const sortedData = [...validData].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
   // For 24h view, ensure we show a full 24-hour timeline
   let chartData: ChartDataPoint[];
@@ -85,9 +134,9 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   }
 
   return (
-    <div className="glucose-card">
+    <div className="h-full w-full">
 
-      <div className="h-full w-full min-h-96">
+      <div className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>
@@ -97,21 +146,21 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis
-              dataKey="time"
-              tickFormatter={formatXAxis}
-              type="number"
-              domain={
-                timeRange === '24h' && data.length > 0
-                  ? [
-                      new Date().getTime() - (24 * 60 * 60 * 1000), // 24 hours ago
-                      new Date().getTime() // now
-                    ]
-                  : ['dataMin', 'dataMax']
-              }
-              stroke="#6b7280"
-              allowDataOverflow={false}
-            />
+                          <XAxis
+                dataKey="time"
+                tickFormatter={formatXAxis}
+                type="number"
+                domain={
+                  timeRange === '24h' && chartData.length > 0
+                    ? [
+                        new Date().getTime() - (24 * 60 * 60 * 1000), // 24 hours ago
+                        new Date().getTime() // now
+                      ]
+                    : ['dataMin', 'dataMax']
+                }
+                stroke="#6b7280"
+                allowDataOverflow={false}
+              />
             <YAxis
               stroke="#6b7280"
               domain={[0, 'dataMax + 3']}
