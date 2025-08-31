@@ -544,12 +544,6 @@ const Dashboard: React.FC = () => {
                 <div>⌘+⇧+O: Add note</div>
                 <div>⌘+Z: Undo last</div>
               </div>
-              <button
-                onClick={() => setIsCOBSettingsOpen(true)}
-                className="btn-secondary text-xs px-2 py-1 mt-1 w-full"
-              >
-                ⚙️ COB Settings
-              </button>
             </div>
 
             {/* COB Display - Ultra Compact */}
