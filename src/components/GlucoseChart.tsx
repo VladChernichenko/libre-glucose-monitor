@@ -186,8 +186,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
                 domain={
                   timeRange === '24h' && chartData.length > 0
                     ? [
-                        new Date().getTime() - (24 * 60 * 60 * 1000), // 24 hours ago
-                        new Date().getTime() // now
+                        Math.min(...chartData.map(d => d.time)), // Start from earliest data point
+                        Math.max(...chartData.map(d => d.time))  // End at latest data point
                       ]
                     : ['dataMin', 'dataMax']
                 }
@@ -314,17 +314,13 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               <>
                 📊 24-hour view: Showing{' '}
                 <span className="font-semibold">
-                  {format(new Date(new Date().getTime() - (24 * 60 * 60 * 1000)), 'MMM dd, yyyy HH:mm')}
+                  {format(sortedData[0].timestamp, 'MMM dd, yyyy HH:mm')}
                 </span>
                 {' '}to{' '}
                 <span className="font-semibold">
-                  {format(new Date(), 'MMM dd, yyyy HH:mm')}
+                  {format(sortedData[sortedData.length - 1].timestamp, 'MMM dd, yyyy HH:mm')}
                 </span>
-                {' '}(Data available from{' '}
-                <span className="font-semibold">
-                  {format(sortedData[0].timestamp, 'MMM dd, yyyy HH:mm')}
-                </span>
-                {' '}onward)
+                {' '}(Full data range displayed)
               </>
             ) : (
               <>
