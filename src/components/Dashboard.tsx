@@ -113,7 +113,8 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
 
-      const response = await fetch(`${nightscoutUrl}/api/v2/entries.json?count=1`, {
+      const baseUrl = process.env.NODE_ENV === 'development' ? '/ns' : nightscoutUrl;
+      const response = await fetch(`${baseUrl}/api/v2/entries.json?count=1`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -193,8 +194,9 @@ const Dashboard: React.FC = () => {
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
 
       // Use a large count to ensure we get enough data, then filter by date
+      const baseUrl = process.env.NODE_ENV === 'development' ? '/ns' : nightscoutUrl;
       const response = await fetch(
-        `${nightscoutUrl}/api/v2/entries.json?count=500`,
+        `${baseUrl}/api/v2/entries.json?count=500`,
         {
           headers: {
             'Content-Type': 'application/json',
