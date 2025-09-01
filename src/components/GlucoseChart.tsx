@@ -266,29 +266,36 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               );
             })}
 
-            {/* Notes as markers on the timeline */}
-            {notes.map((note) => {
-              const noteTime = note.timestamp.getTime();
-              const noteDataPoint = chartData.find(point => 
-                Math.abs(point.time - noteTime) < 5 * 60 * 1000 // Within 5 minutes
-              );
-              
-              if (!noteDataPoint) return null;
-              
-              return (
-                <ReferenceDot
-                  key={note.id}
-                  x={noteDataPoint.time}
-                  y={noteDataPoint.glucose}
-                  r={6}
-                  fill="#f59e0b"
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  onClick={() => onNoteClick?.(note)}
-                  style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
-                />
-              );
-            })}
+            {/* Notes as markers on the timeline - only show notes within chart time range */}
+            {notes
+              .filter((note) => {
+                const noteTime = note.timestamp.getTime();
+                const chartStartTime = Math.min(...chartData.map(d => d.time));
+                const chartEndTime = Math.max(...chartData.map(d => d.time));
+                return noteTime >= chartStartTime && noteTime <= chartEndTime;
+              })
+              .map((note) => {
+                const noteTime = note.timestamp.getTime();
+                const noteDataPoint = chartData.find(point => 
+                  Math.abs(point.time - noteTime) < 5 * 60 * 1000 // Within 5 minutes
+                );
+                
+                if (!noteDataPoint) return null;
+                
+                return (
+                  <ReferenceDot
+                    key={note.id}
+                    x={noteDataPoint.time}
+                    y={noteDataPoint.glucose}
+                    r={6}
+                    fill="#f59e0b"
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    onClick={() => onNoteClick?.(note)}
+                    style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
+                  />
+                );
+              })}
           </AreaChart>
         </ResponsiveContainer>
       </div>
