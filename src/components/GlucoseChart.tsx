@@ -182,6 +182,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               stroke="#3b82f6"
               strokeWidth={2}
               fill="url(#glucoseGradient)"
+              isAnimationActive={false}
               dot={(props: any) => {
                 // Show bold dot only for the first data point
                 if (props.payload.isFirstPoint) {
