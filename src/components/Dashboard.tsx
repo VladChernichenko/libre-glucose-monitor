@@ -675,9 +675,36 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
               
-              {/* Recent Notes List - Ultra Compact */}
+              {/* Recent Notes List - Ultra Compact - Filtered by time range */}
               <div className="space-y-0.5 max-h-16 overflow-y-auto">
-                {notes.slice(0, 4).map((note) => (
+                {notes
+                  .filter((note) => {
+                    const noteTime = note.timestamp.getTime();
+                    const now = new Date().getTime();
+                    
+                    // Calculate time range based on selected timeRange
+                    let startTime: number;
+                    switch (timeRange) {
+                      case '1h':
+                        startTime = now - (1 * 60 * 60 * 1000);
+                        break;
+                      case '6h':
+                        startTime = now - (6 * 60 * 60 * 1000);
+                        break;
+                      case '12h':
+                        startTime = now - (12 * 60 * 60 * 1000);
+                        break;
+                      case '24h':
+                        startTime = now - (24 * 60 * 60 * 1000);
+                        break;
+                      default:
+                        startTime = now - (6 * 60 * 60 * 1000); // Default to 6h
+                    }
+                    
+                    return noteTime >= startTime && noteTime <= now;
+                  })
+                  .slice(0, 4)
+                  .map((note) => (
                   <div 
                     key={note.id} 
                     className="flex items-center justify-between text-xs bg-gray-50 rounded p-1 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -714,17 +741,50 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                {notes.length === 0 && (
-                  <div className="text-center py-1">
-                    <div className="text-gray-400 text-sm mb-1">🍽️</div>
-                    <p className="text-gray-500 text-xs">No notes yet</p>
-                  </div>
-                )}
-                {notes.length > 4 && (
-                  <div className="text-center py-1">
-                    <span className="text-xs text-gray-400">+{notes.length - 4} more</span>
-                  </div>
-                )}
+                {(() => {
+                  const now = new Date().getTime();
+                  let startTime: number;
+                  switch (timeRange) {
+                    case '1h':
+                      startTime = now - (1 * 60 * 60 * 1000);
+                      break;
+                    case '6h':
+                      startTime = now - (6 * 60 * 60 * 1000);
+                      break;
+                    case '12h':
+                      startTime = now - (12 * 60 * 60 * 1000);
+                      break;
+                    case '24h':
+                      startTime = now - (24 * 60 * 60 * 1000);
+                      break;
+                    default:
+                      startTime = now - (6 * 60 * 60 * 1000);
+                  }
+                  
+                  const filteredNotes = notes.filter((note) => {
+                    const noteTime = note.timestamp.getTime();
+                    return noteTime >= startTime && noteTime <= now;
+                  });
+                  
+                  if (filteredNotes.length === 0) {
+                    return (
+                      <div className="text-center py-1">
+                        <div className="text-gray-400 text-sm mb-1">🍽️</div>
+                        <p className="text-gray-500 text-xs">No notes in {timeRange} range</p>
+                      </div>
+                    );
+                  }
+                  
+                  if (filteredNotes.length > 4) {
+                    return (
+                      <div className="text-center py-1">
+                        <span className="text-xs text-gray-400">+{filteredNotes.length - 4} more in {timeRange}</span>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
               </div>
             </div>
           </div>
