@@ -113,31 +113,39 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
 
-      // Fetch current glucose using unified API service
-      if (!nightscoutUrl) {
-        throw new Error('Nightscout URL not configured');
-      }
-      const entry = await apiService.getNightscoutCurrentGlucose();
+      const response = await fetch(`${nightscoutUrl}/api/v2/entries.json?count=1`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       
-      if (entry && entry.sgv !== undefined) {
-        const reading = {
-          timestamp: new Date(), // Use current time when we fetch the data
-          value: convertToMmolL(entry.sgv),
-          trend: entry.trend || 0,
-          trendArrow: convertTrendToArrow(entry.direction || ''),
-          status: calculateGlucoseStatus(entry.sgv),
-          unit: 'mmol/L',
-          originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
-        };
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Nightscout response:', data);
         
-        console.log('✅ Processed reading:', reading);
-        setCurrentReading(reading);
-        setGlucoseHistory(prev => {
-          const newHistory = [...prev, reading];
-          return newHistory.slice(-100);
-        });
+        if (data.length > 0) {
+          const entry = data[0];
+          const reading = {
+            timestamp: new Date(), // Use current time when we fetch the data
+            value: convertToMmolL(entry.sgv),
+            trend: entry.trend || 0,
+            trendArrow: convertTrendToArrow(entry.direction),
+            status: calculateGlucoseStatus(entry.sgv),
+            unit: 'mmol/L',
+            originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
+          };
+          
+          console.log('✅ Processed reading:', reading);
+          setCurrentReading(reading);
+          setGlucoseHistory(prev => {
+            const newHistory = [...prev, reading];
+            return newHistory.slice(-100);
+          });
+        } else {
+          setError('No glucose data available from Nightscout');
+        }
       } else {
-        setError('No glucose data available from Nightscout');
+        throw new Error(`Nightscout API error: ${response.status} ${response.statusText}`);
       }
     } catch (err) {
       console.error('❌ Nightscout fetch failed:', err);
@@ -184,9 +192,19 @@ const Dashboard: React.FC = () => {
       
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
 
-      // Use unified API service to fetch historical data
-      const data = await apiService.getNightscoutGlucoseEntries(500);
-      console.log('📊 Historical data response:', data.length, 'entries');
+      // Use a large count to ensure we get enough data, then filter by date
+      const response = await fetch(
+        `${nightscoutUrl}/api/v2/entries.json?count=500`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Historical data response:', data.length, 'entries');
 
         // Filter data to only include glucose readings (type: 'sgv') within the time range
         const glucoseEntries = data.filter((entry: any) => {
@@ -244,6 +262,9 @@ const Dashboard: React.FC = () => {
         console.log('✅ Last entry:', history[history.length - 1]?.timestamp.toLocaleString());
         
         setGlucoseHistory(history);
+      } else {
+        throw new Error(`Nightscout API error: ${response.status} ${response.statusText}`);
+      }
     } catch (err) {
       console.error('❌ Nightscout historical fetch failed:', err);
       setError(`Failed to fetch historical data from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
