@@ -138,7 +138,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         });
       } else {
-        throw new Error('Failed to get user information');
+        // If we can't get user info, still allow login with minimal user data
+        const token = authService.getAccessToken();
+        if (token) {
+          const decoded = authService.decodeToken(token);
+          if (decoded && decoded.sub) {
+            const fallbackUser = {
+              id: decoded.sub,
+              username: decoded.sub,
+              email: decoded.email || '',
+              fullName: decoded.fullName || decoded.sub
+            };
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: {
+                user: fallbackUser,
+                accessToken: authResponse.accessToken,
+                refreshToken: authResponse.refreshToken
+              }
+            });
+          } else {
+            throw new Error('Failed to get user information');
+          }
+        } else {
+          throw new Error('Failed to get user information');
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
@@ -164,7 +188,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         });
       } else {
-        throw new Error('Failed to get user information');
+        // If we can't get user info, still allow registration with minimal user data
+        const token = authService.getAccessToken();
+        if (token) {
+          const decoded = authService.decodeToken(token);
+          if (decoded && decoded.sub) {
+            const fallbackUser = {
+              id: decoded.sub,
+              username: decoded.sub,
+              email: decoded.email || '',
+              fullName: decoded.fullName || decoded.sub
+            };
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: {
+                user: fallbackUser,
+                accessToken: authResponse.accessToken,
+                refreshToken: authResponse.refreshToken
+              }
+            });
+          } else {
+            throw new Error('Failed to get user information');
+          }
+        } else {
+          throw new Error('Failed to get user information');
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';

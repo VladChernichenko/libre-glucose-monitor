@@ -118,6 +118,26 @@ class AuthService {
       return response.data;
     } catch (error) {
       console.error('Failed to get current user:', error);
+      
+      // Fallback: Try to decode user info from JWT token
+      const token = this.getAccessToken();
+      if (token) {
+        try {
+          const decoded = this.decodeToken(token);
+          if (decoded && decoded.sub) {
+            // Create a minimal user object from JWT claims
+            return {
+              id: decoded.sub, // Use username as ID
+              username: decoded.sub,
+              email: decoded.email || '',
+              fullName: decoded.fullName || decoded.sub
+            };
+          }
+        } catch (decodeError) {
+          console.error('Failed to decode token:', decodeError);
+        }
+      }
+      
       return null;
     }
   }
