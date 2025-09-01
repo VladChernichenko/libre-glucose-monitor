@@ -19,6 +19,7 @@ class AuthService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      withCredentials: true, // Enable credentials for CORS
     });
 
     // Add request interceptor to include auth token
