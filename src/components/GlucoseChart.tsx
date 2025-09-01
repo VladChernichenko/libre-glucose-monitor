@@ -267,33 +267,42 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
             })}
 
             {/* Notes as markers on the timeline - only show notes within selected time range */}
-            {notes
-              .filter((note) => {
+            {(() => {
+              const now = new Date().getTime();
+              
+              // Calculate time range based on selected timeRange
+              let startTime: number;
+              switch (timeRange) {
+                case '1h':
+                  startTime = now - (1 * 60 * 60 * 1000);
+                  break;
+                case '6h':
+                  startTime = now - (6 * 60 * 60 * 1000);
+                  break;
+                case '12h':
+                  startTime = now - (12 * 60 * 60 * 1000);
+                  break;
+                case '24h':
+                  startTime = now - (24 * 60 * 60 * 1000);
+                  break;
+                default:
+                  startTime = now - (6 * 60 * 60 * 1000); // Default to 6h
+              }
+              
+              const filteredNotes = notes.filter((note) => {
                 const noteTime = note.timestamp.getTime();
-                const now = new Date().getTime();
+                const isInRange = noteTime >= startTime && noteTime <= now;
                 
-                // Calculate time range based on selected timeRange
-                let startTime: number;
-                switch (timeRange) {
-                  case '1h':
-                    startTime = now - (1 * 60 * 60 * 1000);
-                    break;
-                  case '6h':
-                    startTime = now - (6 * 60 * 60 * 1000);
-                    break;
-                  case '12h':
-                    startTime = now - (12 * 60 * 60 * 1000);
-                    break;
-                  case '24h':
-                    startTime = now - (24 * 60 * 60 * 1000);
-                    break;
-                  default:
-                    startTime = now - (6 * 60 * 60 * 1000); // Default to 6h
-                }
+                // Debug logging
+                console.log(`Note: ${new Date(noteTime).toLocaleString()}, Range: ${timeRange}, InRange: ${isInRange}`);
+                console.log(`Start: ${new Date(startTime).toLocaleString()}, Now: ${new Date(now).toLocaleString()}`);
                 
-                return noteTime >= startTime && noteTime <= now;
-              })
-              .map((note) => {
+                return isInRange;
+              });
+              
+              console.log(`Filtered ${filteredNotes.length} notes from ${notes.length} total for ${timeRange} range`);
+              
+              return filteredNotes.map((note) => {
                 const noteTime = note.timestamp.getTime();
                 const noteDataPoint = chartData.find(point => 
                   Math.abs(point.time - noteTime) < 5 * 60 * 1000 // Within 5 minutes
@@ -314,7 +323,8 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
                     style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
                   />
                 );
-              })}
+              });
+            })()}
           </AreaChart>
         </ResponsiveContainer>
       </div>
