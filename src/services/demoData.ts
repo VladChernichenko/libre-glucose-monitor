@@ -95,6 +95,66 @@ export const demoPatient = {
   email: 'john.doe@example.com',
 };
 
+// Generate 10 test glucose readings for 24h chart testing
+export const generateTestGlucoseData = (): GlucoseReading[] => {
+  const now = new Date();
+  const testData: GlucoseReading[] = [];
+  
+  // 10 specific test points over 24 hours with various patterns
+  const testValues = [
+    { hoursAgo: 23, value: 5.5, description: 'Normal start' },
+    { hoursAgo: 20, value: 3.2, description: 'Low minimum' },
+    { hoursAgo: 18, value: 7.8, description: 'Recovery peak' },
+    { hoursAgo: 15, value: 6.2, description: 'Normal valley' },
+    { hoursAgo: 12, value: 12.5, description: 'High maximum' },
+    { hoursAgo: 9, value: 8.9, description: 'Normal descent' },
+    { hoursAgo: 6, value: 4.1, description: 'Low valley' },
+    { hoursAgo: 4, value: 9.8, description: 'Normal peak' },
+    { hoursAgo: 2, value: 7.2, description: 'Current descent' },
+    { hoursAgo: 0, value: 6.8, description: 'Current level' }
+  ];
+  
+  testValues.forEach((test, index) => {
+    const timestamp = new Date(now.getTime() - test.hoursAgo * 60 * 60 * 1000);
+    
+    // Determine trend based on previous value
+    let trend = 0;
+    let trendArrow = '→';
+    
+    if (index > 0) {
+      const prevValue = testValues[index - 1].value;
+      const diff = test.value - prevValue;
+      
+      if (diff > 1) {
+        trend = 1;
+        trendArrow = '↗';
+      } else if (diff < -1) {
+        trend = -1;
+        trendArrow = '↘';
+      }
+    }
+    
+    // Determine status based on value
+    let status: 'low' | 'normal' | 'high' | 'critical';
+    if (test.value < 3.9) status = 'low';
+    else if (test.value < 10.0) status = 'normal';
+    else if (test.value < 13.9) status = 'high';
+    else status = 'critical';
+    
+    testData.push({
+      timestamp,
+      value: test.value,
+      trend,
+      trendArrow,
+      status,
+      unit: 'mmol/L',
+      originalTimestamp: timestamp,
+    });
+  });
+  
+  return testData.reverse(); // Reverse to get chronological order
+};
+
 // Demo connections
 export const demoConnections = [
   {

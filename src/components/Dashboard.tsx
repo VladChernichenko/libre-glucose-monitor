@@ -6,7 +6,7 @@ import NoteInputModal from './NoteInputModal';
 import COBDisplay from './COBDisplay';
 import COBChart from './COBChart';
 import COBSettings from './COBSettings';
-import { generateDemoGlucoseData } from '../services/demoData';
+import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/demoData';
 
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -560,9 +560,23 @@ const Dashboard: React.FC = () => {
                       alert(`API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
                     }
                   }}
-                  className="bg-green-500 hover:bg-green-600 text-white px-1 py-0.5 rounded text-xs mt-1 w-full"
+                  className="bg-green-500 hover:bg-green-600 text-white px-1 py-0.5 rounded text-xs mt-1 w-full mb-1"
                 >
                   🧪 Test API
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🧪 Loading test glucose data...');
+                    const testData = generateTestGlucoseData();
+                    setGlucoseHistory(testData);
+                    if (testData.length > 0) {
+                      setCurrentReading(testData[testData.length - 1]);
+                    }
+                    console.log('✅ Test data loaded:', testData.length, 'points');
+                  }}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                >
+                  📊 Load Test Data
                 </button>
               </div>
             </div>
