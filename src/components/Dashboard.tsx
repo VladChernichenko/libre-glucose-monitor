@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 import apiService from '../services/apiService';
 import GlucoseChart from './GlucoseChart';
@@ -14,6 +15,7 @@ import { notesStorageService } from '../services/notesStorage';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 
 const Dashboard: React.FC = () => {
+  const { user, logout } = useAuth();
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [patient, setPatient] = useState<LibrePatient | null>(null);
@@ -449,8 +451,7 @@ const Dashboard: React.FC = () => {
   }, [notes]);
 
   const handleLogout = () => {
-            apiService.logoutLibre();
-    window.location.reload();
+    logout();
   };
 
   const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
@@ -492,10 +493,10 @@ const Dashboard: React.FC = () => {
         <div className="max-w-full mx-auto px-3 sm:px-4">
           <div className="flex justify-between items-center py-2">
             <div className="flex items-center">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Libre Glucose Monitor</h1>
-              {patient && (
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Glucose Monitor</h1>
+              {user && (
                 <span className="ml-2 sm:ml-4 text-xs sm:text-sm text-gray-600">
-                  Welcome, {patient.firstName} {patient.lastName}
+                  Welcome, {user.fullName}
                 </span>
               )}
             </div>
