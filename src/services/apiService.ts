@@ -330,6 +330,25 @@ class ApiService {
 
     console.log('🔍 Testing Nightscout connection...');
 
+    // In development, prefer CRA dev proxy to avoid CORS
+    const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+    if (isDev) {
+      try {
+        const resp = await fetch('/ns/api/v2/status.json', { method: 'GET' });
+        if (resp.status === 200) return true;
+      } catch (e) {
+        console.warn('Dev proxy status check failed:', e);
+      }
+
+      try {
+        const resp = await fetch('/ns/api/v2/entries.json?count=1', { method: 'GET' });
+        if (resp.status === 200) return true;
+      } catch (e) {
+        console.warn('Dev proxy entries check failed:', e);
+      }
+      // If dev proxy checks fail, continue to normal checks below
+    }
+
     // Test multiple endpoints to ensure API is working
     const testEndpoints = [
       '/api/v2/status.json',
@@ -351,7 +370,7 @@ class ApiService {
         console.warn(`⚠️ Direct API call to ${endpoint} failed:`, error);
       }
 
-      // Try CORS proxy if direct call fails
+      // Try CORS proxy if direct call fails (production only)
       try {
         console.log(`🔍 Testing CORS proxy for: ${endpoint}`);
         const proxyUrl = `${this.config.corsProxyUrl}/${this.config.nightscoutUrl}${endpoint}`;
@@ -585,6 +604,36 @@ class ApiService {
 
     if (!this.config.nightscoutUrl) {
       result.errors.push('Nightscout URL not configured');
+      return result;
+    }
+
+    const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
+    // Prefer CRA dev proxy in development to avoid CORS
+    if (isDev) {
+      try {
+        const resp = await fetch('/ns/api/v2/status.json', { method: 'GET' });
+        if (resp.status === 200) {
+          result.proxy = true;
+        } else {
+          result.errors.push(`Dev proxy status returned ${resp.status}`);
+        }
+      } catch (e) {
+        result.errors.push(`Dev proxy status failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      }
+
+      try {
+        const resp = await fetch('/ns/api/v2/entries.json?count=1', { method: 'GET' });
+        if (resp.status === 200) {
+          result.proxy = true;
+        } else {
+          result.errors.push(`Dev proxy entries returned ${resp.status}`);
+        }
+      } catch (e) {
+        result.errors.push(`Dev proxy entries failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      }
+
+      // In dev we don't attempt direct cross-origin calls to avoid CORS noise
       return result;
     }
 
