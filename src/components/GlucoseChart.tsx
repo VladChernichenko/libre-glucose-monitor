@@ -103,11 +103,38 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   // Ensure data is sorted by timestamp
   const sortedData = [...validData].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
-  // Find highest and lowest values for peak labels
-  const highestPoint = sortedData.reduce((max, current) => 
-    current.value > max.value ? current : max, sortedData[0]);
-  const lowestPoint = sortedData.reduce((min, current) => 
-    current.value < min.value ? current : min, sortedData[0]);
+  // Find all local minimums and maximums with type information
+  const findLocalExtremes = (data: GlucoseReading[]) => {
+    if (data.length < 3) return []; // Need at least 3 points to find local extremes
+    
+    const extremes: Array<{point: GlucoseReading, type: 'max' | 'min'}> = [];
+    
+    for (let i = 1; i < data.length - 1; i++) {
+      const prev = data[i - 1];
+      const current = data[i];
+      const next = data[i + 1];
+      
+      // Local maximum: current value is higher than both neighbors
+      if (current.value > prev.value && current.value > next.value) {
+        extremes.push({point: current, type: 'max'});
+      }
+      // Local minimum: current value is lower than both neighbors
+      else if (current.value < prev.value && current.value < next.value) {
+        extremes.push({point: current, type: 'min'});
+      }
+    }
+    
+    return extremes;
+  };
+
+  const extremePoints = findLocalExtremes(sortedData);
+  
+  // Get color based on glucose value
+  const getValueColor = (value: number) => {
+    if (value < 3.9) return '#dc2626'; // red for low
+    if (value < 10.0) return '#10b981'; // green for in range
+    return '#f59e0b'; // orange for high
+  };
   
   // For 24h view, ensure we show a full 24-hour timeline
   let chartData: ChartDataPoint[];
@@ -216,37 +243,28 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               activeDot={{ r: 6, fill: '#3b82f6' }}
             />
             
-            {/* Peak value labels */}
-            {highestPoint && (
-              <ReferenceDot
-                x={highestPoint.timestamp.getTime()}
-                y={highestPoint.value}
-                r={0}
-                fill="transparent"
-                label={{ 
-                  value: `${highestPoint.value} mmol/L`, 
-                  position: 'top',
-                  fontSize: 12,
-                  fill: '#dc2626',
-                  fontWeight: 'bold'
-                }}
-              />
-            )}
-            {lowestPoint && lowestPoint !== highestPoint && (
-              <ReferenceDot
-                x={lowestPoint.timestamp.getTime()}
-                y={lowestPoint.value}
-                r={0}
-                fill="transparent"
-                label={{ 
-                  value: `${lowestPoint.value} mmol/L`, 
-                  position: 'bottom',
-                  fontSize: 12,
-                  fill: '#dc2626',
-                  fontWeight: 'bold'
-                }}
-              />
-            )}
+            {/* Local extremes value labels */}
+            {extremePoints.map((extreme, index) => {
+              const position = extreme.type === 'max' ? 'top' : 'bottom';
+              
+              return (
+                <ReferenceDot
+                  key={`extreme-${extreme.point.timestamp.getTime()}`}
+                  x={extreme.point.timestamp.getTime()}
+                  y={extreme.point.value}
+                  r={0}
+                  fill="transparent"
+                  label={{ 
+                    value: `${extreme.point.value} mmol/L`, 
+                    position: position,
+                    fontSize: 11,
+                    fill: getValueColor(extreme.point.value),
+                    fontWeight: 'bold',
+                    offset: 8
+                  }}
+                />
+              );
+            })}
 
             {/* Notes as markers on the timeline */}
             {notes.map((note) => {
