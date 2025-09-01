@@ -12,14 +12,17 @@ class AuthService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+    // In Docker, backend is accessible via the same origin (no CORS needed)
+    const isDocker = process.env.REACT_APP_DOCKER === 'true';
+    this.baseUrl = isDocker ? '/api' : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080');
+    
     this.api = axios.create({
       baseURL: this.baseUrl,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      withCredentials: true, // Enable credentials for CORS
+      withCredentials: !isDocker, // Only needed when not in Docker (CORS)
     });
 
     // Add request interceptor to include auth token

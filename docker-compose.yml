@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Backend Service
+  backend:
+    build:
+      context: ../IdeaProjects/glucose-monitor-be
+      dockerfile: Dockerfile
+    container_name: glucose-monitor-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_PASSWORD=your_db_password_here
+    volumes:
+      - ./backend-logs:/app/logs
+    networks:
+      - glucose-monitor-network
+    depends_on:
+      - postgres
+      - redis
+
+  # Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glucose-monitor-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8080
+      - REACT_APP_NIGHTSCOUT_URL=https://vladchernichenko.eu.nightscoutpro.com/
+      - REACT_APP_ENABLE_DEMO_MODE=false
+    volumes:
+      - ./frontend-logs:/app/logs
+    networks:
+      - glucose-monitor-network
+    depends_on:
+      - backend
+
+  # Nginx Reverse Proxy (Eliminates CORS)
+  nginx:
+    image: nginx:alpine
+    container_name: glucose-monitor-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    networks:
+      - glucose-monitor-network
+    depends_on:
+      - frontend
+      - backend
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: glucose-monitor-postgres
+    environment:
+      - POSTGRES_DB=glucose_monitor
+      - POSTGRES_USER=glucose_monitor_user
+      - POSTGRES_PASSWORD=your_db_password_here
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./setup_database.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - glucose-monitor-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: glucose-monitor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - glucose-monitor-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  glucose-monitor-network:
+    driver: bridge
