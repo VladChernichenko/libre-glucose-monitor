@@ -103,6 +103,12 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
   // Ensure data is sorted by timestamp
   const sortedData = [...validData].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   
+  // Find highest and lowest values for peak labels
+  const highestPoint = sortedData.reduce((max, current) => 
+    current.value > max.value ? current : max, sortedData[0]);
+  const lowestPoint = sortedData.reduce((min, current) => 
+    current.value < min.value ? current : min, sortedData[0]);
+  
   // For 24h view, ensure we show a full 24-hour timeline
   let chartData: ChartDataPoint[];
   
@@ -164,7 +170,7 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
             <YAxis
               stroke="#6b7280"
               domain={[0, 'dataMax + 3']}
-              tickFormatter={(value) => `${value} mmol/L`}
+              tickFormatter={(value) => `${value}`}
             />
             <Tooltip
               labelFormatter={(value) => format(new Date(value), 'MMM dd, yyyy HH:mm')}
@@ -210,6 +216,38 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
               activeDot={{ r: 6, fill: '#3b82f6' }}
             />
             
+            {/* Peak value labels */}
+            {highestPoint && (
+              <ReferenceDot
+                x={highestPoint.timestamp.getTime()}
+                y={highestPoint.value}
+                r={0}
+                fill="transparent"
+                label={{ 
+                  value: `${highestPoint.value} mmol/L`, 
+                  position: 'top',
+                  fontSize: 12,
+                  fill: '#dc2626',
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+            {lowestPoint && lowestPoint !== highestPoint && (
+              <ReferenceDot
+                x={lowestPoint.timestamp.getTime()}
+                y={lowestPoint.value}
+                r={0}
+                fill="transparent"
+                label={{ 
+                  value: `${lowestPoint.value} mmol/L`, 
+                  position: 'bottom',
+                  fontSize: 12,
+                  fill: '#dc2626',
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+
             {/* Notes as markers on the timeline */}
             {notes.map((note) => {
               const noteTime = note.timestamp.getTime();
