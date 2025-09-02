@@ -22,7 +22,7 @@ class AuthService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      withCredentials: !isDocker, // Only needed when not in Docker (CORS)
+      withCredentials: false, // Disabled for now due to CORS configuration
     });
 
     // Add request interceptor to include auth token
