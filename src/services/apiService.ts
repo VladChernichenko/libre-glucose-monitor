@@ -690,7 +690,7 @@ export const apiService = new ApiService({
   nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
   nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
   libreApiUrl: process.env.REACT_APP_LIBRE_API_URL || 'https://api.libreview.com',
-  cobApiUrl: process.env.REACT_APP_COB_API_URL || 'http://localhost:8080',
+  cobApiUrl: process.env.REACT_APP_COB_API_URL || 'https://libre-glucose-monitor-be.onrender.com',
   enableCorsProxy: true,
   corsProxyUrl: process.env.REACT_APP_CORS_PROXY_URL || 'https://cors-anywhere.herokuapp.com',
 });
