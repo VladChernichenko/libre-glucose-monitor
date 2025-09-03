@@ -12,7 +12,7 @@ services:
       dockerfile: Dockerfile
     container_name: glucose-monitor-frontend
     ports:
-      - "3000:3000"
+      - "3000:80"
     environment:
       - REACT_APP_BACKEND_URL=https://libre-glucose-monitor-be.onrender.com
       - REACT_APP_NIGHTSCOUT_URL=https://vladchernichenko.eu.nightscoutpro.com/
