@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: libre-glucose-monitor-frontend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s build -l 10000
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_BACKEND_URL
+        value: https://libre-glucose-monitor-be.onrender.com
+      - key: REACT_APP_NIGHTSCOUT_URL
+        value: https://vladchernichenko.eu.nightscoutpro.com
+      - key: REACT_APP_DOCKER
+        value: false
+    healthCheckPath: /
+    autoDeploy: true
