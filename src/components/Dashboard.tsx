@@ -41,7 +41,16 @@ const Dashboard: React.FC = () => {
   const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
 
   // Nightscout integration enabled - using real data
-  const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || 'https://vladchernichenko.eu.nightscoutpro.com');
+  // In production, always use the hardcoded URL if env var is not set
+  const [nightscoutUrl] = useState(() => {
+    const envUrl = process.env.REACT_APP_NIGHTSCOUT_URL;
+    if (envUrl) {
+      console.log('Using Nightscout URL from environment:', envUrl);
+      return envUrl;
+    }
+    console.log('Using hardcoded Nightscout URL for production');
+    return 'https://vladchernichenko.eu.nightscoutpro.com';
+  });
 
   // Debug: Log environment variables
   console.log('Environment variables:', {
@@ -271,13 +280,22 @@ const Dashboard: React.FC = () => {
       }
     } catch (err) {
       console.error('❌ Nightscout historical fetch failed:', err);
-      setError(`Failed to fetch historical data from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to fetch historical data from Nightscout: ${errorMessage}`);
       
-      // Fallback to demo data if Nightscout fails
-      console.log('🔄 Falling back to demo data due to Nightscout historical fetch failure');
-
-      const demoData = generateDemoGlucoseData(24);
-      setGlucoseHistory(demoData);
+      // Only fallback to demo data if we're in development or if explicitly enabled
+      const isDemoMode = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      
+      if (isDemoMode || isDevelopment) {
+        console.log('🔄 Falling back to demo data due to Nightscout historical fetch failure');
+        const demoData = generateDemoGlucoseData(24);
+        setGlucoseHistory(demoData);
+      } else {
+        console.log('❌ Production mode: Not falling back to demo data. Please check Nightscout configuration.');
+        // In production, show an empty chart with error message
+        setGlucoseHistory([]);
+      }
     }
   }, [selectedConnection, timeRange, nightscoutUrl, calculateGlucoseStatus]);
 
@@ -293,26 +311,20 @@ const Dashboard: React.FC = () => {
     fetchPatientInfo();
     fetchConnections();
     
-    // Always try to load demo data first for immediate chart display
-    console.log('🚀 Loading demo data for immediate chart display');
-
-    const demoData = generateDemoGlucoseData(24);
-    console.log('📊 Demo data generated:', demoData.length, 'entries');
-    console.log('📊 Demo data sample:', demoData.slice(0, 3));
-
-    setGlucoseHistory(demoData);
-    if (demoData.length > 0) {
-      setCurrentReading(demoData[demoData.length - 1]);
-      console.log('✅ Current reading set from demo data:', demoData[demoData.length - 1]);
-    }
-    
-    // If Nightscout is configured, try to fetch real data
+    // If Nightscout is configured, try to fetch real data first
     if (nightscoutUrl) {
-      console.log('🚀 Nightscout configured, attempting to fetch real data');
+      console.log('🚀 Nightscout configured, attempting to fetch real data first');
       fetchHistoricalData();
       fetchCurrentGlucose();
     } else {
       console.log('🚀 Nightscout not configured, using demo data only');
+      // Only load demo data if Nightscout is not configured
+      const demoData = generateDemoGlucoseData(24);
+      console.log('📊 Demo data generated:', demoData.length, 'entries');
+      setGlucoseHistory(demoData);
+      if (demoData.length > 0) {
+        setCurrentReading(demoData[demoData.length - 1]);
+      }
     }
   }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
 
@@ -564,6 +576,23 @@ const Dashboard: React.FC = () => {
                   className="bg-green-500 hover:bg-green-600 text-white px-1 py-0.5 rounded text-xs mt-1 w-full mb-1"
                 >
                   🧪 Test API
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🔍 Testing Nightscout connection directly...');
+                      const response = await fetch(`${nightscoutUrl}/api/v2/status.json`);
+                      const data = await response.json();
+                      console.log('✅ Nightscout status:', data);
+                      alert(`Nightscout Status: ${data.status}\nName: ${data.name}\nVersion: ${data.version}`);
+                    } catch (error) {
+                      console.error('❌ Nightscout test failed:', error);
+                      alert(`Nightscout test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
+                >
+                  🔍 Test Nightscout
                 </button>
                 <button
                   onClick={() => {

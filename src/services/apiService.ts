@@ -686,7 +686,7 @@ class ApiService {
 
 // Create and export a singleton instance
 export const apiService = new ApiService({
-  nightscoutUrl: process.env.REACT_APP_NIGHTSCOUT_URL,
+  nightscoutUrl: process.env.REACT_APP_NIGHTSCOUT_URL || 'https://vladchernichenko.eu.nightscoutpro.com',
   nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
   nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
   libreApiUrl: process.env.REACT_APP_LIBRE_API_URL || 'https://api.libreview.com',
