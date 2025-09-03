@@ -41,7 +41,7 @@ const Dashboard: React.FC = () => {
   const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
 
   // Nightscout integration enabled - using real data
-  const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || '');
+  const [nightscoutUrl] = useState(process.env.REACT_APP_NIGHTSCOUT_URL || 'https://vladchernichenko.eu.nightscoutpro.com');
 
   // Debug: Log environment variables
   console.log('Environment variables:', {
@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
 
-      const baseUrl = process.env.NODE_ENV === 'development' ? '/ns' : nightscoutUrl;
+      const baseUrl = nightscoutUrl; // Use direct URL instead of proxy
       const response = await fetch(`${baseUrl}/api/v2/entries.json?count=1`, {
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ const Dashboard: React.FC = () => {
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
 
       // Use a large count to ensure we get enough data, then filter by date
-      const baseUrl = process.env.NODE_ENV === 'development' ? '/ns' : nightscoutUrl;
+      const baseUrl = nightscoutUrl; // Use direct URL instead of proxy
       const response = await fetch(
         `${baseUrl}/api/v2/entries.json?count=500`,
         {
