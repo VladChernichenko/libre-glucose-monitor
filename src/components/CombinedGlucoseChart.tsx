@@ -278,6 +278,7 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
           
           {/* Current moment reference line */}
           <ReferenceLine 
+            yAxisId="glucose"
             x={currentTime} 
             stroke="#374151" 
             strokeWidth={2} 
