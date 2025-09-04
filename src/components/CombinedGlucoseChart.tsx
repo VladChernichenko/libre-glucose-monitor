@@ -146,6 +146,9 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   const glucoseMax = Math.max(...glucoseValues);
   const iobMax = Math.max(...iobValues, 0);
 
+  // Current time for reference line
+  const currentTime = new Date().getTime();
+
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length > 0) {
@@ -274,6 +277,15 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
           <ReferenceLine yAxisId="glucose" y={3.9} stroke="#EF4444" strokeDasharray="2 2" strokeOpacity={0.7} />
           <ReferenceLine yAxisId="glucose" y={10.0} stroke="#10B981" strokeDasharray="2 2" strokeOpacity={0.7} />
           <ReferenceLine yAxisId="glucose" y={13.9} stroke="#F59E0B" strokeDasharray="2 2" strokeOpacity={0.7} />
+          
+          {/* Current moment reference line */}
+          <ReferenceLine 
+            x={currentTime} 
+            stroke="#374151" 
+            strokeWidth={2} 
+            strokeDasharray="4 4"
+            label={{ value: "NOW", position: "top", fontSize: 10, fill: "#374151" }}
+          />
           
           {/* Local extremes labels */}
           {extremePoints.map((extreme, index) => {

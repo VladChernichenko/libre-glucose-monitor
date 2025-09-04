@@ -108,7 +108,20 @@ const Dashboard: React.FC = () => {
     }
 
     const now = new Date();
-    const endTime = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // 6 hours ahead
+    
+    // Calculate future time range based on current timeRange setting
+    let endTime: Date;
+    if (timeRange === '1h') {
+      endTime = new Date(now.getTime() + (30 * 60 * 1000)); // 30 minutes ahead
+    } else if (timeRange === '6h') {
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000)); // 4 hours ahead
+    } else if (timeRange === '12h') {
+      endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 8 hours ahead
+    } else if (timeRange === '24h') {
+      endTime = new Date(now.getTime() + (16 * 60 * 60 * 1000)); // 16 hours ahead
+    } else {
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000)); // Default 4 hours
+    }
     
     // Generate IOB projection
     const projection = insulinOnBoardService.generateCombinedProjection(
@@ -121,7 +134,7 @@ const Dashboard: React.FC = () => {
     );
 
     setIobData(projection);
-  }, [insulinEntries, currentReading]);
+  }, [insulinEntries, currentReading, timeRange]);
 
   // Extract insulin entries from notes
   const extractInsulinFromNotes = useCallback(() => {
@@ -236,18 +249,28 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching historical data from Nightscout:', nightscoutUrl);
 
-      // Calculate date range based on time range
+      // Calculate date range based on time range - centered approach
+      const now = new Date();
       const endDate = new Date();
       const startDate = new Date();
       
+      // For centered timeline: show past data + current moment + future predictions
       if (timeRange === '1h') {
-        startDate.setTime(endDate.getTime() - (1 * 60 * 60 * 1000)); // 1 hour in milliseconds
+        // Show 30 minutes past + 30 minutes future
+        startDate.setTime(now.getTime() - (30 * 60 * 1000));
+        endDate.setTime(now.getTime() + (30 * 60 * 1000));
       } else if (timeRange === '6h') {
-        startDate.setTime(endDate.getTime() - (6 * 60 * 60 * 1000)); // 6 hours in milliseconds
+        // Show 2 hours past + 4 hours future (centered on current moment)
+        startDate.setTime(now.getTime() - (2 * 60 * 60 * 1000));
+        endDate.setTime(now.getTime() + (4 * 60 * 60 * 1000));
       } else if (timeRange === '12h') {
-        startDate.setTime(endDate.getTime() - (12 * 60 * 60 * 1000)); // 12 hours in milliseconds
+        // Show 4 hours past + 8 hours future
+        startDate.setTime(now.getTime() - (4 * 60 * 60 * 1000));
+        endDate.setTime(now.getTime() + (8 * 60 * 60 * 1000));
       } else if (timeRange === '24h') {
-        startDate.setTime(endDate.getTime() - (24 * 60 * 60 * 1000)); // 24 hours in milliseconds
+        // Show 8 hours past + 16 hours future
+        startDate.setTime(now.getTime() - (8 * 60 * 60 * 1000));
+        endDate.setTime(now.getTime() + (16 * 60 * 60 * 1000));
       }
       
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
@@ -745,19 +768,28 @@ const Dashboard: React.FC = () => {
               {/* Time Range Controls - Ultra Compact */}
               <div className="mb-1 flex justify-center flex-shrink-0">
                 <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                  {(['1h', '6h', '12h', '24h'] as const).map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => handleTimeRangeChange(range)}
-                      className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                        timeRange === range
-                          ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
-                      }`}
-                    >
-                      {range}
-                    </button>
-                  ))}
+                  {(['1h', '6h', '12h', '24h'] as const).map((range) => {
+                    const labels = {
+                      '1h': '30m+30m',
+                      '6h': '2h+4h',
+                      '12h': '4h+8h',
+                      '24h': '8h+16h'
+                    };
+                    return (
+                      <button
+                        key={range}
+                        onClick={() => handleTimeRangeChange(range)}
+                        className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                          timeRange === range
+                            ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                        }`}
+                        title={`Past + Future: ${labels[range]}`}
+                      >
+                        {range}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
