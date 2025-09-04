@@ -147,13 +147,6 @@ const Dashboard: React.FC = () => {
       comment: note.comment
     }));
     
-    console.log('🔍 Insulin extraction debug:', {
-      totalNotes: notes.length,
-      insulinNotes: insulinNotes.length,
-      insulinEntries: entries,
-      currentIOB: insulinOnBoardService.getCurrentIOB(entries)
-    });
-    
     setInsulinEntries(entries);
   }, [notes]);
 
@@ -783,21 +776,25 @@ const Dashboard: React.FC = () => {
               </div>
 
               {/* Current IOB Display - Ultra Compact */}
-              {chartMode === 'combined' && (
-                <div className="mb-1 flex justify-center flex-shrink-0">
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-1">
-                    <div className="text-center">
-                      <div className="text-xs text-purple-600 font-medium">Insulin on Board</div>
-                      <div className="text-lg font-bold text-purple-800">
-                        {insulinOnBoardService.getCurrentIOB(insulinEntries).toFixed(2)} units
-                      </div>
-                      <div className="text-xs text-purple-600">
-                        {insulinEntries.length} recent bolus{insulinEntries.length !== 1 ? 'es' : ''}
-                      </div>
+              <div className="mb-1 flex justify-center flex-shrink-0">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-1">
+                  <div className="text-center">
+                    <div className="text-xs text-purple-600 font-medium">Insulin on Board</div>
+                    <div className="text-lg font-bold text-purple-800">
+                      {insulinEntries.length > 0 
+                        ? `${insulinOnBoardService.getCurrentIOB(insulinEntries).toFixed(2)} units`
+                        : 'No active insulin'
+                      }
+                    </div>
+                    <div className="text-xs text-purple-600">
+                      {insulinEntries.length > 0 
+                        ? `${insulinEntries.length} recent bolus${insulinEntries.length !== 1 ? 'es' : ''}`
+                        : 'Add insulin notes to see IOB'
+                      }
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
               
               {/* Time Range Controls - Ultra Compact */}
               <div className="mb-1 flex justify-center flex-shrink-0">
