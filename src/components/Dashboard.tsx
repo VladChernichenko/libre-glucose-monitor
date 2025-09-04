@@ -750,9 +750,9 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
-            {/* COB & IOB Projection - Ultra Compact */}
+            {/* COB Projection - Ultra Compact */}
             <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
-              <h3 className="text-xs font-semibold text-gray-900 mb-1">📊 COB & IOB</h3>
+              <h3 className="text-xs font-semibold text-gray-900 mb-1">📊 COB Projection</h3>
               <div className="h-12">
                 <COBChart 
                   projection={cobProjection}
