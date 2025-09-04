@@ -147,6 +147,13 @@ const Dashboard: React.FC = () => {
       comment: note.comment
     }));
     
+    console.log('🔍 Insulin extraction debug:', {
+      totalNotes: notes.length,
+      insulinNotes: insulinNotes.length,
+      insulinEntries: entries,
+      currentIOB: insulinOnBoardService.getCurrentIOB(entries)
+    });
+    
     setInsulinEntries(entries);
   }, [notes]);
 
@@ -693,9 +700,36 @@ const Dashboard: React.FC = () => {
                     }
                     console.log('✅ Test data loaded:', testData.length, 'points');
                   }}
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
                 >
                   📊 Load Test Data
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🧪 Creating test insulin entries...');
+                    const now = new Date();
+                    const testInsulinEntries: InsulinEntry[] = [
+                      {
+                        id: 'test-insulin-1',
+                        timestamp: new Date(now.getTime() - (30 * 60 * 1000)), // 30 minutes ago
+                        units: 2.0,
+                        type: 'bolus',
+                        comment: 'Test bolus 1'
+                      },
+                      {
+                        id: 'test-insulin-2',
+                        timestamp: new Date(now.getTime() - (90 * 60 * 1000)), // 90 minutes ago
+                        units: 1.5,
+                        type: 'bolus',
+                        comment: 'Test bolus 2'
+                      }
+                    ];
+                    setInsulinEntries(testInsulinEntries);
+                    console.log('✅ Test insulin entries created:', testInsulinEntries);
+                  }}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                >
+                  💉 Test Insulin
                 </button>
               </div>
             </div>

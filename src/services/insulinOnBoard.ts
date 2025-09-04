@@ -50,9 +50,21 @@ export class InsulinOnBoardService {
     const targetTimeMs = targetTime.getTime();
     let totalIOB = 0;
 
+    console.log('🔍 IOB calculation debug:', {
+      insulinEntries: insulinEntries.length,
+      targetTime: targetTime.toISOString(),
+      profile: this.insulinProfile
+    });
+
     for (const entry of insulinEntries) {
       const entryTimeMs = entry.timestamp.getTime();
       const timeDiffMinutes = (targetTimeMs - entryTimeMs) / (1000 * 60);
+      
+      console.log('🔍 Processing insulin entry:', {
+        entry: entry,
+        timeDiffMinutes: timeDiffMinutes,
+        isActive: timeDiffMinutes >= 0 && timeDiffMinutes <= this.insulinProfile.duration
+      });
       
       // Skip if insulin is beyond its duration
       if (timeDiffMinutes < 0 || timeDiffMinutes > this.insulinProfile.duration) {
@@ -62,8 +74,15 @@ export class InsulinOnBoardService {
       // Calculate IOB using exponential decay model
       const iob = this.calculateInsulinDecay(entry.units, timeDiffMinutes);
       totalIOB += iob;
+      
+      console.log('🔍 Entry IOB contribution:', {
+        units: entry.units,
+        iob: iob,
+        totalIOB: totalIOB
+      });
     }
 
+    console.log('🔍 Final IOB:', totalIOB);
     return Math.max(0, totalIOB);
   }
 
