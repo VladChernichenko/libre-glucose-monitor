@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 import apiService from '../services/apiService';
 import GlucoseChart from './GlucoseChart';
+import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBDisplay from './COBDisplay';
 import COBChart from './COBChart';
@@ -13,6 +14,7 @@ import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
 import { notesStorageService } from '../services/notesStorage';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
+import { insulinOnBoardService, IOBProjection, InsulinEntry } from '../services/insulinOnBoard';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -39,6 +41,11 @@ const Dashboard: React.FC = () => {
   });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
+
+  // IOB and prediction management
+  const [iobData, setIobData] = useState<IOBProjection[]>([]);
+  const [chartMode, setChartMode] = useState<'glucose' | 'combined'>('combined');
+  const [insulinEntries, setInsulinEntries] = useState<InsulinEntry[]>([]);
 
   // Nightscout integration enabled - using real data
   // In production, always use the hardcoded URL if env var is not set
@@ -92,6 +99,43 @@ const Dashboard: React.FC = () => {
     if (mmolL < 13.9) return 'high';    // 180-250 mg/dL
     return 'critical';                   // > 250 mg/dL
   }, []);
+
+  // Calculate IOB and generate predictions
+  const calculateIOBAndPredictions = useCallback(() => {
+    if (insulinEntries.length === 0) {
+      setIobData([]);
+      return;
+    }
+
+    const now = new Date();
+    const endTime = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // 6 hours ahead
+    
+    // Generate IOB projection
+    const projection = insulinOnBoardService.generateCombinedProjection(
+      insulinEntries,
+      currentReading?.value || 0,
+      0, // glucose trend - could be calculated from recent readings
+      now,
+      endTime,
+      15 // 15-minute intervals
+    );
+
+    setIobData(projection);
+  }, [insulinEntries, currentReading]);
+
+  // Extract insulin entries from notes
+  const extractInsulinFromNotes = useCallback(() => {
+    const insulinNotes = notes.filter(note => note.insulin && note.insulin > 0);
+    const entries: InsulinEntry[] = insulinNotes.map((note, index) => ({
+      id: `insulin-${note.id}`,
+      timestamp: note.timestamp,
+      units: note.insulin!,
+      type: 'bolus' as const,
+      comment: note.comment
+    }));
+    
+    setInsulinEntries(entries);
+  }, [notes]);
 
   const fetchPatientInfo = useCallback(async () => {
     // Set empty patient info since we're using Nightscout
@@ -348,6 +392,16 @@ const Dashboard: React.FC = () => {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Extract insulin entries when notes change
+  useEffect(() => {
+    extractInsulinFromNotes();
+  }, [extractInsulinFromNotes]);
+
+  // Calculate IOB when insulin entries or current reading changes
+  useEffect(() => {
+    calculateIOBAndPredictions();
+  }, [calculateIOBAndPredictions]);
 
   // Notes management functions
   const loadNotes = useCallback(() => {
@@ -658,6 +712,23 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Current IOB Display - Ultra Compact */}
+              {chartMode === 'combined' && (
+                <div className="mb-1 flex justify-center flex-shrink-0">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-1">
+                    <div className="text-center">
+                      <div className="text-xs text-purple-600 font-medium">Insulin on Board</div>
+                      <div className="text-lg font-bold text-purple-800">
+                        {insulinOnBoardService.getCurrentIOB(insulinEntries).toFixed(2)} units
+                      </div>
+                      <div className="text-xs text-purple-600">
+                        {insulinEntries.length} recent bolus{insulinEntries.length !== 1 ? 'es' : ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* Time Range Controls - Ultra Compact */}
               <div className="mb-1 flex justify-center flex-shrink-0">
@@ -677,15 +748,51 @@ const Dashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Chart Mode Controls - Ultra Compact */}
+              <div className="mb-1 flex justify-center flex-shrink-0">
+                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                  <button
+                    onClick={() => setChartMode('glucose')}
+                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                      chartMode === 'glucose'
+                        ? 'bg-white text-green-700 shadow-sm border border-green-200'
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                    }`}
+                  >
+                    📊 Glucose Only
+                  </button>
+                  <button
+                    onClick={() => setChartMode('combined')}
+                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                      chartMode === 'combined'
+                        ? 'bg-white text-purple-700 shadow-sm border border-purple-200'
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+                    }`}
+                  >
+                    🔮 Glucose + IOB + Prediction
+                  </button>
+                </div>
+              </div>
               
               {/* Chart Container - Takes remaining space */}
               <div className="flex-1 min-h-0">
-                <GlucoseChart 
-                  data={glucoseHistory} 
-                  timeRange={timeRange}
-                  notes={notes}
-                  onNoteClick={handleNoteClick}
-                />
+                {chartMode === 'glucose' ? (
+                  <GlucoseChart 
+                    data={glucoseHistory} 
+                    timeRange={timeRange}
+                    notes={notes}
+                    onNoteClick={handleNoteClick}
+                  />
+                ) : (
+                  <CombinedGlucoseChart 
+                    glucoseData={glucoseHistory}
+                    iobData={iobData}
+                    timeRange={timeRange}
+                    notes={notes}
+                    onNoteClick={handleNoteClick}
+                  />
+                )}
               </div>
             </div>
           </div>
