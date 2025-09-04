@@ -55,44 +55,39 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       return [];
     }
 
+    // Create a map of glucose data by time for easy lookup
+    const glucoseMap = new Map<number, any>();
+    glucoseData.forEach(reading => {
+      glucoseMap.set(reading.timestamp.getTime(), reading);
+    });
+
     // Create a map of IOB data by time for easy lookup
     const iobMap = new Map<number, { iob: number; prediction?: number }>();
     iobData.forEach(item => {
       iobMap.set(item.time.getTime(), { iob: item.iob, prediction: item.prediction });
     });
 
-    // Process glucose data and combine with IOB
-    const processedData: ChartDataPoint[] = glucoseData.map((reading, index) => {
-      const time = reading.timestamp.getTime();
+    // Create a full time range dataset using IOB data as the base (it covers the full range)
+    const fullTimeRange = iobData.length > 0 ? iobData : [];
+    
+    const processedData: ChartDataPoint[] = fullTimeRange.map((item, index) => {
+      const time = item.time.getTime();
+      const glucoseReading = glucoseMap.get(time);
       const iobInfo = iobMap.get(time) || { iob: 0, prediction: undefined };
       
       return {
         time,
-        glucose: reading.value,
+        glucose: glucoseReading ? glucoseReading.value : (item.prediction || 0),
         iob: iobInfo.iob,
-        prediction: iobInfo.prediction,
-        status: reading.status,
-        color: getGlucoseColor(reading.value),
+        prediction: item.prediction,
+        status: glucoseReading ? glucoseReading.status : (item.prediction ? 'prediction' : 'unknown'),
+        color: glucoseReading ? getGlucoseColor(glucoseReading.value) : '#9CA3AF',
         isFirstPoint: index === 0,
-        isPrediction: false
+        isPrediction: !glucoseReading && item.prediction !== undefined
       };
     });
 
-    // Add prediction points for future IOB
-    const futurePredictions = iobData
-      .filter(item => item.prediction !== undefined)
-      .map(item => ({
-        time: item.time.getTime(),
-        glucose: item.prediction!,
-        iob: item.iob,
-        prediction: item.prediction,
-        status: 'prediction',
-        color: '#9CA3AF', // Gray for predictions
-        isFirstPoint: false,
-        isPrediction: true
-      }));
-
-    return [...processedData, ...futurePredictions].sort((a, b) => a.time - b.time);
+    return processedData.sort((a, b) => a.time - b.time);
   }, [glucoseData, iobData]);
 
   // Find local extremes for glucose values

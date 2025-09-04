@@ -148,6 +148,42 @@ const Dashboard: React.FC = () => {
     setIobData(projection);
   }, [insulinEntries, currentReading, timeRange]);
 
+  // Create centered glucose data for chart display
+  const createCenteredGlucoseData = useCallback(() => {
+    if (!glucoseHistory || glucoseHistory.length === 0) {
+      return [];
+    }
+
+    const now = new Date();
+    
+    // Calculate centered time range
+    let startTime: Date;
+    let endTime: Date;
+    
+    if (timeRange === '1h') {
+      startTime = new Date(now.getTime() - (30 * 60 * 1000));
+      endTime = new Date(now.getTime() + (30 * 60 * 1000));
+    } else if (timeRange === '6h') {
+      startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
+    } else if (timeRange === '12h') {
+      startTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+    } else if (timeRange === '24h') {
+      startTime = new Date(now.getTime() - (8 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (16 * 60 * 60 * 1000));
+    } else {
+      startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
+    }
+
+    // Filter glucose data to the centered time range
+    return glucoseHistory.filter(reading => {
+      const readingTime = reading.timestamp.getTime();
+      return readingTime >= startTime.getTime() && readingTime <= endTime.getTime();
+    });
+  }, [glucoseHistory, timeRange]);
+
   // Extract insulin entries from notes
   const extractInsulinFromNotes = useCallback(() => {
     const insulinNotes = notes.filter(note => note.insulin && note.insulin > 0);
@@ -846,14 +882,14 @@ const Dashboard: React.FC = () => {
               <div className="flex-1 min-h-0">
                 {chartMode === 'glucose' ? (
                   <GlucoseChart 
-                    data={glucoseHistory} 
+                    data={createCenteredGlucoseData()} 
                     timeRange={timeRange}
                     notes={notes}
                     onNoteClick={handleNoteClick}
                   />
                 ) : (
                   <CombinedGlucoseChart 
-                    glucoseData={glucoseHistory}
+                    glucoseData={createCenteredGlucoseData()}
                     iobData={iobData}
                     timeRange={timeRange}
                     notes={notes}
