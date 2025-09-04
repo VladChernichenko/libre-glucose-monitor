@@ -168,7 +168,11 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
 
-      const baseUrl = nightscoutUrl; // Use direct URL instead of proxy
+      // In development, use proxy to avoid CORS issues
+      const isDev = process.env.NODE_ENV === 'development';
+      const baseUrl = isDev ? '/ns' : nightscoutUrl;
+      console.log('🔍 Using base URL:', baseUrl, 'isDev:', isDev);
+      
       const response = await fetch(`${baseUrl}/api/v2/entries.json?count=1`, {
         headers: {
           'Content-Type': 'application/json',
@@ -248,8 +252,11 @@ const Dashboard: React.FC = () => {
       
       console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
 
-      // Use a large count to ensure we get enough data, then filter by date
-      const baseUrl = nightscoutUrl; // Use direct URL instead of proxy
+      // In development, use proxy to avoid CORS issues
+      const isDev = process.env.NODE_ENV === 'development';
+      const baseUrl = isDev ? '/ns' : nightscoutUrl;
+      console.log('🔍 Using base URL for historical data:', baseUrl, 'isDev:', isDev);
+      
       const response = await fetch(
         `${baseUrl}/api/v2/entries.json?count=500`,
         {
@@ -634,8 +641,13 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      console.log('🔍 Testing Nightscout connection directly...');
-                      const response = await fetch(`${nightscoutUrl}/api/v2/status.json`);
+                      console.log('🔍 Testing Nightscout connection...');
+                      // In development, use proxy to avoid CORS issues
+                      const isDev = process.env.NODE_ENV === 'development';
+                      const baseUrl = isDev ? '/ns' : nightscoutUrl;
+                      console.log('🔍 Using base URL for test:', baseUrl, 'isDev:', isDev);
+                      
+                      const response = await fetch(`${baseUrl}/api/v2/status.json`);
                       const data = await response.json();
                       console.log('✅ Nightscout status:', data);
                       alert(`Nightscout Status: ${data.status}\nName: ${data.name}\nVersion: ${data.version}`);
