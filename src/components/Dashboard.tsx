@@ -109,27 +109,39 @@ const Dashboard: React.FC = () => {
 
     const now = new Date();
     
-    // Calculate future time range based on current timeRange setting
+    // Calculate centered time range (same as fetchHistoricalData)
+    let startTime: Date;
     let endTime: Date;
+    
     if (timeRange === '1h') {
-      endTime = new Date(now.getTime() + (30 * 60 * 1000)); // 30 minutes ahead
+      // Show 30 minutes past + 30 minutes future
+      startTime = new Date(now.getTime() - (30 * 60 * 1000));
+      endTime = new Date(now.getTime() + (30 * 60 * 1000));
     } else if (timeRange === '6h') {
-      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000)); // 4 hours ahead
+      // Show 2 hours past + 4 hours future (centered on current moment)
+      startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
     } else if (timeRange === '12h') {
-      endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 8 hours ahead
+      // Show 4 hours past + 8 hours future
+      startTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
     } else if (timeRange === '24h') {
-      endTime = new Date(now.getTime() + (16 * 60 * 60 * 1000)); // 16 hours ahead
+      // Show 8 hours past + 16 hours future
+      startTime = new Date(now.getTime() - (8 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (16 * 60 * 60 * 1000));
     } else {
-      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000)); // Default 4 hours
+      // Default: 2 hours past + 4 hours future
+      startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+      endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
     }
     
-    // Generate IOB projection
+    // Generate IOB projection for the entire time range (past + future)
     const projection = insulinOnBoardService.generateCombinedProjection(
       insulinEntries,
       currentReading?.value || 0,
       0, // glucose trend - could be calculated from recent readings
-      now,
-      endTime,
+      startTime, // Start from past time
+      endTime,   // End at future time
       15 // 15-minute intervals
     );
 
@@ -696,6 +708,33 @@ const Dashboard: React.FC = () => {
                   className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
                 >
                   📊 Load Test Data
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🧪 Creating test insulin entries...');
+                    const now = new Date();
+                    const testInsulinEntries: InsulinEntry[] = [
+                      {
+                        id: 'test-insulin-1',
+                        timestamp: new Date(now.getTime() - (30 * 60 * 1000)), // 30 minutes ago
+                        units: 2.0,
+                        type: 'bolus',
+                        comment: 'Test bolus 1'
+                      },
+                      {
+                        id: 'test-insulin-2',
+                        timestamp: new Date(now.getTime() - (90 * 60 * 1000)), // 90 minutes ago
+                        units: 1.5,
+                        type: 'bolus',
+                        comment: 'Test bolus 2'
+                      }
+                    ];
+                    setInsulinEntries(testInsulinEntries);
+                    console.log('✅ Test insulin entries created:', testInsulinEntries);
+                  }}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                >
+                  💉 Test Insulin
                 </button>
               </div>
             </div>
