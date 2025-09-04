@@ -6,17 +6,14 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   Area, 
-  AreaChart, 
   ReferenceDot,
   ReferenceLine,
   ComposedChart,
-  Line,
-  LineChart
+  Line
 } from 'recharts';
 import { format } from 'date-fns';
 import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
-import { COBEntry } from '../services/carbsOnBoard';
 
 interface CombinedGlucoseChartProps {
   glucoseData: GlucoseReading[];
@@ -44,6 +41,14 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   notes = [], 
   onNoteClick 
 }) => {
+  // Helper function for glucose color coding
+  const getGlucoseColor = (value: number): string => {
+    if (value < 3.9) return '#EF4444';      // Red for low
+    if (value < 10.0) return '#10B981';     // Green for normal
+    if (value < 13.9) return '#F59E0B';     // Orange for high
+    return '#DC2626';                       // Dark red for critical
+  };
+
   // Combine and process data
   const chartData = useMemo(() => {
     if (!glucoseData || glucoseData.length === 0) {
@@ -113,13 +118,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   };
 
   const extremePoints = findLocalExtremes(chartData);
-
-  const getGlucoseColor = (value: number): string => {
-    if (value < 3.9) return '#EF4444';      // Red for low
-    if (value < 10.0) return '#10B981';     // Green for normal
-    if (value < 13.9) return '#F59E0B';     // Orange for high
-    return '#DC2626';                       // Dark red for critical
-  };
 
   const getValueColor = (value: number): string => {
     return getGlucoseColor(value);
