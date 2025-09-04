@@ -292,6 +292,7 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             return (
               <ReferenceDot
                 key={`extreme-${extreme.point.time}`}
+                yAxisId="glucose"
                 x={extreme.point.time}
                 y={extreme.point.glucose}
                 r={0}
@@ -317,6 +318,7 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
               return (
                 <ReferenceDot
                   key={`note-${note.id}`}
+                  yAxisId="glucose"
                   x={noteTime}
                   y={chartPoint.glucose}
                   r={4}
