@@ -67,10 +67,15 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       iobMap.set(item.time.getTime(), { iob: item.iob, prediction: item.prediction });
     });
 
-    // Create a full time range dataset using IOB data as the base (it covers the full range)
-    const fullTimeRange = iobData.length > 0 ? iobData : [];
+    // If we have IOB data, use it as the base for full time range
+    // If no IOB data, use glucose data as the base
+    const baseData = iobData.length > 0 ? iobData : glucoseData.map(reading => ({
+      time: reading.timestamp,
+      iob: 0,
+      prediction: undefined
+    }));
     
-    const processedData: ChartDataPoint[] = fullTimeRange.map((item, index) => {
+    const processedData: ChartDataPoint[] = baseData.map((item, index) => {
       const time = item.time.getTime();
       const glucoseReading = glucoseMap.get(time);
       const iobInfo = iobMap.get(time) || { iob: 0, prediction: undefined };
