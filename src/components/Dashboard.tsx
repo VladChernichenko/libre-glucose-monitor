@@ -30,6 +30,7 @@ const Dashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  const [notesBackendStatus, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
 
   // COB management
   const [cobStatus, setCobStatus] = useState<COBStatus>({
@@ -448,10 +449,20 @@ const Dashboard: React.FC = () => {
   // Notes management functions
   const loadNotes = useCallback(async () => {
     try {
+      console.log('📝 Loading notes...');
+      
+      // Check if backend is available
+      const isBackendAvailable = await hybridNotesApiService.isBackendAvailable();
+      setNotesBackendStatus(isBackendAvailable ? 'backend' : 'local');
+      
       const allNotes = await hybridNotesApiService.getNotes();
       setNotes(allNotes);
+      console.log(`✅ Loaded ${allNotes.length} notes from ${isBackendAvailable ? 'backend' : 'localStorage'}`);
     } catch (error) {
-      console.error('Error loading notes:', error);
+      console.error('❌ Error loading notes:', error);
+      setNotesBackendStatus('error');
+      // Show user-friendly error message
+      setError('Failed to load notes. Please check your connection and try again.');
       setNotes([]);
     }
   }, []);
@@ -483,27 +494,55 @@ const Dashboard: React.FC = () => {
     calculateCOB(); // Recalculate with new settings
   }, [calculateCOB]);
 
-  const handleNoteSave = (note: GlucoseNote) => {
-    setNotes(prev => [...prev, note]);
-    console.log('✅ Note saved:', note);
+  const handleNoteSave = async (note: GlucoseNote) => {
+    try {
+      // Note is already saved by the modal, just update local state
+      setNotes(prev => [...prev, note]);
+      console.log('✅ Note saved:', note);
+      
+      // Refresh notes from backend to ensure consistency
+      setTimeout(() => {
+        loadNotes();
+      }, 1000);
+    } catch (error) {
+      console.error('Error updating local state after note save:', error);
+    }
   };
 
-  const handleNoteUpdate = (note: GlucoseNote) => {
-    setNotes(prev => prev.map(n => n.id === note.id ? note : n));
-    console.log('✏️ Note updated:', note);
+  const handleNoteUpdate = async (note: GlucoseNote) => {
+    try {
+      // Note is already updated by the modal, just update local state
+      setNotes(prev => prev.map(n => n.id === note.id ? note : n));
+      console.log('✏️ Note updated:', note);
+      
+      // Refresh notes from backend to ensure consistency
+      setTimeout(() => {
+        loadNotes();
+      }, 1000);
+    } catch (error) {
+      console.error('Error updating local state after note update:', error);
+    }
   };
 
   const handleNoteDelete = async (noteId: string) => {
     try {
+      console.log('🗑️ Deleting note:', noteId);
       const success = await hybridNotesApiService.deleteNote(noteId);
       if (success) {
         setNotes(prev => prev.filter(note => note.id !== noteId));
-        console.log('🗑️ Note deleted:', noteId);
+        console.log('✅ Note deleted successfully:', noteId);
+        
+        // Refresh notes from backend to ensure consistency
+        setTimeout(() => {
+          loadNotes();
+        }, 1000);
       } else {
         console.error('❌ Failed to delete note:', noteId);
+        setError('Failed to delete note. Please try again.');
       }
     } catch (error) {
-      console.error('Error deleting note:', error);
+      console.error('❌ Error deleting note:', error);
+      setError('Failed to delete note. Please check your connection and try again.');
     }
   };
 
@@ -520,6 +559,17 @@ const Dashboard: React.FC = () => {
   const handleNoteClick = (note: GlucoseNote) => {
     setEditingNote(note);
     setIsNoteModalOpen(true);
+  };
+
+  const handleRefreshNotes = async () => {
+    try {
+      console.log('🔄 Refreshing notes from backend...');
+      await loadNotes();
+      console.log('✅ Notes refreshed successfully');
+    } catch (error) {
+      console.error('❌ Error refreshing notes:', error);
+      setError('Failed to refresh notes. Please try again.');
+    }
   };
 
   // Load notes on component mount
@@ -741,9 +791,74 @@ const Dashboard: React.FC = () => {
                     setInsulinEntries(testInsulinEntries);
                     console.log('✅ Test insulin entries created:', testInsulinEntries);
                   }}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
                 >
                   💉 Test Insulin
+                </button>
+                <button
+                  onClick={handleRefreshNotes}
+                  className="bg-indigo-500 hover:bg-indigo-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
+                >
+                  🔄 Refresh Notes
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🧪 Testing notes backend integration...');
+                      const isBackendAvailable = await hybridNotesApiService.isBackendAvailable();
+                      const testNote = {
+                        timestamp: new Date(),
+                        carbs: 10,
+                        insulin: 1,
+                        meal: 'Snack' as const,
+                        comment: 'Test note for backend integration',
+                        glucoseValue: 5.5
+                      };
+                      
+                      if (isBackendAvailable) {
+                        console.log('✅ Backend is available, testing note creation...');
+                        const createdNote = await hybridNotesApiService.addNote(testNote);
+                        console.log('✅ Note created successfully:', createdNote);
+                        
+                        // Test update
+                        const updatedNote = await hybridNotesApiService.updateNote(createdNote.id, { comment: 'Updated test note' });
+                        console.log('✅ Note updated successfully:', updatedNote);
+                        
+                        // Test delete
+                        const deleted = await hybridNotesApiService.deleteNote(createdNote.id);
+                        console.log('✅ Note deleted successfully:', deleted);
+                        
+                        alert('✅ Backend integration test passed! All CRUD operations working.');
+                      } else {
+                        console.log('⚠️ Backend not available, testing localStorage...');
+                        const createdNote = await hybridNotesApiService.addNote(testNote);
+                        console.log('✅ Local note created:', createdNote);
+                        alert('⚠️ Backend not available, but localStorage fallback is working.');
+                      }
+                    } catch (error) {
+                      console.error('❌ Notes integration test failed:', error);
+                      alert(`❌ Notes integration test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }}
+                  className="bg-teal-500 hover:bg-teal-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
+                >
+                  🧪 Test Notes API
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🔄 Re-initializing Notes API service...');
+                      await hybridNotesApiService.reinitialize();
+                      await loadNotes();
+                      alert('✅ Notes API service re-initialized successfully!');
+                    } catch (error) {
+                      console.error('❌ Re-initialization failed:', error);
+                      alert(`❌ Re-initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white px-1 py-0.5 rounded text-xs w-full"
+                >
+                  🔄 Re-init API
                 </button>
               </div>
             </div>
@@ -879,7 +994,23 @@ const Dashboard: React.FC = () => {
             {/* Notes Summary - Full Width */}
             <div className="bg-white rounded-lg shadow-sm p-1 h-full">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-semibold text-gray-900">🍽️ Recent Notes</h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-xs font-semibold text-gray-900">🍽️ Recent Notes</h3>
+                  <div className="flex items-center space-x-1">
+                    {notesBackendStatus === 'checking' && (
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" title="Checking backend connection..."></div>
+                    )}
+                    {notesBackendStatus === 'backend' && (
+                      <div className="w-2 h-2 bg-green-400 rounded-full" title="Using backend storage"></div>
+                    )}
+                    {notesBackendStatus === 'local' && (
+                      <div className="w-2 h-2 bg-blue-400 rounded-full" title="Using local storage"></div>
+                    )}
+                    {notesBackendStatus === 'error' && (
+                      <div className="w-2 h-2 bg-red-400 rounded-full" title="Backend connection error"></div>
+                    )}
+                  </div>
+                </div>
                 <button
                   onClick={() => setIsNoteModalOpen(true)}
                   className="btn-primary text-xs px-2 py-1"

@@ -32,14 +32,18 @@ export interface NotesApiService {
 class HybridNotesApiService implements NotesApiService {
   private useBackend: boolean = false;
   private migrationCompleted: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initializeService();
+    this.initializationPromise = this.initializeService();
   }
 
   private async initializeService() {
     try {
+      console.log('🔄 Initializing Notes API service...');
+      
       // Test backend connection
+      console.log('🔍 Testing backend connection...');
       const isBackendAvailable = await backendNotesApi.testConnection();
       this.useBackend = isBackendAvailable;
       
@@ -47,10 +51,13 @@ class HybridNotesApiService implements NotesApiService {
       
       // If backend is available and we haven't migrated yet, migrate data
       if (this.useBackend && !this.migrationCompleted) {
+        console.log('🔄 Backend available, migrating localStorage data...');
         await this.migrateFromLocalStorage();
       }
+      
+      console.log('✅ Notes API service initialized successfully');
     } catch (error) {
-      console.warn('Backend not available, falling back to localStorage:', error);
+      console.warn('⚠️ Backend not available, falling back to localStorage:', error);
       this.useBackend = false;
     }
   }
@@ -61,6 +68,19 @@ class HybridNotesApiService implements NotesApiService {
     } catch (error) {
       return false;
     }
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+  }
+
+  // Method to force re-initialization (useful for testing)
+  async reinitialize(): Promise<void> {
+    console.log('🔄 Re-initializing Notes API service...');
+    this.initializationPromise = this.initializeService();
+    await this.initializationPromise;
   }
 
   async migrateFromLocalStorage(): Promise<void> {
@@ -109,6 +129,7 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async getNotes(): Promise<GlucoseNote[]> {
+    await this.ensureInitialized();
     if (this.useBackend) {
       return await backendNotesApi.getNotes();
     } else {
@@ -117,6 +138,7 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async getNotesInRange(startDate: Date, endDate: Date): Promise<GlucoseNote[]> {
+    await this.ensureInitialized();
     if (this.useBackend) {
       return await backendNotesApi.getNotesInRange(startDate, endDate);
     } else {
@@ -125,6 +147,8 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async addNote(noteData: NoteInputData): Promise<GlucoseNote> {
+    await this.ensureInitialized();
+    console.log(`📝 Adding note via ${this.useBackend ? 'backend' : 'localStorage'}`);
     if (this.useBackend) {
       return await backendNotesApi.createNote(noteData);
     } else {
@@ -133,6 +157,8 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async updateNote(id: string, updates: Partial<NoteInputData>): Promise<GlucoseNote | null> {
+    await this.ensureInitialized();
+    console.log(`📝 Updating note via ${this.useBackend ? 'backend' : 'localStorage'}`);
     if (this.useBackend) {
       return await backendNotesApi.updateNote(id, updates);
     } else {
@@ -141,6 +167,8 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async deleteNote(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    console.log(`📝 Deleting note via ${this.useBackend ? 'backend' : 'localStorage'}`);
     if (this.useBackend) {
       return await backendNotesApi.deleteNote(id);
     } else {

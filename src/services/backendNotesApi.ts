@@ -269,11 +269,22 @@ export const backendNotesApi = {
    */
   async testConnection(): Promise<boolean> {
     try {
-      const response = await notesApiClient.get('/health');
+      console.log('🔍 Testing notes API connection...');
+      // Try to get notes first (this will test authentication too)
+      const response = await notesApiClient.get('/');
+      console.log('✅ Notes API connection test successful:', response.status);
       return response.status === 200;
     } catch (error) {
-      console.error('Notes API connection test failed:', error);
-      return false;
+      console.error('❌ Notes API connection test failed:', error);
+      // Try a simpler health check as fallback
+      try {
+        const healthResponse = await notesApiClient.get('/health');
+        console.log('✅ Notes API health check successful:', healthResponse.status);
+        return healthResponse.status === 200;
+      } catch (healthError) {
+        console.error('❌ Notes API health check also failed:', healthError);
+        return false;
+      }
     }
   }
 };
