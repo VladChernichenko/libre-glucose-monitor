@@ -23,11 +23,40 @@ const apiClient = axios.create({
 // Add request interceptor to include auth token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
+  console.log('🔍 COB API Request Debug:', {
+    url: (config.baseURL || '') + (config.url || ''),
+    method: config.method,
+    hasToken: !!token,
+    tokenPreview: token ? token.substring(0, 20) + '...' : 'None',
+    headers: config.headers
+  });
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Add response interceptor for debugging
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log('✅ COB API Response Success:', {
+      status: response.status,
+      url: response.config.url,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    console.error('❌ COB API Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      message: error.message,
+      data: error.response?.data
+    });
+    return Promise.reject(error);
+  }
+);
 
 export const cobSettingsApi = {
   /**

@@ -2,6 +2,7 @@ import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Dashboard from './components/Dashboard';
 import JwtLoginForm from './components/JwtLoginForm';
+import DebugInfo from './components/DebugInfo';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,7 +21,12 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return isAuthenticated ? <Dashboard /> : <JwtLoginForm />;
+  return (
+    <>
+      {isAuthenticated ? <Dashboard /> : <JwtLoginForm />}
+      <DebugInfo />
+    </>
+  );
 };
 
 const App: React.FC = () => {
