@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { getEnvironmentConfig } from '../config/environments';
 
 // Types for different API responses
 export interface ApiConfig {
@@ -684,15 +685,16 @@ class ApiService {
   }
 }
 
-// Create and export a singleton instance
+// Create and export a singleton instance using environment configuration
+const config = getEnvironmentConfig();
 export const apiService = new ApiService({
-  nightscoutUrl: process.env.REACT_APP_NIGHTSCOUT_URL || 'https://vladchernichenko.eu.nightscoutpro.com',
-  nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-  nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
-  libreApiUrl: process.env.REACT_APP_LIBRE_API_URL || 'https://api.libreview.com',
-  cobApiUrl: process.env.REACT_APP_COB_API_URL || 'https://libre-glucose-monitor-be.onrender.com',
+  nightscoutUrl: config.nightscoutUrl,
+  nightscoutSecret: config.nightscoutSecret,
+  nightscoutToken: config.nightscoutToken,
+  libreApiUrl: config.libreApiUrl,
+  cobApiUrl: config.cobApiUrl,
   enableCorsProxy: true,
-  corsProxyUrl: process.env.REACT_APP_CORS_PROXY_URL || 'https://cors-anywhere.herokuapp.com',
+  corsProxyUrl: config.corsProxyUrl,
 });
 
 export default apiService;

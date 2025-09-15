@@ -6,15 +6,16 @@ import {
   RefreshTokenRequest,
   User 
 } from '../types/auth';
+import { getEnvironmentConfig } from '../config/environments';
 
 class AuthService {
   private api: AxiosInstance;
   private baseUrl: string;
 
   constructor() {
-    // In Docker, backend is accessible via the same origin (no CORS needed)
-    const isDocker = process.env.REACT_APP_DOCKER === 'true';
-    this.baseUrl = isDocker ? '/api' : (process.env.REACT_APP_BACKEND_URL || 'https://libre-glucose-monitor-be.onrender.com');
+    // Get environment-specific configuration
+    const config = getEnvironmentConfig();
+    this.baseUrl = config.backendUrl;
     
     this.api = axios.create({
       baseURL: this.baseUrl,
