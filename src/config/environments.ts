@@ -73,7 +73,7 @@ export const environments = {
 };
 
 export function getEnvironmentConfig(): EnvironmentConfig {
-  const env = process.env.REACT_APP_ENVIRONMENT || 'local';
+  const env = process.env.REACT_APP_ENVIRONMENT;
   const dockerMode = process.env.REACT_APP_DOCKER === 'true';
   
   // Override with Docker config if in Docker mode
@@ -81,8 +81,25 @@ export function getEnvironmentConfig(): EnvironmentConfig {
     return environments.docker;
   }
   
-  // Return environment-specific config or fallback to local
-  return environments[env as keyof typeof environments] || environments.local;
+  // If no environment is set, try to detect based on hostname
+  let detectedEnv = env;
+  if (!detectedEnv) {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
+        detectedEnv = 'production';
+      } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+        detectedEnv = 'local';
+      } else {
+        detectedEnv = 'production'; // Default to production for unknown hosts
+      }
+    } else {
+      detectedEnv = 'local'; // Server-side rendering fallback
+    }
+  }
+  
+  // Return environment-specific config or fallback to production
+  return environments[detectedEnv as keyof typeof environments] || environments.production;
 }
 
 export function getCurrentEnvironment(): string {
