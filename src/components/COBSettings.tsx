@@ -52,7 +52,7 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
 
   const handleReset = () => {
     const defaultConfig: COBConfig = {
-      carbRatio: 12,
+      carbRatio: 2.0,
       isf: 1.0,
       carbHalfLife: 45,
       maxCOBDuration: 240
@@ -82,23 +82,23 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
           {/* Carb Ratio */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Carb Ratio (g/u)
+              Carb Ratio (mmol/L per 10g)
             </label>
             <div className="relative">
               <input
                 type="number"
                 step="0.1"
-                min="1"
-                max="50"
+                min="0.5"
+                max="10"
                 value={localConfig.carbRatio}
                 onChange={(e) => handleInputChange('carbRatio', parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="12"
+                placeholder="2.0"
               />
-              <div className="absolute right-3 top-2 text-sm text-gray-500">g/u</div>
+              <div className="absolute right-3 top-2 text-sm text-gray-500">mmol/L</div>
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              How many grams of carbs 1 unit of insulin covers
+              How much 10 grams of carbohydrates will increase blood sugar in mmol/L
             </p>
           </div>
 
@@ -185,7 +185,7 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Carb Ratio:</span>
-                <span className="ml-2 font-medium">{localConfig.carbRatio} g/u</span>
+                <span className="ml-2 font-medium">{localConfig.carbRatio} mmol/L per 10g</span>
               </div>
               <div>
                 <span className="text-gray-500">ISF:</span>

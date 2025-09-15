@@ -1,5 +1,5 @@
 export interface COBConfig {
-  carbRatio: number;        // grams per unit (g/u) - default: 12
+  carbRatio: number;        // mmol/L increase per 10g carbs - default: 2.0
   isf: number;              // insulin sensitivity factor (mmol/L per unit) - default: 1.0
   carbHalfLife: number;     // half-life in minutes - default: 45 (medium-acting carbs)
   maxCOBDuration: number;   // maximum duration to track COB in minutes - default: 240 (4 hours)
@@ -31,7 +31,7 @@ export class CarbsOnBoardService {
   private constructor() {
     // Default configuration based on your ratios
     this.config = {
-      carbRatio: 12,        // 12 g/u
+      carbRatio: 2.0,       // 2.0 mmol/L per 10g carbs
       isf: 1.0,             // 1.0 mmol/L/u
       carbHalfLife: 45,     // 45 minutes (medium-acting carbs)
       maxCOBDuration: 240   // 4 hours maximum tracking
@@ -133,8 +133,8 @@ export class CarbsOnBoardService {
 
   // Estimate glucose impact considering both carbs and insulin
   private estimateGlucoseImpact(carbs: number, insulin: number): number {
-    // Carbs raise glucose: carbs / carbRatio * ISF
-    const glucoseRise = (carbs / this.config.carbRatio) * this.config.isf;
+    // Carbs raise glucose: (carbs / 10) * carbRatio
+    const glucoseRise = (carbs / 10) * this.config.carbRatio;
     
     // Insulin lowers glucose: insulin * ISF
     const glucoseDrop = insulin * this.config.isf;
@@ -176,7 +176,11 @@ export class CarbsOnBoardService {
 
   // Calculate recommended insulin dose for a meal
   calculateRecommendedInsulin(carbs: number, currentGlucose?: number, targetGlucose: number = 7.0): number {
-    let recommendedInsulin = carbs / this.config.carbRatio;
+    // Calculate glucose rise from carbs: (carbs / 10) * carbRatio
+    const glucoseRiseFromCarbs = (carbs / 10) * this.config.carbRatio;
+    
+    // Calculate insulin needed to cover carbs: glucoseRise / ISF
+    let recommendedInsulin = glucoseRiseFromCarbs / this.config.isf;
     
     // Add correction dose if glucose is above target
     if (currentGlucose && currentGlucose > targetGlucose) {
