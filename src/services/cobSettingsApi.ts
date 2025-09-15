@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { authService } from './authService';
 
 export interface COBSettingsData {
   id?: string;
@@ -36,7 +37,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Add response interceptor for debugging
+// Add response interceptor for token refresh and debugging
 apiClient.interceptors.response.use(
   (response) => {
     console.log('✅ COB API Response Success:', {
@@ -46,7 +47,9 @@ apiClient.interceptors.response.use(
     });
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     console.error('❌ COB API Response Error:', {
       status: error.response?.status,
       statusText: error.response?.statusText,
@@ -54,6 +57,28 @@ apiClient.interceptors.response.use(
       message: error.message,
       data: error.response?.data
     });
+
+    // Handle token refresh for 401 and 403 errors (some backends return 403 for expired tokens)
+    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        console.log('🔄 Attempting token refresh for COB API...');
+        const newToken = await authService.refreshAccessToken();
+        if (newToken) {
+          console.log('✅ Token refreshed successfully, retrying COB API request');
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return apiClient(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('❌ Token refresh failed for COB API:', refreshError);
+        // Refresh failed, redirect to login
+        authService.logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
     return Promise.reject(error);
   }
 );
