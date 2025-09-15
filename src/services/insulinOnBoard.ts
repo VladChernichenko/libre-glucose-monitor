@@ -163,7 +163,6 @@ export class InsulinOnBoardService {
     // Confidence decreases with time horizon
     // 100% at 0 minutes, 50% at 2 hours, 0% at 6 hours
     const maxConfidenceTime = 0;
-    const halfConfidenceTime = 120; // 2 hours
     const zeroConfidenceTime = 360; // 6 hours
     
     if (timeHorizonMinutes <= maxConfidenceTime) return 1.0;

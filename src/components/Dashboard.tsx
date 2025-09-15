@@ -10,7 +10,7 @@ import COBChart from './COBChart';
 import COBSettings from './COBSettings';
 import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/demoData';
 
-import { GlucoseReading, LibrePatient } from '../types/libre';
+import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
@@ -20,10 +20,8 @@ const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
-  const [patient, setPatient] = useState<LibrePatient | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('6h');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Notes management
@@ -164,13 +162,8 @@ const Dashboard: React.FC = () => {
   }, [notes]);
 
   const fetchPatientInfo = useCallback(async () => {
-    // Set empty patient info since we're using Nightscout
-    setPatient({
-      id: 'nightscout-user',
-      firstName: 'Nightscout',
-      lastName: 'User',
-      email: 'user@nightscout.com'
-    });
+    // Patient info is not needed for Nightscout integration
+    console.log('📋 Patient info fetch - using Nightscout integration');
   }, []);
 
   const fetchConnections = useCallback(async () => {
@@ -181,13 +174,11 @@ const Dashboard: React.FC = () => {
   const fetchCurrentGlucose = useCallback(async () => {
     if (!selectedConnection) return;
     
-    setIsLoading(true);
     setError(null);
     
     // ONLY use Nightscout data - no demo fallback
     if (!nightscoutUrl) {
       setError('Nightscout URL not configured. Please check your environment variables.');
-      setIsLoading(false);
       return;
     }
     
@@ -246,8 +237,6 @@ const Dashboard: React.FC = () => {
         setCurrentReading(demoData[demoData.length - 1]);
       }
     }
-    
-    setIsLoading(false);
   }, [selectedConnection, nightscoutUrl, calculateGlucoseStatus]);
 
   const fetchHistoricalData = useCallback(async () => {
@@ -423,14 +412,13 @@ const Dashboard: React.FC = () => {
       firstEntry: glucoseHistory[0],
       lastEntry: glucoseHistory[glucoseHistory.length - 1]
     });
-  }, [glucoseHistory]);
+  }, [glucoseHistory, currentReading]);
 
   // Real-time insulin calculations update
-  const [currentTime, setCurrentTime] = useState(new Date());
-  
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentTime(new Date());
+      // Force re-render for real-time calculations
+      setGlucoseHistory(prev => [...prev]);
     }, 60000); // Update every minute
     
     return () => clearInterval(interval);
@@ -524,7 +512,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleNoteDelete = async (noteId: string) => {
+  const handleNoteDelete = useCallback(async (noteId: string) => {
     try {
       console.log('🗑️ Deleting note:', noteId);
       const success = await hybridNotesApiService.deleteNote(noteId);
@@ -544,7 +532,7 @@ const Dashboard: React.FC = () => {
       console.error('❌ Error deleting note:', error);
       setError('Failed to delete note. Please check your connection and try again.');
     }
-  };
+  }, [loadNotes]);
 
   const handleEditNote = (note: GlucoseNote) => {
     setEditingNote(note);
@@ -615,7 +603,7 @@ const Dashboard: React.FC = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes]);
+  }, [notes, handleNoteDelete]);
 
   const handleLogout = () => {
     logout();
