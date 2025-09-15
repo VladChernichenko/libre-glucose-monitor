@@ -12,7 +12,7 @@ import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/de
 
 import { GlucoseReading, LibrePatient } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
-import { notesStorageService } from '../services/notesStorage';
+import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 import { insulinOnBoardService, IOBProjection, InsulinEntry } from '../services/insulinOnBoard';
 
@@ -446,9 +446,14 @@ const Dashboard: React.FC = () => {
   }, [calculateIOBAndPredictions]);
 
   // Notes management functions
-  const loadNotes = useCallback(() => {
-    const allNotes = notesStorageService.getNotes();
-    setNotes(allNotes);
+  const loadNotes = useCallback(async () => {
+    try {
+      const allNotes = await hybridNotesApiService.getNotes();
+      setNotes(allNotes);
+    } catch (error) {
+      console.error('Error loading notes:', error);
+      setNotes([]);
+    }
   }, []);
 
   // COB management functions
@@ -488,13 +493,17 @@ const Dashboard: React.FC = () => {
     console.log('✏️ Note updated:', note);
   };
 
-  const handleNoteDelete = (noteId: string) => {
-    const success = notesStorageService.deleteNote(noteId);
-    if (success) {
-      setNotes(prev => prev.filter(note => note.id !== noteId));
-      console.log('🗑️ Note deleted:', noteId);
-    } else {
-      console.error('❌ Failed to delete note from localStorage:', noteId);
+  const handleNoteDelete = async (noteId: string) => {
+    try {
+      const success = await hybridNotesApiService.deleteNote(noteId);
+      if (success) {
+        setNotes(prev => prev.filter(note => note.id !== noteId));
+        console.log('🗑️ Note deleted:', noteId);
+      } else {
+        console.error('❌ Failed to delete note:', noteId);
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
     }
   };
 

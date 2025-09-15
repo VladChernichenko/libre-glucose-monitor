@@ -1,5 +1,6 @@
 export interface GlucoseNote {
   id: string;
+  userId?: string; // Optional for backward compatibility with localStorage
   timestamp: Date;
   carbs: number;
   insulin: number;
@@ -8,6 +9,8 @@ export interface GlucoseNote {
   glucoseValue?: number;
   detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
   insulinDose?: InsulinDose; // Insulin dose information for tracking
+  createdAt?: Date; // Backend timestamp
+  updatedAt?: Date; // Backend timestamp
 }
 
 export interface NoteInputData {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { GlucoseNote, NoteInputData, MEAL_CATEGORIES } from '../types/notes';
-import { notesStorageService } from '../services/notesStorage';
+import { hybridNotesApiService } from '../services/hybridNotesApi';
 
 interface NoteInputModalProps {
   isOpen: boolean;
@@ -247,7 +247,9 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     }
     
     // Validate form data
-    const validation = notesStorageService.validateNoteData(formData);
+    const validation = hybridNotesApiService.validateNoteData ? 
+      hybridNotesApiService.validateNoteData(formData) : 
+      { isValid: true, errors: [] };
     
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -260,12 +262,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       let note: GlucoseNote;
       
       if (mode === 'add') {
-        note = notesStorageService.addNote(formData);
+        note = await hybridNotesApiService.addNote(formData);
       } else {
         if (!initialData?.id) {
           throw new Error('Note ID is required for edit mode');
         }
-        const updatedNote = notesStorageService.updateNote(initialData.id, formData);
+        const updatedNote = await hybridNotesApiService.updateNote(initialData.id, formData);
         if (!updatedNote) {
           throw new Error('Failed to update note');
         }
