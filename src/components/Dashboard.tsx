@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-import GlucoseChart from './GlucoseChart';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
@@ -42,7 +41,6 @@ const Dashboard: React.FC = () => {
 
   // IOB and prediction management
   const [iobData, setIobData] = useState<IOBProjection[]>([]);
-  const [chartMode, setChartMode] = useState<'glucose' | 'combined'>('combined');
   const [insulinEntries, setInsulinEntries] = useState<InsulinEntry[]>([]);
 
   // Nightscout integration enabled - using real data
@@ -762,50 +760,15 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chart Mode Controls - Ultra Compact */}
-              <div className="mb-1 flex justify-center flex-shrink-0">
-                <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                  <button
-                    onClick={() => setChartMode('glucose')}
-                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                      chartMode === 'glucose'
-                        ? 'bg-white text-green-700 shadow-sm border border-green-200'
-                        : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
-                    }`}
-                  >
-                    📊 Glucose Only
-                  </button>
-                  <button
-                    onClick={() => setChartMode('combined')}
-                    className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                      chartMode === 'combined'
-                        ? 'bg-white text-purple-700 shadow-sm border border-purple-200'
-                        : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
-                    }`}
-                  >
-                    🔮 Glucose + IOB + Prediction
-                  </button>
-                </div>
-              </div>
-              
               {/* Chart Container - Takes remaining space */}
               <div className="flex-1 min-h-0">
-                {chartMode === 'glucose' ? (
-                  <GlucoseChart 
-                    data={glucoseHistory} 
-                    timeRange={timeRange}
-                    notes={notes}
-                    onNoteClick={handleNoteClick}
-                  />
-                ) : (
-                  <CombinedGlucoseChart 
-                    glucoseData={glucoseHistory}
-                    iobData={iobData}
-                    timeRange={timeRange}
-                    notes={notes}
-                    onNoteClick={handleNoteClick}
-                  />
-                )}
+                <CombinedGlucoseChart 
+                  glucoseData={glucoseHistory}
+                  iobData={iobData}
+                  timeRange={timeRange}
+                  notes={notes}
+                  onNoteClick={handleNoteClick}
+                />
               </div>
             </div>
           </div>
