@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glucose Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 200px;
+            height: 80px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        body:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .widget-container {
+            text-align: center;
+            width: 100%;
+        }
+
+        .glucose-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 2px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .glucose-trend {
+            font-size: 14px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .trend-arrow {
+            font-size: 16px;
+        }
+
+        .timestamp {
+            font-size: 9px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .error {
+            color: #fff;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        .loading {
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Status colors */
+        .status-low { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important; 
+        }
+        .status-normal { 
+            background: linear-gradient(135deg, #51cf66 0%, #40c057 100%) !important; 
+        }
+        .status-high { 
+            background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%) !important; 
+            color: #333 !important;
+        }
+        .status-critical { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #e03131 100%) !important; 
+        }
+    </style>
+</head>
+<body id="widget-body" onclick="refreshData()">
+    <div class="widget-container">
+        <div id="glucose-display" class="loading">Loading...</div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            NIGHTSCOUT_URL: 'https://vladchernichenko.eu.nightscoutpro.com',
+            UPDATE_INTERVAL: 60000 // 1 minute
+        };
+
+        let updateTimer = null;
+
+        // Convert mg/dL to mmol/L
+        function convertToMmolL(mgdL) {
+            return Math.round((mgdL / 18) * 10) / 10;
+        }
+
+        // Get trend arrow
+        function getTrendArrow(direction) {
+            const trendMap = {
+                'DoubleUp': '↗↗',
+                'SingleUp': '↗',
+                'FortyFiveUp': '↗',
+                'Flat': '→',
+                'FortyFiveDown': '↘',
+                'SingleDown': '↘',
+                'DoubleDown': '↘↘',
+                'NOT COMPUTABLE': '→',
+                'RATE OUT OF RANGE': '→',
+            };
+            return trendMap[direction] || '→';
+        }
+
+        // Calculate glucose status
+        function getGlucoseStatus(mmolL) {
+            if (mmolL < 3.9) return 'low';
+            if (mmolL < 10.0) return 'normal';
+            if (mmolL < 13.9) return 'high';
+            return 'critical';
+        }
+
+        // Fetch glucose data
+        async function fetchGlucoseData() {
+            try {
+                const response = await fetch(`${CONFIG.NIGHTSCOUT_URL}/api/v2/entries.json?count=1`);
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const entry = data[0];
+                    const mmolL = convertToMmolL(entry.sgv);
+                    const status = getGlucoseStatus(mmolL);
+                    const trendArrow = getTrendArrow(entry.direction);
+                    
+                    return {
+                        value: mmolL,
+                        trend: trendArrow,
+                        status: status,
+                        timestamp: new Date(entry.date),
+                        success: true
+                    };
+                }
+                
+                throw new Error('No data available');
+            } catch (error) {
+                console.error('Failed to fetch glucose data:', error);
+                return {
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+
+        // Update widget display
+        async function updateDisplay() {
+            const display = document.getElementById('glucose-display');
+            const body = document.getElementById('widget-body');
+            
+            // Show loading
+            display.innerHTML = '<div class="loading">Loading...</div>';
+            body.className = '';
+            
+            const glucoseData = await fetchGlucoseData();
+            
+            if (glucoseData.success) {
+                // Update background based on status
+                body.className = `status-${glucoseData.status}`;
+                
+                // Update content
+                display.innerHTML = `
+                    <div class="glucose-value">${glucoseData.value} mmol/L</div>
+                    <div class="glucose-trend">
+                        <span class="trend-arrow">${glucoseData.trend}</span>
+                        <span>Glucose</span>
+                    </div>
+                    <div class="timestamp">${glucoseData.timestamp.toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    })}</div>
+                `;
+            } else {
+                // Show error state
+                body.className = 'status-critical';
+                display.innerHTML = `
+                    <div class="error">
+                        <div>Connection Error</div>
+                        <div style="font-size: 9px; margin-top: 2px;">Click to retry</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Refresh data (called on click)
+        function refreshData() {
+            updateDisplay();
+        }
+
+        // Initialize widget
+        function initWidget() {
+            console.log('Glucose Widget initialized');
+            updateDisplay();
+            
+            // Set up periodic updates
+            updateTimer = setInterval(updateDisplay, CONFIG.UPDATE_INTERVAL);
+        }
+
+        // Cleanup on window close
+        window.addEventListener('beforeunload', () => {
+            if (updateTimer) {
+                clearInterval(updateTimer);
+            }
+        });
+
+        // Start widget when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initWidget);
+        } else {
+            initWidget();
+        }
+    </script>
+</body>
+</html>

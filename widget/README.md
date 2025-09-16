@@ -11,9 +11,44 @@ A simple, elegant widget that displays your current glucose level and trend on y
 └─────────────────────┘
 ```
 
-## 🚀 **Installation Options**
+## 🚀 **Installation Options (No Übersicht Required!)**
 
-### **Option 1: Übersicht Widget (Recommended)**
+### **Option 1: Simple Browser Widget (Easiest)**
+
+1. **Run the launcher script**:
+   ```bash
+   cd widget
+   ./launch-widget.sh
+   ```
+   This will open the widget in a borderless browser window positioned at the top-right corner.
+
+2. **Or manually open**: Double-click `glucose-widget.html` in Finder
+
+### **Option 2: Electron Desktop App**
+
+1. **Install dependencies**:
+   ```bash
+   cd widget/electron-widget
+   npm install
+   ```
+
+2. **Run the widget**:
+   ```bash
+   npm start
+   ```
+
+3. **Build standalone app** (optional):
+   ```bash
+   npm run dist
+   ```
+
+### **Option 3: SwiftUI Native App**
+
+1. **Open Xcode**: Create new macOS project
+2. **Copy code**: Use content from `macos-widget.swift`
+3. **Build and run**: Creates native macOS widget app
+
+### **Option 4: Übersicht Widget (If Available)**
 
 1. **Install Übersicht**: Download from [übersicht.app](http://tracesof.net/uebersicht/)
 2. **Copy widget file**: 
@@ -21,16 +56,6 @@ A simple, elegant widget that displays your current glucose level and trend on y
    cp glucose-widget.jsx ~/Library/Application\ Support/Übersicht/widgets/
    ```
 3. **Refresh Übersicht**: The widget will appear automatically
-
-### **Option 2: Standalone HTML Widget**
-
-1. **Open the HTML file**: Double-click `glucose-widget.html`
-2. **Pin to desktop**: Use browser's "Add to Dock" or similar feature
-3. **Auto-refresh**: Widget updates every minute automatically
-
-### **Option 3: Custom Integration**
-
-Use `glucose-widget.js` to integrate into your own macOS widget framework or web application.
 
 ## ⚙️ **Configuration**
 
