@@ -624,22 +624,9 @@ const Dashboard: React.FC = () => {
         {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
         <div className="h-full flex flex-col gap-1">
           
-          {/* Add Note Section - Simplified */}
-          <div className="flex-shrink-0 mb-1">
-            <div className="flex justify-center">
-              <button
-                onClick={() => setIsNoteModalOpen(true)}
-                className="btn-primary text-sm px-4 py-2 flex items-center space-x-2 shadow-md"
-                title="Add new note (⌘+⇧+O)"
-              >
-                <span>➕</span>
-                <span>Add Note</span>
-              </button>
-            </div>
-          </div>
 
-          {/* Main Chart Area - Expanded to use more space */}
-          <div className="h-[60vh] flex-shrink-0">
+          {/* Main Chart Area - Maximum space for visualization */}
+          <div className="h-[70vh] flex-shrink-0">
             <div className="bg-white rounded-lg shadow-sm p-1 h-full flex flex-col">
               {/* Active Status Bar - One Line Display */}
               <div className="mb-1 flex justify-center flex-shrink-0">
