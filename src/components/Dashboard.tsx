@@ -19,7 +19,7 @@ const Dashboard: React.FC = () => {
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [selectedConnection, setSelectedConnection] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h'>('6h');
+  const [timeRange, setTimeRange] = useState<'6h' | '24h'>('6h');
   const [error, setError] = useState<string | null>(null);
 
   // Notes management
@@ -97,24 +97,16 @@ const Dashboard: React.FC = () => {
     let startTime: Date;
     let endTime: Date;
     
-    if (timeRange === '1h') {
-      // Show 30 minutes past + 30 minutes future
-      startTime = new Date(now.getTime() - (30 * 60 * 1000));
-      endTime = new Date(now.getTime() + (30 * 60 * 1000));
-    } else if (timeRange === '6h') {
+    if (timeRange === '6h') {
       // Show 2 hours past + 4 hours future (centered on current moment)
       startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
       endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
-    } else if (timeRange === '12h') {
-      // Show 4 hours past + 8 hours future
-      startTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
-      endTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
     } else if (timeRange === '24h') {
       // Show 8 hours past + 16 hours future
       startTime = new Date(now.getTime() - (8 * 60 * 60 * 1000));
       endTime = new Date(now.getTime() + (16 * 60 * 60 * 1000));
     } else {
-      // Default: 2 hours past + 4 hours future
+      // Default: 2 hours past + 4 hours future (6h)
       startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000));
       endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
     }
@@ -233,18 +225,10 @@ const Dashboard: React.FC = () => {
       const startDate = new Date();
       
       // For centered timeline: show past data + current moment + future predictions
-      if (timeRange === '1h') {
-        // Show 30 minutes past + 30 minutes future
-        startDate.setTime(now.getTime() - (30 * 60 * 1000));
-        endDate.setTime(now.getTime() + (30 * 60 * 1000));
-      } else if (timeRange === '6h') {
+      if (timeRange === '6h') {
         // Show 2 hours past + 4 hours future (centered on current moment)
         startDate.setTime(now.getTime() - (2 * 60 * 60 * 1000));
         endDate.setTime(now.getTime() + (4 * 60 * 60 * 1000));
-      } else if (timeRange === '12h') {
-        // Show 4 hours past + 8 hours future
-        startDate.setTime(now.getTime() - (4 * 60 * 60 * 1000));
-        endDate.setTime(now.getTime() + (8 * 60 * 60 * 1000));
       } else if (timeRange === '24h') {
         // Show 8 hours past + 16 hours future
         startDate.setTime(now.getTime() - (8 * 60 * 60 * 1000));
@@ -538,7 +522,7 @@ const Dashboard: React.FC = () => {
     logout();
   };
 
-  const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
+  const handleTimeRangeChange = (range: '6h' | '24h') => {
     setTimeRange(range);
     fetchHistoricalData();
   };
@@ -735,11 +719,9 @@ const Dashboard: React.FC = () => {
               {/* Time Range Controls - Ultra Compact */}
               <div className="mb-1 flex justify-center flex-shrink-0">
                 <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                  {(['1h', '6h', '12h', '24h'] as const).map((range) => {
+                  {(['6h', '24h'] as const).map((range) => {
                     const labels = {
-                      '1h': '30m+30m',
                       '6h': '2h+4h',
-                      '12h': '4h+8h',
                       '24h': '8h+16h'
                     };
                     return (
@@ -814,14 +796,8 @@ const Dashboard: React.FC = () => {
                     // Calculate time range based on selected timeRange
                     let startTime: number;
                     switch (timeRange) {
-                      case '1h':
-                        startTime = now - (1 * 60 * 60 * 1000);
-                        break;
                       case '6h':
                         startTime = now - (6 * 60 * 60 * 1000);
-                        break;
-                      case '12h':
-                        startTime = now - (12 * 60 * 60 * 1000);
                         break;
                       case '24h':
                         startTime = now - (24 * 60 * 60 * 1000);
@@ -874,14 +850,8 @@ const Dashboard: React.FC = () => {
                   const now = new Date().getTime();
                   let startTime: number;
                   switch (timeRange) {
-                    case '1h':
-                      startTime = now - (1 * 60 * 60 * 1000);
-                      break;
                     case '6h':
                       startTime = now - (6 * 60 * 60 * 1000);
-                      break;
-                    case '12h':
-                      startTime = now - (12 * 60 * 60 * 1000);
                       break;
                     case '24h':
                       startTime = now - (24 * 60 * 60 * 1000);
