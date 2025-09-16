@@ -6,7 +6,6 @@ import GlucoseChart from './GlucoseChart';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
-import GlucosePrediction from './GlucosePrediction';
 import PredictionSettings from './PredictionSettings';
 import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/demoData';
 
@@ -634,11 +633,11 @@ const Dashboard: React.FC = () => {
         {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
         <div className="h-full flex flex-col gap-1">
           
-          {/* Top Row: Quick Actions + Glucose Prediction - Ultra Compact */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 flex-shrink-0 h-[15vh]">
+          {/* Top Row: Quick Actions - Ultra Compact */}
+          <div className="flex-shrink-0 h-[15vh]">
             
             {/* Quick Actions - Ultra Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
+            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0 h-full">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-xs font-semibold text-gray-900">⚡ Quick Actions</h3>
                 <button
@@ -789,16 +788,6 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             </div>
-
-
-            {/* Glucose Prediction - Ultra Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
-              <GlucosePrediction 
-                currentGlucose={currentReading?.value}
-                notes={notes}
-                className="h-full"
-              />
-            </div>
           </div>
 
           {/* Main Chart Area - Exactly 50% of screen height */}
@@ -852,6 +841,57 @@ const Dashboard: React.FC = () => {
                         <div className="text-xs text-purple-600">
                           Active Insulin
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div className="w-px h-8 bg-gray-300"></div>
+
+                    {/* 2-Hour Prediction */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-600 font-medium">🔮</span>
+                      <div className="text-center">
+                        {(() => {
+                          if (!currentReading?.value) {
+                            return (
+                              <>
+                                <div className="font-bold text-gray-400">--</div>
+                                <div className="text-xs text-gray-500">2h Prediction</div>
+                              </>
+                            );
+                          }
+                          
+                          const prediction = glucosePredictionService.getTwoHourPrediction(
+                            currentReading.value,
+                            new Date(),
+                            notes
+                          );
+                          
+                          const getTrendIcon = (trend: string) => {
+                            switch (trend) {
+                              case 'rising': return '↗';
+                              case 'falling': return '↘';
+                              default: return '→';
+                            }
+                          };
+                          
+                          const getGlucoseColor = (glucose: number) => {
+                            if (glucose < 3.9) return 'text-red-600';
+                            if (glucose > 10.0) return 'text-orange-600';
+                            return 'text-green-600';
+                          };
+                          
+                          return (
+                            <>
+                              <div className={`font-bold ${getGlucoseColor(prediction.predictedGlucose)}`}>
+                                {prediction.predictedGlucose} {getTrendIcon(prediction.trend)}
+                              </div>
+                              <div className="text-xs text-green-600">
+                                2h Prediction
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
