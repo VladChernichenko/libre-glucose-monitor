@@ -6,7 +6,6 @@ import GlucoseChart from './GlucoseChart';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBDisplay from './COBDisplay';
-import COBChart from './COBChart';
 import COBSettings from './COBSettings';
 import GlucosePrediction from './GlucosePrediction';
 import PredictionSettings from './PredictionSettings';
@@ -43,7 +42,6 @@ const Dashboard: React.FC = () => {
   });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isPredictionSettingsOpen, setIsPredictionSettingsOpen] = useState(false);
-  const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
 
   // IOB and prediction management
   const [iobData, setIobData] = useState<IOBProjection[]>([]);
@@ -419,9 +417,7 @@ const Dashboard: React.FC = () => {
     const status = carbsOnBoardService.calculateCOB(cobEntries);
     setCobStatus(status);
 
-    // Calculate COB projection for chart
-    const projection = carbsOnBoardService.getCOBProjection(cobEntries, 24); // 6 hours in 15-min intervals 
-    setCobProjection(projection);
+    // COB projection calculation removed - using prediction system instead
   }, [notes]);
 
   const handleCOBConfigChange = useCallback((newConfig: any) => {
