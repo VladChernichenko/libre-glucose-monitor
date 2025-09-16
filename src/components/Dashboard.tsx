@@ -8,6 +8,8 @@ import NoteInputModal from './NoteInputModal';
 import COBDisplay from './COBDisplay';
 import COBChart from './COBChart';
 import COBSettings from './COBSettings';
+import GlucosePrediction from './GlucosePrediction';
+import PredictionSettings from './PredictionSettings';
 import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/demoData';
 
 import { GlucoseReading } from '../types/libre';
@@ -15,6 +17,7 @@ import { GlucoseNote } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 import { insulinOnBoardService, IOBProjection, InsulinEntry } from '../services/insulinOnBoard';
+import { glucosePredictionService } from '../services/glucosePrediction';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -39,6 +42,7 @@ const Dashboard: React.FC = () => {
     insulinOnBoard: 0
   });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
+  const [isPredictionSettingsOpen, setIsPredictionSettingsOpen] = useState(false);
   const [cobProjection, setCobProjection] = useState<Array<{time: Date, cob: number, iob: number}>>([]);
 
   // IOB and prediction management
@@ -425,6 +429,12 @@ const Dashboard: React.FC = () => {
     calculateCOB(); // Recalculate with new settings
   }, [calculateCOB]);
 
+  const handlePredictionConfigChange = useCallback((newConfig: any) => {
+    glucosePredictionService.updateConfig(newConfig);
+    // Force re-render of prediction component by updating a state
+    setCurrentReading(prev => prev ? {...prev} : prev);
+  }, []);
+
   const handleNoteSave = async (note: GlucoseNote) => {
     try {
       // Note is already saved by the modal, just update local state
@@ -604,6 +614,16 @@ const Dashboard: React.FC = () => {
               </button>
               
               <button
+                onClick={() => setIsPredictionSettingsOpen(true)}
+                className="btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 flex items-center space-x-1 sm:space-x-2"
+                title="Configure prediction settings"
+              >
+                <span className="text-sm">🔮</span>
+                <span className="hidden sm:inline">Prediction</span>
+                <span className="sm:hidden">Pred</span>
+              </button>
+              
+              <button
                 onClick={handleLogout}
                 className="btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5"
               >
@@ -619,7 +639,7 @@ const Dashboard: React.FC = () => {
         {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
         <div className="h-full flex flex-col gap-1">
           
-          {/* Top Row: Quick Actions + COB + COB Projection - Ultra Compact */}
+          {/* Top Row: Quick Actions + COB + Glucose Prediction - Ultra Compact */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-1 flex-shrink-0 h-[15vh]">
             
             {/* Quick Actions - Ultra Compact */}
@@ -791,15 +811,13 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
-            {/* COB Projection - Ultra Compact */}
+            {/* Glucose Prediction - Ultra Compact */}
             <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
-              <h3 className="text-xs font-semibold text-gray-900 mb-1">📊 COB Projection</h3>
-              <div className="h-12">
-                <COBChart 
-                  projection={cobProjection}
-                  timeRange={timeRange}
-                />
-              </div>
+              <GlucosePrediction 
+                currentGlucose={currentReading?.value}
+                notes={notes}
+                className="h-full"
+              />
             </div>
           </div>
 
@@ -1062,6 +1080,15 @@ const Dashboard: React.FC = () => {
             config={carbsOnBoardService.getConfig()}
             onConfigChange={handleCOBConfigChange}
             onClose={() => setIsCOBSettingsOpen(false)}
+          />
+        )}
+
+        {/* Prediction Settings Modal */}
+        {isPredictionSettingsOpen && (
+          <PredictionSettings
+            config={glucosePredictionService.getConfig()}
+            onConfigChange={handlePredictionConfigChange}
+            onClose={() => setIsPredictionSettingsOpen(false)}
           />
         )}
       </main>
