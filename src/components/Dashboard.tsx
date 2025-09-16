@@ -51,23 +51,11 @@ const Dashboard: React.FC = () => {
   const [nightscoutUrl] = useState(() => {
     const envUrl = process.env.REACT_APP_NIGHTSCOUT_URL;
     if (envUrl) {
-      console.log('Using Nightscout URL from environment:', envUrl);
       return envUrl;
     }
-    console.log('Using hardcoded Nightscout URL for production');
     return 'https://vladchernichenko.eu.nightscoutpro.com';
   });
 
-  // Debug: Log environment variables
-  console.log('Environment variables:', {
-    NIGHTSCOUT_URL: process.env.REACT_APP_NIGHTSCOUT_URL,
-    NIGHTSCOUT_SECRET: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    ENABLE_DEMO: process.env.REACT_APP_ENABLE_DEMO_MODE
-  });
-  console.log('Nightscout URL state:', nightscoutUrl);
-  
-  // Debug: Log API service configuration
-  console.log('API Service config:', apiService.getConfig());
 
   // Helper functions for Nightscout data conversion
   const convertTrendToArrow = (direction: string): string => {
@@ -163,7 +151,6 @@ const Dashboard: React.FC = () => {
 
   const fetchPatientInfo = useCallback(async () => {
     // Patient info is not needed for Nightscout integration
-    console.log('📋 Patient info fetch - using Nightscout integration');
   }, []);
 
   const fetchConnections = useCallback(async () => {
@@ -183,12 +170,9 @@ const Dashboard: React.FC = () => {
     }
     
     try {
-      console.log('🔍 Fetching current glucose from Nightscout:', nightscoutUrl);
-
       // In development, use proxy to avoid CORS issues
       const isDev = process.env.NODE_ENV === 'development';
       const baseUrl = isDev ? '/ns' : nightscoutUrl;
-      console.log('🔍 Using base URL:', baseUrl, 'isDev:', isDev);
       
       const response = await fetch(`${baseUrl}/api/v2/entries.json?count=1`, {
         headers: {
@@ -198,7 +182,6 @@ const Dashboard: React.FC = () => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Nightscout response:', data);
         
         if (data.length > 0) {
           const entry = data[0];
@@ -211,8 +194,6 @@ const Dashboard: React.FC = () => {
             unit: 'mmol/L',
             originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
           };
-          
-          console.log('✅ Processed reading:', reading);
           setCurrentReading(reading);
           setGlucoseHistory(prev => {
             const newHistory = [...prev, reading];
@@ -229,7 +210,6 @@ const Dashboard: React.FC = () => {
       setError(`Failed to fetch from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       // Fallback to demo data if Nightscout fails
-      console.log('🔄 Falling back to demo data due to Nightscout failure');
 
       const demoData = generateDemoGlucoseData(24);
       setGlucoseHistory(demoData);
@@ -249,7 +229,6 @@ const Dashboard: React.FC = () => {
     }
     
     try {
-      console.log('🔍 Fetching historical data from Nightscout:', nightscoutUrl);
 
       // Calculate date range based on time range - centered approach
       const now = new Date();
@@ -275,12 +254,9 @@ const Dashboard: React.FC = () => {
         endDate.setTime(now.getTime() + (16 * 60 * 60 * 1000));
       }
       
-      console.log(`📊 Fetching data from ${startDate.toISOString()} to ${endDate.toISOString()} (${timeRange})`);
-
       // In development, use proxy to avoid CORS issues
       const isDev = process.env.NODE_ENV === 'development';
       const baseUrl = isDev ? '/ns' : nightscoutUrl;
-      console.log('🔍 Using base URL for historical data:', baseUrl, 'isDev:', isDev);
       
       const response = await fetch(
         `${baseUrl}/api/v2/entries.json?count=500`,
@@ -293,7 +269,6 @@ const Dashboard: React.FC = () => {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Historical data response:', data.length, 'entries');
 
         // Filter data to only include glucose readings (type: 'sgv') within the time range
         const glucoseEntries = data.filter((entry: any) => {
@@ -302,16 +277,10 @@ const Dashboard: React.FC = () => {
           const entryDate = new Date(entry.date);
           return entryDate >= startDate && entryDate <= endDate;
         });
-        
-        console.log(`📊 Filtered glucose entries for ${timeRange}:`, glucoseEntries.length);
-        console.log(`📊 Time range: ${startDate.toLocaleString()} to ${endDate.toLocaleString()}`);
 
         // If no data in the time range, show available data with a warning
         if (glucoseEntries.length === 0) {
-          console.log('⚠️ No data in selected time range, showing all available data');
- 
           const allGlucoseEntries = data.filter((entry: any) => entry.type === 'sgv');
-          console.log(`📊 Showing all available glucose entries: ${allGlucoseEntries.length}`);
 
           const history = allGlucoseEntries.map((entry: any) => ({
             timestamp: new Date(entry.date),
@@ -325,9 +294,6 @@ const Dashboard: React.FC = () => {
           
           // Sort by timestamp
           history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
-
-          console.log('⚠️ Processed all available data:', history.length, 'entries');
-          console.log('⚠️ Available data span: ', history[0]?.timestamp.toLocaleString(), 'to', history[history.length - 1]?.timestamp.toLocaleString());
  
           setGlucoseHistory(history);
           return;
@@ -345,10 +311,6 @@ const Dashboard: React.FC = () => {
         
         // Sort by timestamp to ensure chronological order
         history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
-
-        console.log('✅ Processed historical data:', history.length, 'entries');
-        console.log('✅ First entry:', history[0]?.timestamp.toLocaleString());
-        console.log('✅ Last entry:', history[history.length - 1]?.timestamp.toLocaleString());
         
         setGlucoseHistory(history);
       } else {
@@ -364,11 +326,9 @@ const Dashboard: React.FC = () => {
       const isDevelopment = process.env.NODE_ENV === 'development';
       
       if (isDemoMode || isDevelopment) {
-        console.log('🔄 Falling back to demo data due to Nightscout historical fetch failure');
         const demoData = generateDemoGlucoseData(24);
         setGlucoseHistory(demoData);
       } else {
-        console.log('❌ Production mode: Not falling back to demo data. Please check Nightscout configuration.');
         // In production, show an empty chart with error message
         setGlucoseHistory([]);
       }
@@ -377,26 +337,17 @@ const Dashboard: React.FC = () => {
 
   // Initial data fetch
   useEffect(() => {
-    console.log('🚀 Dashboard useEffect triggered');
-    console.log('🚀 Current state:', { 
-      nightscoutUrl, 
-      glucoseHistoryLength: glucoseHistory.length,
-      currentReading: !!currentReading 
-    });
     
     fetchPatientInfo();
     fetchConnections();
     
     // If Nightscout is configured, try to fetch real data first
     if (nightscoutUrl) {
-      console.log('🚀 Nightscout configured, attempting to fetch real data first');
       fetchHistoricalData();
       fetchCurrentGlucose();
     } else {
-      console.log('🚀 Nightscout not configured, using demo data only');
       // Only load demo data if Nightscout is not configured
       const demoData = generateDemoGlucoseData(24);
-      console.log('📊 Demo data generated:', demoData.length, 'entries');
       setGlucoseHistory(demoData);
       if (demoData.length > 0) {
         setCurrentReading(demoData[demoData.length - 1]);
@@ -406,12 +357,7 @@ const Dashboard: React.FC = () => {
 
   // Monitor glucoseHistory changes
   useEffect(() => {
-    console.log('🔄 glucoseHistory state changed:', {
-      length: glucoseHistory.length,
-      hasData: glucoseHistory.length > 0,
-      firstEntry: glucoseHistory[0],
-      lastEntry: glucoseHistory[glucoseHistory.length - 1]
-    });
+    // Trigger re-calculations when glucose history changes
   }, [glucoseHistory, currentReading]);
 
   // Real-time insulin calculations update
@@ -437,15 +383,12 @@ const Dashboard: React.FC = () => {
   // Notes management functions
   const loadNotes = useCallback(async () => {
     try {
-      console.log('📝 Loading notes...');
-      
       // Check if backend is available
       const isBackendAvailable = await hybridNotesApiService.isBackendAvailable();
       setNotesBackendStatus(isBackendAvailable ? 'backend' : 'local');
       
       const allNotes = await hybridNotesApiService.getNotes();
       setNotes(allNotes);
-      console.log(`✅ Loaded ${allNotes.length} notes from ${isBackendAvailable ? 'backend' : 'localStorage'}`);
     } catch (error) {
       console.error('❌ Error loading notes:', error);
       setNotesBackendStatus('error');
@@ -486,7 +429,6 @@ const Dashboard: React.FC = () => {
     try {
       // Note is already saved by the modal, just update local state
       setNotes(prev => [...prev, note]);
-      console.log('✅ Note saved:', note);
       
       // Refresh notes from backend to ensure consistency
       setTimeout(() => {
@@ -501,7 +443,6 @@ const Dashboard: React.FC = () => {
     try {
       // Note is already updated by the modal, just update local state
       setNotes(prev => prev.map(n => n.id === note.id ? note : n));
-      console.log('✏️ Note updated:', note);
       
       // Refresh notes from backend to ensure consistency
       setTimeout(() => {
@@ -514,18 +455,15 @@ const Dashboard: React.FC = () => {
 
   const handleNoteDelete = useCallback(async (noteId: string) => {
     try {
-      console.log('🗑️ Deleting note:', noteId);
       const success = await hybridNotesApiService.deleteNote(noteId);
       if (success) {
         setNotes(prev => prev.filter(note => note.id !== noteId));
-        console.log('✅ Note deleted successfully:', noteId);
         
         // Refresh notes from backend to ensure consistency
         setTimeout(() => {
           loadNotes();
         }, 1000);
       } else {
-        console.error('❌ Failed to delete note:', noteId);
         setError('Failed to delete note. Please try again.');
       }
     } catch (error) {
@@ -551,9 +489,7 @@ const Dashboard: React.FC = () => {
 
   const handleRefreshNotes = async () => {
     try {
-      console.log('🔄 Refreshing notes from backend...');
       await loadNotes();
-      console.log('✅ Notes refreshed successfully');
     } catch (error) {
       console.error('❌ Error refreshing notes:', error);
       setError('Failed to refresh notes. Please try again.');
@@ -610,10 +546,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleTimeRangeChange = (range: '1h' | '6h' | '12h' | '24h') => {
-    console.log('🕐 handleTimeRangeChange called with:', range);
-    console.log('🕐 Previous timeRange was:', timeRange);
     setTimeRange(range);
-    console.log('🕐 Calling fetchHistoricalData for new range:', range);
     fetchHistoricalData();
   };
 
@@ -707,9 +640,7 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      console.log('🧪 Testing API connection...');
                       const status = await apiService.getDetailedConnectionStatus();
-                      console.log('🧪 API Connection Status:', status);
                       alert(`API Status:\nDirect: ${status.direct}\nProxy: ${status.proxy}\nErrors: ${status.errors.join(', ')}`);
                     } catch (error) {
                       console.error('🧪 API test failed:', error);
@@ -723,15 +654,12 @@ const Dashboard: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      console.log('🔍 Testing Nightscout connection...');
                       // In development, use proxy to avoid CORS issues
                       const isDev = process.env.NODE_ENV === 'development';
                       const baseUrl = isDev ? '/ns' : nightscoutUrl;
-                      console.log('🔍 Using base URL for test:', baseUrl, 'isDev:', isDev);
                       
                       const response = await fetch(`${baseUrl}/api/v2/status.json`);
                       const data = await response.json();
-                      console.log('✅ Nightscout status:', data);
                       alert(`Nightscout Status: ${data.status}\nName: ${data.name}\nVersion: ${data.version}`);
                     } catch (error) {
                       console.error('❌ Nightscout test failed:', error);
@@ -744,13 +672,11 @@ const Dashboard: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    console.log('🧪 Loading test glucose data...');
                     const testData = generateTestGlucoseData();
                     setGlucoseHistory(testData);
                     if (testData.length > 0) {
                       setCurrentReading(testData[testData.length - 1]);
                     }
-                    console.log('✅ Test data loaded:', testData.length, 'points');
                   }}
                   className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
                 >
@@ -758,7 +684,6 @@ const Dashboard: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    console.log('🧪 Creating test insulin entries...');
                     const now = new Date();
                     const testInsulinEntries: InsulinEntry[] = [
                       {
@@ -777,7 +702,6 @@ const Dashboard: React.FC = () => {
                       }
                     ];
                     setInsulinEntries(testInsulinEntries);
-                    console.log('✅ Test insulin entries created:', testInsulinEntries);
                   }}
                   className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
                 >
