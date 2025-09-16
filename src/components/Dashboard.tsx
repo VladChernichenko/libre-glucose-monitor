@@ -5,7 +5,6 @@ import apiService from '../services/apiService';
 import GlucoseChart from './GlucoseChart';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
-import COBDisplay from './COBDisplay';
 import COBSettings from './COBSettings';
 import GlucosePrediction from './GlucosePrediction';
 import PredictionSettings from './PredictionSettings';
@@ -635,8 +634,8 @@ const Dashboard: React.FC = () => {
         {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
         <div className="h-full flex flex-col gap-1">
           
-          {/* Top Row: Quick Actions + COB + Glucose Prediction - Ultra Compact */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-1 flex-shrink-0 h-[15vh]">
+          {/* Top Row: Quick Actions + Glucose Prediction - Ultra Compact */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 flex-shrink-0 h-[15vh]">
             
             {/* Quick Actions - Ultra Compact */}
             <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
@@ -791,21 +790,6 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* COB Display - Ultra Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
-              <COBDisplay 
-                cobStatus={cobStatus}
-                onEditEntry={(entry) => {
-                  const note = notes.find(n => n.id === entry.id);
-                  if (note) {
-                    handleEditNote(note);
-                  }
-                }}
-                onDeleteEntry={(entryId) => {
-                  handleNoteDelete(entryId);
-                }}
-              />
-            </div>
 
             {/* Glucose Prediction - Ultra Compact */}
             <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0">
