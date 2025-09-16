@@ -6,6 +6,8 @@ import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
 import PredictionSettings from './PredictionSettings';
 import { generateDemoGlucoseData } from '../services/demoData';
+import { NightscoutProxyService } from '../services/nightscout/nightscoutProxyService';
+import { NightscoutAverage } from '../services/nightscout/types';
 
 import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -43,14 +45,13 @@ const Dashboard: React.FC = () => {
   const [iobData, setIobData] = useState<IOBProjection[]>([]);
   const [insulinEntries, setInsulinEntries] = useState<InsulinEntry[]>([]);
 
-  // Nightscout integration enabled - using real data
-  // In production, always use the hardcoded URL if env var is not set
-  const [nightscoutUrl] = useState(() => {
-    const envUrl = process.env.REACT_APP_NIGHTSCOUT_URL;
-    if (envUrl) {
-      return envUrl;
-    }
-    return 'https://vladchernichenko.eu.nightscoutpro.com';
+  // 24h average glucose
+  const [average24h, setAverage24h] = useState<NightscoutAverage | null>(null);
+
+  // Backend proxy service for Nightscout integration
+  const [nightscoutProxy] = useState(() => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+    return new NightscoutProxyService(backendUrl);
   });
 
 
@@ -152,73 +153,47 @@ const Dashboard: React.FC = () => {
     
     setError(null);
     
-    // ONLY use Nightscout data - no demo fallback
-    if (!nightscoutUrl) {
-      setError('Nightscout URL not configured. Please check your environment variables.');
-      return;
-    }
-    
     try {
-      // In development, use proxy to avoid CORS issues
-      const isDev = process.env.NODE_ENV === 'development';
-      const baseUrl = isDev ? '/ns' : nightscoutUrl;
+      console.log('🔗 Fetching current glucose via backend proxy...');
+      const entry = await nightscoutProxy.getCurrentGlucose();
       
-      const response = await fetch(`${baseUrl}/api/v2/entries.json?count=1`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.length > 0) {
-          const entry = data[0];
-          const reading = {
-            timestamp: new Date(), // Use current time when we fetch the data
-            value: convertToMmolL(entry.sgv),
-            trend: entry.trend || 0,
-            trendArrow: convertTrendToArrow(entry.direction),
-            status: calculateGlucoseStatus(entry.sgv),
-            unit: 'mmol/L',
-            originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
-          };
-          setCurrentReading(reading);
-          setGlucoseHistory(prev => {
-            const newHistory = [...prev, reading];
-            return newHistory.slice(-100);
-          });
-        } else {
-          setError('No glucose data available from Nightscout');
-        }
+      if (entry) {
+        const reading = {
+          timestamp: new Date(), // Use current time when we fetch the data
+          value: convertToMmolL(entry.sgv),
+          trend: entry.trend || 0,
+          trendArrow: convertTrendToArrow(entry.direction),
+          status: calculateGlucoseStatus(entry.sgv),
+          unit: 'mmol/L',
+          originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
+        };
+        setCurrentReading(reading);
+        setGlucoseHistory(prev => {
+          const newHistory = [...prev, reading];
+          return newHistory.slice(-100);
+        });
       } else {
-        throw new Error(`Nightscout API error: ${response.status} ${response.statusText}`);
+        setError('No glucose data available from Nightscout');
       }
     } catch (err) {
-      console.error('❌ Nightscout fetch failed:', err);
-      setError(`Failed to fetch from Nightscout: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('❌ Nightscout proxy fetch failed:', err);
+      setError(`Failed to fetch from Nightscout via backend proxy: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       // Fallback to demo data if Nightscout fails
-
       const demoData = generateDemoGlucoseData(24);
       setGlucoseHistory(demoData);
       if (demoData.length > 0) {
         setCurrentReading(demoData[demoData.length - 1]);
       }
     }
-  }, [selectedConnection, nightscoutUrl, calculateGlucoseStatus]);
+  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!selectedConnection) return;
     
-    // ONLY use Nightscout data - no demo fallback
-    if (!nightscoutUrl) {
-      setError('Nightscout URL not configured. Please check your environment variables.');
-      return;
-    }
-    
     try {
-
+      console.log('🔗 Fetching historical glucose data via backend proxy...');
+      
       // Calculate date range based on time range - centered approach
       const now = new Date();
       const endDate = new Date();
@@ -235,52 +210,24 @@ const Dashboard: React.FC = () => {
         endDate.setTime(now.getTime() + (16 * 60 * 60 * 1000));
       }
       
-      // In development, use proxy to avoid CORS issues
-      const isDev = process.env.NODE_ENV === 'development';
-      const baseUrl = isDev ? '/ns' : nightscoutUrl;
-      
-      const response = await fetch(
-        `${baseUrl}/api/v2/entries.json?count=500`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch data using backend proxy
+      const data = await nightscoutProxy.getGlucoseEntriesByDate(startDate, endDate);
 
-        // Filter data to only include glucose readings (type: 'sgv') within the time range
-        const glucoseEntries = data.filter((entry: any) => {
-          if (entry.type !== 'sgv') return false;
-          
-          const entryDate = new Date(entry.date);
-          return entryDate >= startDate && entryDate <= endDate;
-        });
-
-        // If no data in the time range, show available data with a warning
-        if (glucoseEntries.length === 0) {
-          const allGlucoseEntries = data.filter((entry: any) => entry.type === 'sgv');
-
-          const history = allGlucoseEntries.map((entry: any) => ({
-            timestamp: new Date(entry.date),
-            value: convertToMmolL(entry.sgv),
-            trend: entry.trend || 0,
-            trendArrow: convertTrendToArrow(entry.direction),
-            status: calculateGlucoseStatus(entry.sgv),
-            unit: 'mmol/L',
-            originalTimestamp: new Date(entry.date),
-          }));
-          
-          // Sort by timestamp
-          history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
- 
-          setGlucoseHistory(history);
-          return;
-        }
+      // Filter data to only include glucose readings (type: 'sgv') within the time range
+      const glucoseEntries = data.filter((entry: any) => {
+        if (entry.type !== 'sgv') return false;
         
-        const history = glucoseEntries.map((entry: any) => ({
+        const entryDate = new Date(entry.date);
+        return entryDate >= startDate && entryDate <= endDate;
+      });
+
+      // If no data in the time range, try to get recent data
+      if (glucoseEntries.length === 0) {
+        console.log('No data in time range, fetching recent entries...');
+        const recentData = await nightscoutProxy.getGlucoseEntries(100);
+        const allGlucoseEntries = recentData.filter((entry: any) => entry.type === 'sgv');
+
+        const history = allGlucoseEntries.map((entry: any) => ({
           timestamp: new Date(entry.date),
           value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
@@ -290,17 +237,31 @@ const Dashboard: React.FC = () => {
           originalTimestamp: new Date(entry.date),
         }));
         
-        // Sort by timestamp to ensure chronological order
+        // Sort by timestamp
         history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
-        
+ 
         setGlucoseHistory(history);
-      } else {
-        throw new Error(`Nightscout API error: ${response.status} ${response.statusText}`);
+        return;
       }
+      
+      const history = glucoseEntries.map((entry: any) => ({
+        timestamp: new Date(entry.date),
+        value: convertToMmolL(entry.sgv),
+        trend: entry.trend || 0,
+        trendArrow: convertTrendToArrow(entry.direction),
+        status: calculateGlucoseStatus(entry.sgv),
+        unit: 'mmol/L',
+        originalTimestamp: new Date(entry.date),
+      }));
+      
+      // Sort by timestamp to ensure chronological order
+      history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      setGlucoseHistory(history);
     } catch (err) {
-      console.error('❌ Nightscout historical fetch failed:', err);
+      console.error('❌ Nightscout proxy historical fetch failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to fetch historical data from Nightscout: ${errorMessage}`);
+      setError(`Failed to fetch historical data from Nightscout via backend proxy: ${errorMessage}`);
       
       // Only fallback to demo data if we're in development or if explicitly enabled
       const isDemoMode = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
@@ -314,7 +275,19 @@ const Dashboard: React.FC = () => {
         setGlucoseHistory([]);
       }
     }
-  }, [selectedConnection, timeRange, nightscoutUrl, calculateGlucoseStatus]);
+  }, [selectedConnection, timeRange, nightscoutProxy, calculateGlucoseStatus]);
+
+  const fetch24HourAverage = useCallback(async () => {
+    if (!selectedConnection) return;
+    
+    try {
+      console.log('🔗 Fetching 24-hour average via backend proxy...');
+      const average = await nightscoutProxy.get24HourAverage();
+      setAverage24h(average);
+    } catch (err) {
+      console.error('❌ Failed to fetch 24-hour average:', err);
+    }
+  }, [selectedConnection, nightscoutProxy]);
 
   // Initial data fetch
   useEffect(() => {
@@ -322,19 +295,11 @@ const Dashboard: React.FC = () => {
     fetchPatientInfo();
     fetchConnections();
     
-    // If Nightscout is configured, try to fetch real data first
-    if (nightscoutUrl) {
-      fetchHistoricalData();
-      fetchCurrentGlucose();
-    } else {
-      // Only load demo data if Nightscout is not configured
-      const demoData = generateDemoGlucoseData(24);
-      setGlucoseHistory(demoData);
-      if (demoData.length > 0) {
-        setCurrentReading(demoData[demoData.length - 1]);
-      }
-    }
-  }, [fetchPatientInfo, fetchConnections, nightscoutUrl, fetchHistoricalData, fetchCurrentGlucose]);
+    // Always try to fetch real data via backend proxy first
+    fetchHistoricalData();
+    fetchCurrentGlucose();
+    fetch24HourAverage();
+  }, [fetchPatientInfo, fetchConnections, fetchHistoricalData, fetchCurrentGlucose, fetch24HourAverage]);
 
   // Monitor glucoseHistory changes
   useEffect(() => {
@@ -626,6 +591,22 @@ const Dashboard: React.FC = () => {
                             {currentReading.trendArrow}
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Separator */}
+                    <div className="w-px h-8 bg-gray-300"></div>
+
+                    {/* 24h Average */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-purple-600 font-medium">📈</span>
+                      <div className="text-center">
+                        <div className="font-bold text-purple-800">
+                          {average24h ? `${average24h.averageGlucoseMmol.toFixed(1)} mmol/L` : '--'}
+                        </div>
+                        <div className="text-xs text-purple-600">
+                          24h Avg
+                        </div>
                       </div>
                     </div>
 

@@ -64,3 +64,13 @@ export interface NightscoutStatus {
   head: string;
   settings: any;
 }
+
+export interface NightscoutAverage {
+  averageGlucose: number; // Average glucose in mg/dL
+  averageGlucoseMmol: number; // Average glucose in mmol/L
+  totalReadings: number; // Total number of readings used
+  timeRange: string; // e.g., "24h", "7d"
+  startTime: number; // Unix timestamp of start
+  endTime: number; // Unix timestamp of end
+  unit: string; // "mg/dL" or "mmol/L"
+}
