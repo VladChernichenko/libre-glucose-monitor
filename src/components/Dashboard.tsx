@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-import apiService from '../services/apiService';
 import GlucoseChart from './GlucoseChart';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
 import PredictionSettings from './PredictionSettings';
-import { generateDemoGlucoseData, generateTestGlucoseData } from '../services/demoData';
+import { generateDemoGlucoseData } from '../services/demoData';
 
 import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -491,14 +490,6 @@ const Dashboard: React.FC = () => {
     setIsNoteModalOpen(true);
   };
 
-  const handleRefreshNotes = async () => {
-    try {
-      await loadNotes();
-    } catch (error) {
-      console.error('❌ Error refreshing notes:', error);
-      setError('Failed to refresh notes. Please try again.');
-    }
-  };
 
   // Load notes on component mount
   useEffect(() => {
@@ -633,165 +624,22 @@ const Dashboard: React.FC = () => {
         {/* Ultra-compact layout: Top info + Chart (50%) + Bottom info */}
         <div className="h-full flex flex-col gap-1">
           
-          {/* Top Row: Quick Actions - Ultra Compact */}
-          <div className="flex-shrink-0 h-[15vh]">
-            
-            {/* Quick Actions - Ultra Compact */}
-            <div className="bg-white rounded-lg shadow-sm p-1 flex-shrink-0 h-full">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-semibold text-gray-900">⚡ Quick Actions</h3>
-                <button
-                  onClick={() => setIsNoteModalOpen(true)}
-                  className="btn-primary text-xs px-2 py-1"
-                  title="Add new note (⌘+⇧+O)"
-                >
-                  ➕ Add
-                </button>
-              </div>
-              <div className="text-xs text-gray-600">
-                <div>⌘+⇧+O: Add note</div>
-                <div>⌘+Z: Undo last</div>
-                <button
-                  onClick={async () => {
-                    try {
-                      const status = await apiService.getDetailedConnectionStatus();
-                      alert(`API Status:\nDirect: ${status.direct}\nProxy: ${status.proxy}\nErrors: ${status.errors.join(', ')}`);
-                    } catch (error) {
-                      console.error('🧪 API test failed:', error);
-                      alert(`API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                  }}
-                  className="bg-green-500 hover:bg-green-600 text-white px-1 py-0.5 rounded text-xs mt-1 w-full mb-1"
-                >
-                  🧪 Test API
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      // In development, use proxy to avoid CORS issues
-                      const isDev = process.env.NODE_ENV === 'development';
-                      const baseUrl = isDev ? '/ns' : nightscoutUrl;
-                      
-                      const response = await fetch(`${baseUrl}/api/v2/status.json`);
-                      const data = await response.json();
-                      alert(`Nightscout Status: ${data.status}\nName: ${data.name}\nVersion: ${data.version}`);
-                    } catch (error) {
-                      console.error('❌ Nightscout test failed:', error);
-                      alert(`Nightscout test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                  }}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
-                >
-                  🔍 Test Nightscout
-                </button>
-                <button
-                  onClick={() => {
-                    const testData = generateTestGlucoseData();
-                    setGlucoseHistory(testData);
-                    if (testData.length > 0) {
-                      setCurrentReading(testData[testData.length - 1]);
-                    }
-                  }}
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
-                >
-                  📊 Load Test Data
-                </button>
-                <button
-                  onClick={() => {
-                    const now = new Date();
-                    const testInsulinEntries: InsulinEntry[] = [
-                      {
-                        id: 'test-insulin-1',
-                        timestamp: new Date(now.getTime() - (30 * 60 * 1000)), // 30 minutes ago
-                        units: 2.0,
-                        type: 'bolus',
-                        comment: 'Test bolus 1'
-                      },
-                      {
-                        id: 'test-insulin-2',
-                        timestamp: new Date(now.getTime() - (90 * 60 * 1000)), // 90 minutes ago
-                        units: 1.5,
-                        type: 'bolus',
-                        comment: 'Test bolus 2'
-                      }
-                    ];
-                    setInsulinEntries(testInsulinEntries);
-                  }}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
-                >
-                  💉 Test Insulin
-                </button>
-                <button
-                  onClick={handleRefreshNotes}
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
-                >
-                  🔄 Refresh Notes
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      console.log('🧪 Testing notes backend integration...');
-                      const isBackendAvailable = await hybridNotesApiService.isBackendAvailable();
-                      const testNote = {
-                        timestamp: new Date(),
-                        carbs: 10,
-                        insulin: 1,
-                        meal: 'Snack' as const,
-                        comment: 'Test note for backend integration',
-                        glucoseValue: 5.5
-                      };
-                      
-                      if (isBackendAvailable) {
-                        console.log('✅ Backend is available, testing note creation...');
-                        const createdNote = await hybridNotesApiService.addNote(testNote);
-                        console.log('✅ Note created successfully:', createdNote);
-                        
-                        // Test update
-                        const updatedNote = await hybridNotesApiService.updateNote(createdNote.id, { comment: 'Updated test note' });
-                        console.log('✅ Note updated successfully:', updatedNote);
-                        
-                        // Test delete
-                        const deleted = await hybridNotesApiService.deleteNote(createdNote.id);
-                        console.log('✅ Note deleted successfully:', deleted);
-                        
-                        alert('✅ Backend integration test passed! All CRUD operations working.');
-                      } else {
-                        console.log('⚠️ Backend not available, testing localStorage...');
-                        const createdNote = await hybridNotesApiService.addNote(testNote);
-                        console.log('✅ Local note created:', createdNote);
-                        alert('⚠️ Backend not available, but localStorage fallback is working.');
-                      }
-                    } catch (error) {
-                      console.error('❌ Notes integration test failed:', error);
-                      alert(`❌ Notes integration test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                  }}
-                  className="bg-teal-500 hover:bg-teal-600 text-white px-1 py-0.5 rounded text-xs w-full mb-1"
-                >
-                  🧪 Test Notes API
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      console.log('🔄 Re-initializing Notes API service...');
-                      await hybridNotesApiService.reinitialize();
-                      await loadNotes();
-                      alert('✅ Notes API service re-initialized successfully!');
-                    } catch (error) {
-                      console.error('❌ Re-initialization failed:', error);
-                      alert(`❌ Re-initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                  }}
-                  className="bg-cyan-500 hover:bg-cyan-600 text-white px-1 py-0.5 rounded text-xs w-full"
-                >
-                  🔄 Re-init API
-                </button>
-              </div>
+          {/* Add Note Section - Simplified */}
+          <div className="flex-shrink-0 mb-1">
+            <div className="flex justify-center">
+              <button
+                onClick={() => setIsNoteModalOpen(true)}
+                className="btn-primary text-sm px-4 py-2 flex items-center space-x-2 shadow-md"
+                title="Add new note (⌘+⇧+O)"
+              >
+                <span>➕</span>
+                <span>Add Note</span>
+              </button>
             </div>
           </div>
 
-          {/* Main Chart Area - Exactly 50% of screen height */}
-          <div className="h-[50vh] flex-shrink-0">
+          {/* Main Chart Area - Expanded to use more space */}
+          <div className="h-[60vh] flex-shrink-0">
             <div className="bg-white rounded-lg shadow-sm p-1 h-full flex flex-col">
               {/* Active Status Bar - One Line Display */}
               <div className="mb-1 flex justify-center flex-shrink-0">
@@ -975,8 +823,8 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Row: Notes Summary - Full width since COB Projection moved to top */}
-          <div className="flex-shrink-0 h-[20vh]">
+          {/* Bottom Row: Notes Summary - Compact */}
+          <div className="flex-shrink-0 h-[25vh]">
             
             {/* Notes Summary - Full Width */}
             <div className="bg-white rounded-lg shadow-sm p-1 h-full">
