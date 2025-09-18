@@ -190,7 +190,6 @@ export class GlucosePredictionService {
   ): number {
     const carbTime = new Date(entry.timestamp);
     const hoursFromCarbIntake = (targetTime.getTime() - carbTime.getTime()) / (1000 * 60 * 60);
-    const hoursFromCurrentTime = (targetTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
 
     // Only consider carbs that haven't been fully absorbed yet
     if (hoursFromCarbIntake <= 0) return 0;
