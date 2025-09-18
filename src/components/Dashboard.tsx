@@ -14,6 +14,7 @@ import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { carbsOnBoardService, COBStatus, COBEntry } from '../services/carbsOnBoard';
 import { insulinOnBoardService, IOBProjection, InsulinEntry } from '../services/insulinOnBoard';
 import { glucosePredictionService } from '../services/glucosePrediction';
+import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -39,6 +40,7 @@ const Dashboard: React.FC = () => {
   });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isPredictionSettingsOpen, setIsPredictionSettingsOpen] = useState(false);
+  const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
 
   // IOB and prediction management
   const [iobData, setIobData] = useState<IOBProjection[]>([]);
@@ -150,8 +152,17 @@ const Dashboard: React.FC = () => {
       endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
     }
     
-    // Get COB settings for accurate predictions
-    const cobConfig = carbsOnBoardService.getConfig();
+    // Get COB settings from database for accurate predictions
+    const cobConfig = cobSettings ? {
+      carbRatio: cobSettings.carbRatio,
+      isf: cobSettings.isf,
+      carbHalfLife: cobSettings.carbHalfLife
+    } : {
+      // Fallback to default values if database settings not loaded yet
+      carbRatio: 2.0,
+      isf: 1.0,
+      carbHalfLife: 45
+    };
     
     // Calculate glucose trend from recent readings
     const glucoseTrend = calculateGlucoseTrend(glucoseHistory);
@@ -193,7 +204,7 @@ const Dashboard: React.FC = () => {
     );
 
     setIobData(projection);
-  }, [insulinEntries, currentReading, timeRange, glucoseHistory, notes, calculateGlucoseTrend]);
+  }, [insulinEntries, currentReading, timeRange, glucoseHistory, notes, calculateGlucoseTrend, cobSettings]);
 
   // Extract insulin entries from notes
   const extractInsulinFromNotes = useCallback(() => {
@@ -216,6 +227,38 @@ const Dashboard: React.FC = () => {
   const fetchConnections = useCallback(async () => {
     // Set default connection for Nightscout
     setSelectedConnection('nightscout-connection');
+  }, []);
+
+  const fetchCOBSettings = useCallback(async () => {
+    try {
+      console.log('🔗 Fetching COB settings from database...');
+      const settings = await cobSettingsApi.getCOBSettings();
+      console.log('✅ COB settings loaded:', settings);
+      setCobSettings(settings);
+      
+      // Update prediction service with database settings
+      if (settings) {
+        glucosePredictionService.updateConfig({
+          carbGlucoseRatio: settings.carbRatio / 10, // Convert from mmol/L per 10g to mmol/L per gram
+          insulinSensitivityFactor: settings.isf,
+          maxPredictionHours: 6,
+          predictionInterval: 15
+        });
+        console.log('✅ Updated glucose prediction service with database settings:', {
+          carbGlucoseRatio: settings.carbRatio / 10,
+          insulinSensitivityFactor: settings.isf
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching COB settings:', error);
+      // Use default settings if database fetch fails
+      setCobSettings({
+        carbRatio: 2.0,
+        isf: 1.0,
+        carbHalfLife: 45,
+        maxCOBDuration: 240
+      });
+    }
   }, []);
 
   const fetchCurrentGlucose = useCallback(async () => {
@@ -353,11 +396,12 @@ const Dashboard: React.FC = () => {
     
     fetchPatientInfo();
     fetchConnections();
+    fetchCOBSettings(); // Load COB settings from database
     
     // Always try to fetch real data via backend proxy first
     fetchHistoricalData();
     fetchCurrentGlucose();
-  }, [fetchPatientInfo, fetchConnections, fetchHistoricalData, fetchCurrentGlucose]);
+  }, [fetchPatientInfo, fetchConnections, fetchCOBSettings, fetchHistoricalData, fetchCurrentGlucose]);
 
   // Monitor glucoseHistory changes
   useEffect(() => {
@@ -422,9 +466,30 @@ const Dashboard: React.FC = () => {
     // COB projection calculation removed - using prediction system instead
   }, [notes]);
 
-  const handleCOBConfigChange = useCallback((newConfig: any) => {
-    carbsOnBoardService.updateConfig(newConfig);
-    calculateCOB(); // Recalculate with new settings
+  const handleCOBConfigChange = useCallback(async (newConfig: any) => {
+    try {
+      // Save to database
+      const updatedSettings = await cobSettingsApi.saveCOBSettings(newConfig);
+      console.log('✅ COB settings saved to database:', updatedSettings);
+      
+      // Update local state
+      setCobSettings(updatedSettings);
+      
+      // Update prediction service with new settings
+      glucosePredictionService.updateConfig({
+        carbGlucoseRatio: updatedSettings.carbRatio / 10, // Convert from mmol/L per 10g to mmol/L per gram
+        insulinSensitivityFactor: updatedSettings.isf,
+      });
+      
+      // Update local COB service as well for backward compatibility
+      carbsOnBoardService.updateConfig(newConfig);
+      calculateCOB(); // Recalculate with new settings
+    } catch (error) {
+      console.error('❌ Error saving COB settings:', error);
+      // Fall back to local-only update if database save fails
+      carbsOnBoardService.updateConfig(newConfig);
+      calculateCOB();
+    }
   }, [calculateCOB]);
 
   const handlePredictionConfigChange = useCallback((newConfig: any) => {
@@ -926,7 +991,12 @@ const Dashboard: React.FC = () => {
         {/* COB Settings Modal */}
         {isCOBSettingsOpen && (
           <COBSettings
-            config={carbsOnBoardService.getConfig()}
+            config={cobSettings || {
+              carbRatio: 2.0,
+              isf: 1.0,
+              carbHalfLife: 45,
+              maxCOBDuration: 240
+            }}
             onConfigChange={handleCOBConfigChange}
             onClose={() => setIsCOBSettingsOpen(false)}
           />
