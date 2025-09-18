@@ -149,12 +149,28 @@ export class InsulinOnBoardService {
       predictedGlucose: currentGlucose + trendEffect + cobEffect - iobEffect,
       carbRatio,
       isf,
-      carbHalfLife
+      carbHalfLife,
+      'COB === 0?': targetCOB === 0,
+      'IOB === 0?': targetIOB === 0,
+      'Both zero?': targetCOB === 0 && targetIOB === 0,
+      notesLength: notes?.length || 0
     });
 
     // If no COB and no IOB, predictions should be flat (no change)
-    if (targetCOB === 0 && targetIOB === 0) {
-      console.log('🎯 Applying flat prediction for zero COB/IOB');
+    // Use small threshold to handle floating point precision issues
+    const hasActiveCOB = Math.abs(targetCOB) >= 0.1; // 0.1g threshold
+    const hasActiveIOB = Math.abs(targetIOB) >= 0.1; // 0.1u threshold
+    
+    console.log('🔍 Flat Prediction Check:', {
+      targetCOB,
+      targetIOB,
+      hasActiveCOB,
+      hasActiveIOB,
+      'Should be flat?': !hasActiveCOB && !hasActiveIOB
+    });
+    
+    if (!hasActiveCOB && !hasActiveIOB) {
+      console.log('🎯 APPLYING FLAT PREDICTION - Returning current glucose:', currentGlucose);
       return currentGlucose;
     }
     
@@ -182,24 +198,51 @@ export class InsulinOnBoardService {
     targetTime: Date,
     carbHalfLifeMinutes: number
   ): number {
-    if (!notes || notes.length === 0) return 0;
+    if (!notes || notes.length === 0) {
+      console.log('🔍 COB Debug: No notes provided');
+      return 0;
+    }
     
     let totalCOB = 0;
     const targetTimeMs = targetTime.getTime();
+    
+    console.log('🔍 COB Debug: Calculating COB at time', {
+      targetTime: targetTime.toISOString(),
+      notesCount: notes.length,
+      carbHalfLifeMinutes
+    });
     
     for (const note of notes) {
       const noteTimeMs = note.timestamp.getTime();
       const timeDiffMinutes = (targetTimeMs - noteTimeMs) / (1000 * 60);
       
       // Skip if note is in the future or carbs are 0
-      if (timeDiffMinutes < 0 || note.carbs <= 0) continue;
+      if (timeDiffMinutes < 0 || note.carbs <= 0) {
+        console.log('🔍 COB Debug: Skipping note', {
+          noteTime: note.timestamp.toISOString(),
+          carbs: note.carbs,
+          timeDiffMinutes,
+          reason: timeDiffMinutes < 0 ? 'future note' : 'zero carbs'
+        });
+        continue;
+      }
       
       // Calculate remaining carbs using exponential decay
       const halfLives = timeDiffMinutes / carbHalfLifeMinutes;
       const remainingCarbs = note.carbs * Math.pow(0.5, halfLives);
       totalCOB += Math.max(0, remainingCarbs);
+      
+      console.log('🔍 COB Debug: Processing note', {
+        noteTime: note.timestamp.toISOString(),
+        carbs: note.carbs,
+        timeDiffMinutes,
+        halfLives,
+        remainingCarbs,
+        runningTotal: totalCOB
+      });
     }
     
+    console.log('🔍 COB Debug: Final totalCOB =', totalCOB);
     return totalCOB;
   }
 
@@ -209,24 +252,51 @@ export class InsulinOnBoardService {
     targetTime: Date,
     insulinHalfLifeMinutes: number = 42
   ): number {
-    if (!notes || notes.length === 0) return 0;
+    if (!notes || notes.length === 0) {
+      console.log('🔍 IOB Debug: No notes provided');
+      return 0;
+    }
     
     let totalIOB = 0;
     const targetTimeMs = targetTime.getTime();
+    
+    console.log('🔍 IOB Debug: Calculating IOB at time', {
+      targetTime: targetTime.toISOString(),
+      notesCount: notes.length,
+      insulinHalfLifeMinutes
+    });
     
     for (const note of notes) {
       const noteTimeMs = note.timestamp.getTime();
       const timeDiffMinutes = (targetTimeMs - noteTimeMs) / (1000 * 60);
       
       // Skip if note is in the future or insulin is 0
-      if (timeDiffMinutes < 0 || note.insulin <= 0) continue;
+      if (timeDiffMinutes < 0 || note.insulin <= 0) {
+        console.log('🔍 IOB Debug: Skipping note', {
+          noteTime: note.timestamp.toISOString(),
+          insulin: note.insulin,
+          timeDiffMinutes,
+          reason: timeDiffMinutes < 0 ? 'future note' : 'zero insulin'
+        });
+        continue;
+      }
       
       // Calculate remaining insulin using exponential decay
       const halfLives = timeDiffMinutes / insulinHalfLifeMinutes;
       const remainingInsulin = note.insulin * Math.pow(0.5, halfLives);
       totalIOB += Math.max(0, remainingInsulin);
+      
+      console.log('🔍 IOB Debug: Processing note', {
+        noteTime: note.timestamp.toISOString(),
+        insulin: note.insulin,
+        timeDiffMinutes,
+        halfLives,
+        remainingInsulin,
+        runningTotal: totalIOB
+      });
     }
     
+    console.log('🔍 IOB Debug: Final totalIOB =', totalIOB);
     return totalIOB;
   }
 
@@ -250,7 +320,8 @@ export class InsulinOnBoardService {
       const timeDiffMinutes = (projection.time.getTime() - currentTime.getTime()) / (1000 * 60);
       
       // Only generate predictions for future time points
-      const glucosePrediction = timeDiffMinutes > 0 
+      // Limit predictions to 2 hours (120 minutes) for UI display
+      const glucosePrediction = timeDiffMinutes > 0 && timeDiffMinutes <= 120
         ? this.predictGlucose(
             currentGlucose,
             projection.iob,
@@ -259,7 +330,7 @@ export class InsulinOnBoardService {
             notes,
             cobConfig
           )
-        : undefined; // No predictions for past data
+        : undefined; // No predictions for past data or beyond 2 hours
       
       return {
         ...projection,

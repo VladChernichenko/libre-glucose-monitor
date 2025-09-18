@@ -32,13 +32,13 @@ export interface PredictionConfig {
 
 export class GlucosePredictionService {
   private config: PredictionConfig = {
-    // Default values based on average diabetes management parameters
+    // Default values aligned with InsulinOnBoardService for consistency
     carbAbsorptionRate: 30, // 30g/hour
-    carbGlucoseRatio: 0.28, // 0.28 mmol/L per gram
-    insulinSensitivityFactor: 2.8, // 2.8 mmol/L per unit
-    insulinActionDuration: 4, // 4 hours
-    insulinPeakTime: 1.5, // 1.5 hours
-    basalGlucoseDecline: 0.1, // 0.1 mmol/L per hour
+    carbGlucoseRatio: 0.2, // 0.2 mmol/L per gram (matches 2.0 mmol/L per 10g from IOB service)
+    insulinSensitivityFactor: 1.0, // 1.0 mmol/L per unit (matches ISF from IOB service)
+    insulinActionDuration: 5, // 5 hours (matches 300 minutes from IOB service)
+    insulinPeakTime: 1.0, // 1.0 hours (matches 60 minutes from IOB service)
+    basalGlucoseDecline: 0.0, // 0.0 mmol/L per hour (no baseline trend without data)
     glucoseVolatility: 0.5, // 0.5 mmol/L
     maxPredictionHours: 6,
     predictionInterval: 15
@@ -117,6 +117,15 @@ export class GlucosePredictionService {
       baselineAtTime + carbContribution + insulinContribution
     );
 
+    console.log('🔍 GlucosePrediction Final Calculation:', {
+      baselineGlucose: baselineAtTime,
+      carbContribution,
+      insulinContribution,
+      calculation: `${baselineAtTime} + ${carbContribution} + ${insulinContribution}`,
+      predictedGlucose,
+      hoursElapsed
+    });
+
     return {
       predictedGlucose,
       carbContribution,
@@ -143,6 +152,12 @@ export class GlucosePredictionService {
   ): number {
     let totalContribution = 0;
 
+    console.log('🔍 GlucosePrediction COB Debug:', {
+      entriesCount: cobEntries.length,
+      currentTime: currentTime.toISOString(),
+      targetTime: targetTime.toISOString()
+    });
+
     for (const entry of cobEntries) {
       if (entry.carbs && entry.carbs > 0) {
         const contribution = this.calculateSingleCarbContribution(
@@ -151,9 +166,17 @@ export class GlucosePredictionService {
           targetTime
         );
         totalContribution += contribution;
+        
+        console.log('🔍 GlucosePrediction COB Entry:', {
+          timestamp: entry.timestamp.toISOString(),
+          carbs: entry.carbs,
+          contribution,
+          runningTotal: totalContribution
+        });
       }
     }
 
+    console.log('🔍 GlucosePrediction Final COB contribution:', totalContribution);
     return totalContribution;
   }
 
@@ -172,25 +195,20 @@ export class GlucosePredictionService {
     // Only consider carbs that haven't been fully absorbed yet
     if (hoursFromCarbIntake <= 0) return 0;
 
-    // Calculate how much of the carbs have been absorbed by the target time
-    const maxAbsorptionTime = entry.carbs! / this.config.carbAbsorptionRate; // hours to fully absorb
+    // Use exponential decay model similar to IOB service for consistency
+    // Carbs are absorbed with a half-life of 45 minutes (0.75 hours)
+    const carbHalfLifeHours = 0.75; // 45 minutes
+    const halfLives = hoursFromCarbIntake / carbHalfLifeHours;
+    const remainingCarbs = entry.carbs! * Math.pow(0.5, halfLives);
     
-    let absorptionFraction: number;
-    if (hoursFromCarbIntake >= maxAbsorptionTime) {
-      absorptionFraction = 1.0; // Fully absorbed
-    } else {
-      // Linear absorption model - could be enhanced with exponential/sigmoid models
-      absorptionFraction = hoursFromCarbIntake / maxAbsorptionTime;
-    }
+    // Only consider remaining carbs (not yet absorbed)
+    if (remainingCarbs < 0.1) return 0; // Less than 0.1g remaining
 
-    // Calculate glucose impact
-    const absorbedCarbs = entry.carbs! * absorptionFraction;
-    const glucoseImpact = absorbedCarbs * this.config.carbGlucoseRatio;
-
-    // Apply decay function - glucose impact diminishes over time
-    const decayFactor = Math.exp(-hoursFromCurrentTime * 0.5); // Exponential decay
+    // Calculate current glucose impact from remaining carbs
+    // This represents the glucose rise that will happen as these carbs are absorbed
+    const glucoseImpact = remainingCarbs * this.config.carbGlucoseRatio;
     
-    return glucoseImpact * decayFactor;
+    return Math.max(0, glucoseImpact);
   }
 
   /**

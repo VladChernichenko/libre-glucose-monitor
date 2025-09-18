@@ -107,8 +107,23 @@ const Dashboard: React.FC = () => {
       }
     }
     
-    // Return average trend in mg/dL per minute
-    return totalTimeDiff > 0 ? totalChange / (recentReadings.length - 1) : 0;
+    // Return average trend in mg/dL per minute with realistic bounds
+    const rawTrend = totalTimeDiff > 0 ? totalChange / (recentReadings.length - 1) : 0;
+    
+    // Limit extreme trend values to prevent unrealistic predictions
+    // Normal glucose trend should be between -1 and +1 mg/dL per minute
+    const boundedTrend = Math.max(-1, Math.min(1, rawTrend));
+    
+    console.log('🔍 Trend Calculation Debug:', {
+      readingsCount: readings.length,
+      recentReadingsCount: recentReadings.length,
+      totalChange,
+      rawTrend,
+      boundedTrend,
+      'Trend in mmol/L per minute': boundedTrend / 18
+    });
+    
+    return boundedTrend;
   }, []);
 
   // Calculate IOB and generate predictions
@@ -157,7 +172,12 @@ const Dashboard: React.FC = () => {
       notesWithInsulin: notes.filter(n => n.insulin > 0).length,
       cobConfig,
       timeRange,
-      glucoseHistoryLength: glucoseHistory.length
+      glucoseHistoryLength: glucoseHistory.length,
+      'All Notes': notes.map(n => ({
+        time: n.timestamp.toISOString(),
+        carbs: n.carbs,
+        insulin: n.insulin
+      }))
     });
 
     // Generate IOB projection for the entire time range (past + future)
