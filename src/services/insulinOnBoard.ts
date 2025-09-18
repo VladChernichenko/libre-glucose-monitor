@@ -107,26 +107,127 @@ export class InsulinOnBoardService {
     return projections;
   }
 
-  // Predict glucose based on IOB and current glucose trend
+  // Predict glucose based on IOB, COB, and current glucose trend
   predictGlucose(
     currentGlucose: number,
     currentIOB: number,
     glucoseTrend: number, // mg/dL per minute
-    timeHorizonMinutes: number = 60
+    timeHorizonMinutes: number = 60,
+    notes?: Array<{ timestamp: Date; carbs: number; insulin: number }>,
+    cobConfig?: { carbRatio: number; isf: number; carbHalfLife: number }
   ): number {
+    // Use COB settings if provided, otherwise use defaults
+    const carbRatio = cobConfig?.carbRatio || 2.0; // mmol/L per 10g carbs
+    const isf = cobConfig?.isf || 1.0; // mmol/L per unit
+    const carbHalfLife = cobConfig?.carbHalfLife || 45; // minutes
+    
+    // Calculate COB at the target time (current time + timeHorizon)
+    const targetTime = new Date(Date.now() + timeHorizonMinutes * 60 * 1000);
+    const targetCOB = this.calculateCOBAtTime(notes || [], targetTime, carbHalfLife);
+    const targetIOB = this.calculateIOBAtTimeFromNotes(notes || [], targetTime, 42); // 42 min insulin half-life
+    
     // Convert trend from mg/dL per minute to mmol/L per minute
     const trendMmolL = glucoseTrend / 18;
     
-    // Estimate glucose change from IOB
-    // Assuming 1 unit of insulin reduces glucose by ~3 mmol/L (54 mg/dL)
-    const insulinSensitivity = 3.0; // mmol/L per unit
-    const iobEffect = currentIOB * insulinSensitivity;
+    // Calculate effects
+    const cobEffect = (targetCOB / 10) * carbRatio; // Glucose rise from remaining carbs
+    const iobEffect = targetIOB * isf; // Glucose drop from remaining insulin
+    const trendEffect = trendMmolL * timeHorizonMinutes; // Glucose change from trend
     
-    // Predict glucose change over time horizon
-    const trendEffect = trendMmolL * timeHorizonMinutes;
-    const predictedGlucose = currentGlucose + trendEffect - iobEffect;
+    // Debug logging for all predictions
+    console.log('🔍 Prediction Debug:', {
+      currentGlucose,
+      timeHorizonMinutes,
+      targetCOB,
+      targetIOB,
+      glucoseTrend,
+      trendMmolL,
+      trendEffect,
+      cobEffect,
+      iobEffect,
+      calculation: `${currentGlucose} + ${trendEffect} + ${cobEffect} - ${iobEffect}`,
+      predictedGlucose: currentGlucose + trendEffect + cobEffect - iobEffect,
+      carbRatio,
+      isf,
+      carbHalfLife
+    });
+
+    // If no COB and no IOB, predictions should be flat (no change)
+    if (targetCOB === 0 && targetIOB === 0) {
+      console.log('🎯 Applying flat prediction for zero COB/IOB');
+      return currentGlucose;
+    }
+    
+    // Predict glucose: current + trend + carbs - insulin
+    const predictedGlucose = currentGlucose + trendEffect + cobEffect - iobEffect;
+    
+    // Alert for extreme predictions
+    if (predictedGlucose > 20 || predictedGlucose < 2) {
+      console.error('🚨 EXTREME PREDICTION DETECTED:', {
+        currentGlucose,
+        predictedGlucose,
+        trendEffect,
+        cobEffect,
+        iobEffect,
+        timeHorizonMinutes
+      });
+    }
     
     return Math.max(0, predictedGlucose);
+  }
+
+  // Calculate COB at a specific time from notes data
+  private calculateCOBAtTime(
+    notes: Array<{ timestamp: Date; carbs: number; insulin: number }>,
+    targetTime: Date,
+    carbHalfLifeMinutes: number
+  ): number {
+    if (!notes || notes.length === 0) return 0;
+    
+    let totalCOB = 0;
+    const targetTimeMs = targetTime.getTime();
+    
+    for (const note of notes) {
+      const noteTimeMs = note.timestamp.getTime();
+      const timeDiffMinutes = (targetTimeMs - noteTimeMs) / (1000 * 60);
+      
+      // Skip if note is in the future or carbs are 0
+      if (timeDiffMinutes < 0 || note.carbs <= 0) continue;
+      
+      // Calculate remaining carbs using exponential decay
+      const halfLives = timeDiffMinutes / carbHalfLifeMinutes;
+      const remainingCarbs = note.carbs * Math.pow(0.5, halfLives);
+      totalCOB += Math.max(0, remainingCarbs);
+    }
+    
+    return totalCOB;
+  }
+
+  // Calculate IOB at a specific time from notes data
+  private calculateIOBAtTimeFromNotes(
+    notes: Array<{ timestamp: Date; carbs: number; insulin: number }>,
+    targetTime: Date,
+    insulinHalfLifeMinutes: number = 42
+  ): number {
+    if (!notes || notes.length === 0) return 0;
+    
+    let totalIOB = 0;
+    const targetTimeMs = targetTime.getTime();
+    
+    for (const note of notes) {
+      const noteTimeMs = note.timestamp.getTime();
+      const timeDiffMinutes = (targetTimeMs - noteTimeMs) / (1000 * 60);
+      
+      // Skip if note is in the future or insulin is 0
+      if (timeDiffMinutes < 0 || note.insulin <= 0) continue;
+      
+      // Calculate remaining insulin using exponential decay
+      const halfLives = timeDiffMinutes / insulinHalfLifeMinutes;
+      const remainingInsulin = note.insulin * Math.pow(0.5, halfLives);
+      totalIOB += Math.max(0, remainingInsulin);
+    }
+    
+    return totalIOB;
   }
 
   // Generate combined IOB and glucose prediction
@@ -136,24 +237,38 @@ export class InsulinOnBoardService {
     glucoseTrend: number,
     startTime: Date,
     endTime: Date,
-    intervalMinutes: number = 15
+    intervalMinutes: number = 15,
+    notes?: Array<{ timestamp: Date; carbs: number; insulin: number }>,
+    cobConfig?: { carbRatio: number; isf: number; carbHalfLife: number }
   ): IOBProjection[] {
     const projections = this.generateIOBProjection(insulinEntries, startTime, endTime, intervalMinutes);
+    const currentTime = new Date();
     
-    // Add glucose predictions
+    // Add glucose predictions only for future data points
     return projections.map(projection => {
-      const timeDiffMinutes = (projection.time.getTime() - startTime.getTime()) / (1000 * 60);
-      const glucosePrediction = this.predictGlucose(
-        currentGlucose,
-        projection.iob,
-        glucoseTrend,
-        timeDiffMinutes
-      );
+      // Calculate time difference from current time
+      const timeDiffMinutes = (projection.time.getTime() - currentTime.getTime()) / (1000 * 60);
+      
+      // Only generate predictions for future time points
+      const glucosePrediction = timeDiffMinutes > 0 
+        ? this.predictGlucose(
+            currentGlucose,
+            projection.iob,
+            glucoseTrend,
+            timeDiffMinutes,
+            notes,
+            cobConfig
+          )
+        : undefined; // No predictions for past data
       
       return {
         ...projection,
-        glucosePrediction: Math.round(glucosePrediction * 10) / 10, // Round to 1 decimal
-        confidence: this.calculatePredictionConfidence(timeDiffMinutes)
+        glucosePrediction: glucosePrediction !== undefined 
+          ? Math.round(glucosePrediction * 10) / 10 
+          : undefined,
+        confidence: glucosePrediction !== undefined 
+          ? this.calculatePredictionConfidence(timeDiffMinutes)
+          : undefined
       };
     });
   }

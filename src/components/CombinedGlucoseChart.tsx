@@ -26,7 +26,6 @@ interface CombinedGlucoseChartProps {
 interface ChartDataPoint {
   time: number;
   glucose: number;
-  iob: number;
   prediction?: number;
   status: string;
   color: string;
@@ -55,22 +54,23 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       return [];
     }
 
-    // Create a map of IOB data by time for easy lookup
-    const iobMap = new Map<number, { iob: number; prediction?: number }>();
+    // Create a map of IOB data by time for easy lookup (for predictions only)
+    const predictionMap = new Map<number, number>();
     iobData.forEach(item => {
-      iobMap.set(item.time.getTime(), { iob: item.iob, prediction: item.prediction });
+      if (item.prediction !== undefined) {
+        predictionMap.set(item.time.getTime(), item.prediction);
+      }
     });
 
-    // Process glucose data and combine with IOB
+    // Process glucose data
     const processedData: ChartDataPoint[] = glucoseData.map((reading, index) => {
       const time = reading.timestamp.getTime();
-      const iobInfo = iobMap.get(time) || { iob: 0, prediction: undefined };
+      const prediction = predictionMap.get(time);
       
       return {
         time,
         glucose: reading.value,
-        iob: iobInfo.iob,
-        prediction: iobInfo.prediction,
+        prediction,
         status: reading.status,
         color: getGlucoseColor(reading.value),
         isFirstPoint: index === 0,
@@ -78,13 +78,12 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       };
     });
 
-    // Add prediction points for future IOB
+    // Add prediction points for future data
     const futurePredictions = iobData
       .filter(item => item.prediction !== undefined)
       .map(item => ({
         time: item.time.getTime(),
         glucose: item.prediction!,
-        iob: item.iob,
         prediction: item.prediction,
         status: 'prediction',
         color: '#9CA3AF', // Gray for predictions
@@ -138,11 +137,9 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
 
   // Calculate domains
   const glucoseValues = chartData.map(d => d.glucose).filter(v => !isNaN(v));
-  const iobValues = chartData.map(d => d.iob).filter(v => !isNaN(v));
   
   const glucoseMin = Math.min(...glucoseValues);
   const glucoseMax = Math.max(...glucoseValues);
-  const iobMax = Math.max(...iobValues, 0);
 
   // Current time for reference line
   const currentTime = new Date().getTime();
@@ -170,12 +167,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
               </span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span className="text-sm">
-                IOB: <span className="font-medium">{data.iob?.toFixed(2)} units</span>
-              </span>
-            </div>
             
             {data.prediction && (
               <div className="flex items-center space-x-2">
@@ -222,15 +213,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             fontSize={10}
           />
           
-          {/* IOB Y-Axis (Right) */}
-          <YAxis
-            yAxisId="iob"
-            orientation="right"
-            stroke="#8B5CF6"
-            domain={[0, iobMax + 1]}
-            tickFormatter={(value) => `${value.toFixed(1)}u`}
-            fontSize={10}
-          />
           
           <Tooltip content={<CustomTooltip />} />
           
@@ -247,16 +229,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             isAnimationActive={false}
           />
           
-          {/* IOB Line (Antiphase) */}
-          <Line
-            yAxisId="iob"
-            type="monotone"
-            dataKey="iob"
-            stroke="#8B5CF6"
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-          />
           
           {/* Prediction Line */}
           <Line

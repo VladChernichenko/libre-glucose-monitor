@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { NightscoutEntry, NightscoutDeviceStatus, NightscoutAverage } from './types';
+import { NightscoutEntry, NightscoutDeviceStatus } from './types';
 import { authService } from '../authService';
 
 export class NightscoutProxyService {
@@ -75,16 +75,6 @@ export class NightscoutProxyService {
     }
   }
 
-  async get24HourAverage(): Promise<NightscoutAverage> {
-    try {
-      console.log('🔗 Fetching 24-hour average glucose via backend proxy');
-      const response = await this.api.get('/api/nightscout/average/24h');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Failed to fetch 24-hour average via proxy:', error);
-      throw new Error('Failed to fetch 24-hour average from Nightscout via backend proxy');
-    }
-  }
 
   async healthCheck(): Promise<boolean> {
     try {

@@ -7,7 +7,6 @@ import COBSettings from './COBSettings';
 import PredictionSettings from './PredictionSettings';
 import { generateDemoGlucoseData } from '../services/demoData';
 import { NightscoutProxyService } from '../services/nightscout/nightscoutProxyService';
-import { NightscoutAverage } from '../services/nightscout/types';
 
 import { GlucoseReading } from '../types/libre';
 import { GlucoseNote } from '../types/notes';
@@ -45,8 +44,6 @@ const Dashboard: React.FC = () => {
   const [iobData, setIobData] = useState<IOBProjection[]>([]);
   const [insulinEntries, setInsulinEntries] = useState<InsulinEntry[]>([]);
 
-  // 24h average glucose
-  const [average24h, setAverage24h] = useState<NightscoutAverage | null>(null);
 
   // Backend proxy service for Nightscout integration
   const [nightscoutProxy] = useState(() => {
@@ -85,12 +82,38 @@ const Dashboard: React.FC = () => {
     return 'critical';                   // > 250 mg/dL
   }, []);
 
+  // Calculate glucose trend from recent readings
+  const calculateGlucoseTrend = useCallback((readings: GlucoseReading[]): number => {
+    if (readings.length < 2) return 0;
+    
+    // Get the last 3 readings for trend calculation
+    const recentReadings = readings.slice(-3);
+    if (recentReadings.length < 2) return 0;
+    
+    // Calculate average change rate in mg/dL per minute
+    let totalChange = 0;
+    let totalTimeDiff = 0;
+    
+    for (let i = 1; i < recentReadings.length; i++) {
+      const current = recentReadings[i];
+      const previous = recentReadings[i - 1];
+      
+      const timeDiff = (current.timestamp.getTime() - previous.timestamp.getTime()) / (1000 * 60); // minutes
+      const glucoseDiff = (current.value - previous.value) * 18; // Convert mmol/L to mg/dL
+      
+      if (timeDiff > 0) {
+        totalChange += glucoseDiff / timeDiff; // mg/dL per minute
+        totalTimeDiff += timeDiff;
+      }
+    }
+    
+    // Return average trend in mg/dL per minute
+    return totalTimeDiff > 0 ? totalChange / (recentReadings.length - 1) : 0;
+  }, []);
+
   // Calculate IOB and generate predictions
   const calculateIOBAndPredictions = useCallback(() => {
-    if (insulinEntries.length === 0) {
-      setIobData([]);
-      return;
-    }
+    // Always calculate predictions, even without insulin entries
 
     const now = new Date();
     
@@ -112,18 +135,45 @@ const Dashboard: React.FC = () => {
       endTime = new Date(now.getTime() + (4 * 60 * 60 * 1000));
     }
     
+    // Get COB settings for accurate predictions
+    const cobConfig = carbsOnBoardService.getConfig();
+    
+    // Calculate glucose trend from recent readings
+    const glucoseTrend = calculateGlucoseTrend(glucoseHistory);
+    
+    // Convert notes to the format expected by the prediction service
+    const notesForPrediction = notes.map(note => ({
+      timestamp: note.timestamp,
+      carbs: note.carbs,
+      insulin: note.insulin
+    }));
+
+    // Debug logging for prediction inputs
+    console.log('🔍 Dashboard Prediction Inputs:', {
+      currentGlucose: currentReading?.value,
+      glucoseTrend,
+      notesCount: notes.length,
+      notesWithCarbs: notes.filter(n => n.carbs > 0).length,
+      notesWithInsulin: notes.filter(n => n.insulin > 0).length,
+      cobConfig,
+      timeRange,
+      glucoseHistoryLength: glucoseHistory.length
+    });
+
     // Generate IOB projection for the entire time range (past + future)
     const projection = insulinOnBoardService.generateCombinedProjection(
       insulinEntries,
       currentReading?.value || 0,
-      0, // glucose trend - could be calculated from recent readings
+      glucoseTrend, // Use calculated glucose trend
       startTime, // Start from past time
       endTime,   // End at future time
-      15 // 15-minute intervals
+      15, // 15-minute intervals
+      notesForPrediction, // Pass notes data for COB/IOB calculation
+      cobConfig // Pass COB settings
     );
 
     setIobData(projection);
-  }, [insulinEntries, currentReading, timeRange]);
+  }, [insulinEntries, currentReading, timeRange, glucoseHistory, notes, calculateGlucoseTrend]);
 
   // Extract insulin entries from notes
   const extractInsulinFromNotes = useCallback(() => {
@@ -277,17 +327,6 @@ const Dashboard: React.FC = () => {
     }
   }, [selectedConnection, timeRange, nightscoutProxy, calculateGlucoseStatus]);
 
-  const fetch24HourAverage = useCallback(async () => {
-    if (!selectedConnection) return;
-    
-    try {
-      console.log('🔗 Fetching 24-hour average via backend proxy...');
-      const average = await nightscoutProxy.get24HourAverage();
-      setAverage24h(average);
-    } catch (err) {
-      console.error('❌ Failed to fetch 24-hour average:', err);
-    }
-  }, [selectedConnection, nightscoutProxy]);
 
   // Initial data fetch
   useEffect(() => {
@@ -298,8 +337,7 @@ const Dashboard: React.FC = () => {
     // Always try to fetch real data via backend proxy first
     fetchHistoricalData();
     fetchCurrentGlucose();
-    fetch24HourAverage();
-  }, [fetchPatientInfo, fetchConnections, fetchHistoricalData, fetchCurrentGlucose, fetch24HourAverage]);
+  }, [fetchPatientInfo, fetchConnections, fetchHistoricalData, fetchCurrentGlucose]);
 
   // Monitor glucoseHistory changes
   useEffect(() => {
@@ -594,21 +632,6 @@ const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Separator */}
-                    <div className="w-px h-8 bg-gray-300"></div>
-
-                    {/* 24h Average */}
-                    <div className="flex items-center space-x-2">
-                      <span className="text-purple-600 font-medium">📈</span>
-                      <div className="text-center">
-                        <div className="font-bold text-purple-800">
-                          {average24h ? `${average24h.averageGlucoseMmol.toFixed(1)} mmol/L` : '--'}
-                        </div>
-                        <div className="text-xs text-purple-600">
-                          24h Avg
-                        </div>
-                      </div>
-                    </div>
 
                     {/* Separator */}
                     <div className="w-px h-8 bg-gray-300"></div>
