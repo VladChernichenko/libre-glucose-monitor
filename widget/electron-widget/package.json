@@ -1,0 +1,32 @@
+{
+  "name": "glucose-widget-macos",
+  "version": "1.0.0",
+  "description": "Simple macOS glucose monitoring widget",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never"
+  },
+  "keywords": ["glucose", "diabetes", "widget", "macos"],
+  "author": "Glucose Monitor",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.glucosemonitor.widget",
+    "productName": "Glucose Widget",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.healthcare-fitness",
+      "target": "dmg"
+    },
+    "dmg": {
+      "title": "Glucose Widget"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+.env
+.env.local
+.env.example
+node_modules/
+build/
+*.log
+.DS_Store
+.renderignore

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glucose Monitor Widget</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 8px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            width: 200px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .widget-container {
+            text-align: center;
+        }
+
+        .glucose-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 2px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .glucose-trend {
+            font-size: 16px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .trend-arrow {
+            font-size: 18px;
+        }
+
+        .timestamp {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .error {
+            color: #ff6b6b;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .loading {
+            color: #ffd93d;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* Status colors */
+        .status-low { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); }
+        .status-normal { background: linear-gradient(135deg, #51cf66 0%, #40c057 100%); }
+        .status-high { background: linear-gradient(135deg, #ffd43b 0%, #fab005 100%); }
+        .status-critical { background: linear-gradient(135deg, #ff6b6b 0%, #e03131 100%); }
+    </style>
+</head>
+<body id="widget-body">
+    <div class="widget-container">
+        <div id="glucose-display" class="loading">Loading...</div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            // Use your Nightscout URL or backend API
+            NIGHTSCOUT_URL: '',
+            BACKEND_URL: 'https://libre-glucose-monitor-be.onrender.com',
+            UPDATE_INTERVAL: 60000, // 1 minute
+            USE_NIGHTSCOUT: true // Set to false to use backend API
+        };
+
+        // Convert mg/dL to mmol/L
+        function convertToMmolL(mgdL) {
+            return Math.round((mgdL / 18) * 10) / 10;
+        }
+
+        // Get trend arrow
+        function getTrendArrow(direction) {
+            const trendMap = {
+                'DoubleUp': '↗↗',
+                'SingleUp': '↗',
+                'FortyFiveUp': '↗',
+                'Flat': '→',
+                'FortyFiveDown': '↘',
+                'SingleDown': '↘',
+                'DoubleDown': '↘↘',
+                'NOT COMPUTABLE': '→',
+                'RATE OUT OF RANGE': '→',
+            };
+            return trendMap[direction] || '→';
+        }
+
+        // Calculate glucose status
+        function getGlucoseStatus(mmolL) {
+            if (mmolL < 3.9) return 'low';
+            if (mmolL < 10.0) return 'normal';
+            if (mmolL < 13.9) return 'high';
+            return 'critical';
+        }
+
+        // Fetch glucose data from Nightscout
+        async function fetchFromNightscout() {
+            try {
+                const response = await fetch(`${CONFIG.NIGHTSCOUT_URL}/api/v2/entries.json?count=1`);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    const entry = data[0];
+                    const mmolL = convertToMmolL(entry.sgv);
+                    const status = getGlucoseStatus(mmolL);
+                    const trendArrow = getTrendArrow(entry.direction);
+                    
+                    return {
+                        value: mmolL,
+                        trend: trendArrow,
+                        status: status,
+                        timestamp: new Date(entry.date)
+                    };
+                }
+                throw new Error('No data available');
+            } catch (error) {
+                console.error('Nightscout fetch failed:', error);
+                throw error;
+            }
+        }
+
+        // Fetch glucose data from backend
+        async function fetchFromBackend() {
+            try {
+                // This would require authentication - simplified for widget
+                const response = await fetch(`${CONFIG.BACKEND_URL}/api/glucose/current`);
+                const data = await response.json();
+                
+                return {
+                    value: data.value,
+                    trend: data.trendArrow,
+                    status: data.status,
+                    timestamp: new Date(data.timestamp)
+                };
+            } catch (error) {
+                console.error('Backend fetch failed:', error);
+                throw error;
+            }
+        }
+
+        // Update widget display
+        function updateDisplay(glucoseData) {
+            const display = document.getElementById('glucose-display');
+            const body = document.getElementById('widget-body');
+            
+            // Update background based on status
+            body.className = `status-${glucoseData.status}`;
+            
+            // Create display content
+            display.innerHTML = `
+                <div class="glucose-value">${glucoseData.value} mmol/L</div>
+                <div class="glucose-trend">
+                    <span class="trend-arrow">${glucoseData.trend}</span>
+                    <span>Glucose</span>
+                </div>
+                <div class="timestamp">${glucoseData.timestamp.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })}</div>
+            `;
+            display.className = '';
+        }
+
+        // Show error
+        function showError(message) {
+            const display = document.getElementById('glucose-display');
+            display.innerHTML = `<div class="error">Error: ${message}</div>`;
+            display.className = 'error';
+        }
+
+        // Show loading
+        function showLoading() {
+            const display = document.getElementById('glucose-display');
+            display.innerHTML = '<div class="loading">Loading...</div>';
+            display.className = 'loading';
+        }
+
+        // Main update function
+        async function updateGlucose() {
+            showLoading();
+            
+            try {
+                let glucoseData;
+                
+                if (CONFIG.USE_NIGHTSCOUT) {
+                    glucoseData = await fetchFromNightscout();
+                } else {
+                    glucoseData = await fetchFromBackend();
+                }
+                
+                updateDisplay(glucoseData);
+                console.log('Widget updated:', glucoseData);
+            } catch (error) {
+                showError('Connection failed');
+                console.error('Widget update failed:', error);
+            }
+        }
+
+        // Initialize widget
+        function initWidget() {
+            console.log('Glucose Widget initialized');
+            updateGlucose();
+            
+            // Set up periodic updates
+            setInterval(updateGlucose, CONFIG.UPDATE_INTERVAL);
+        }
+
+        // Start widget when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initWidget);
+        } else {
+            initWidget();
+        }
+    </script>
+</body>
+</html>

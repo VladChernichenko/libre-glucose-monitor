@@ -1,0 +1,77 @@
+{
+  "name": "libre-glucose-monitor",
+  "version": "1.0.0",
+  "description": "Real-time glucose monitoring app using Freestyle Libre sensor and Libre LinkUp API",
+  "private": true,
+  "dependencies": {
+    "@types/node": "^20.19.14",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
+    "autoprefixer": "^10.4.20",
+    "axios": "^1.7.9",
+    "date-fns": "^4.1.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "^5.0.1",
+    "recharts": "^3.2.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^4.9.5"
+  },
+  "scripts": {
+    "set-version": "bash ./scripts/set-version.sh",
+    "start": "npm run set-version && react-scripts start",
+    "start:local": "npm run set-version && REACT_APP_ENVIRONMENT=local react-scripts start",
+    "start:dev": "npm run set-version && REACT_APP_ENVIRONMENT=development react-scripts start",
+    "start:staging": "npm run set-version && REACT_APP_ENVIRONMENT=staging react-scripts start",
+    "start:prod": "npm run set-version && REACT_APP_ENVIRONMENT=production react-scripts start",
+    "start:docker": "npm run set-version && REACT_APP_DOCKER=true react-scripts start",
+    "build": "(npm run set-version || echo 'Version script failed, continuing...') && react-scripts build",
+    "build:local": "npm run set-version && REACT_APP_ENVIRONMENT=local react-scripts build",
+    "build:dev": "npm run set-version && REACT_APP_ENVIRONMENT=development react-scripts build",
+    "build:staging": "npm run set-version && REACT_APP_ENVIRONMENT=staging react-scripts build",
+    "build:prod": "npm run set-version && REACT_APP_ENVIRONMENT=production react-scripts build",
+    "build:docker": "(npm run set-version || echo 'Version script failed, continuing...') && REACT_APP_DOCKER=true react-scripts build",
+    "build:simple": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "pre-commit": "./scripts/pre-commit-check.sh",
+    "lint": "react-scripts build --no-optimize"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "http-proxy-middleware": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "overrides": {
+    "nth-check": "^2.0.1",
+    "resolve-url-loader": {
+      "postcss": "^8.4.49"
+    }
+  },
+  "proxy": "http://localhost:8080"
+}

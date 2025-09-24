@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Backend Service
+  backend:
+    build:
+      context: ../IdeaProjects/glucose-monitor-be
+      dockerfile: Dockerfile
+    container_name: glucose-monitor-backend-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_PASSWORD=dev_password
+    volumes:
+      - ../IdeaProjects/glucose-monitor-be:/app
+      - ./backend-logs:/app/logs
+    networks:
+      - glucose-monitor-network
+    depends_on:
+      - postgres
+      - redis
+
+  # Frontend Service (Development)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: glucose-monitor-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8080
+      - REACT_APP_NIGHTSCOUT_URL=
+      - REACT_APP_ENABLE_DEMO_MODE=false
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./frontend-logs:/app/logs
+    networks:
+      - glucose-monitor-network
+    depends_on:
+      - backend
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: glucose-monitor-postgres-dev
+    environment:
+      - POSTGRES_DB=glucose_monitor
+      - POSTGRES_USER=glucose_monitor_user
+      - POSTGRES_PASSWORD=dev_password
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ../IdeaProjects/glucose-monitor-be/setup_database.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - glucose-monitor-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: glucose-monitor-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - glucose-monitor-network
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+
+networks:
+  glucose-monitor-network:
+    driver: bridge
