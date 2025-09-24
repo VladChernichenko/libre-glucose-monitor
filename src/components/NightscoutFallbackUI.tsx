@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import NightscoutConfigModal from './NightscoutConfigModal';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NightscoutFallbackUIProps {
   onRetry: () => void;
@@ -17,6 +18,7 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
   needsConfiguration = false
 }) => {
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const { logout } = useAuth();
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6 m-4">
@@ -116,6 +118,7 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
       <NightscoutConfigModal
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
+        onLogout={logout}
         onSave={async (config) => {
           try {
             console.log('🔧 NightscoutFallbackUI: Saving configuration:', config);

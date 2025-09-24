@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getEnvironmentConfig } from '../config/environments';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NightscoutConfig {
   id?: string;
@@ -17,13 +18,15 @@ interface NightscoutConfigModalProps {
   onClose: () => void;
   onSave: (config: NightscoutConfig) => Promise<void>;
   existingConfig?: NightscoutConfig | null;
+  onLogout?: () => void;
 }
 
 const NightscoutConfigModal: React.FC<NightscoutConfigModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  existingConfig
+  existingConfig,
+  onLogout
 }) => {
   const [formData, setFormData] = useState<NightscoutConfig>({
     nightscoutUrl: '',
@@ -34,6 +37,8 @@ const NightscoutConfigModal: React.FC<NightscoutConfigModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout: authLogout } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -157,6 +162,31 @@ const NightscoutConfigModal: React.FC<NightscoutConfigModalProps> = ({
       setError(err instanceof Error ? err.message : 'Connection test failed');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('🔧 NightscoutConfigModal: Starting logout process...');
+      
+      // Call the auth logout function
+      await authLogout();
+      
+      // Call the optional onLogout callback if provided
+      if (onLogout) {
+        onLogout();
+      }
+      
+      console.log('🔧 NightscoutConfigModal: Logout completed, closing modal');
+      onClose();
+    } catch (error) {
+      console.error('🔧 NightscoutConfigModal: Logout error:', error);
+      setError(error instanceof Error ? error.message : 'Logout failed');
+    } finally {
+      setIsLoading(false);
+      setShowLogoutConfirm(false);
     }
   };
 
@@ -304,15 +334,16 @@ const NightscoutConfigModal: React.FC<NightscoutConfigModalProps> = ({
             </div>
           )}
 
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={handleTestConnection}
-              disabled={isLoading || !formData.nightscoutUrl}
-              className="flex-1 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Testing...' : 'Test Connection'}
-            </button>
+          <div className="flex flex-col space-y-3 pt-4">
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isLoading || !formData.nightscoutUrl}
+                className="flex-1 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Testing...' : 'Test Connection'}
+              </button>
             <button
               type="button"
               onClick={async () => {
@@ -357,6 +388,48 @@ const NightscoutConfigModal: React.FC<NightscoutConfigModalProps> = ({
             >
               Cancel
             </button>
+            </div>
+            
+            {/* Logout Section */}
+            <div className="border-t border-gray-200 pt-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <p className="font-medium">Need to start over?</p>
+                  <p className="text-xs text-gray-500">Logout to return to login screen</p>
+                </div>
+                <div className="flex space-x-2">
+                  {!showLogoutConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoutConfirm(true)}
+                      disabled={isLoading}
+                      className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 border border-red-300 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Logout
+                    </button>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={isLoading}
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isLoading ? 'Logging out...' : 'Confirm Logout'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowLogoutConfirm(false)}
+                        disabled={isLoading}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </form>
       </div>

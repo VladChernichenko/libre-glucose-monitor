@@ -597,6 +597,7 @@ const EnhancedDashboard: React.FC = () => {
           <NightscoutConfigModal
             isOpen={isNightscoutConfigOpen}
             onClose={() => setIsNightscoutConfigOpen(false)}
+            onLogout={logout}
             onSave={async (config) => {
               try {
                 console.log('🔧 EnhancedDashboard: onSave called with config:', config);
