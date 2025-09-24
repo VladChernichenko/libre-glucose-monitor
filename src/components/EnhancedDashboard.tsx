@@ -7,7 +7,6 @@ import COBSettings from './COBSettings';
 import VersionInfo from './VersionInfo';
 import NightscoutConfigModal from './NightscoutConfigModal';
 import NightscoutErrorBoundary from './NightscoutErrorBoundary';
-import NightscoutDataStatus from './NightscoutDataStatus';
 import NightscoutFallbackUI from './NightscoutFallbackUI';
 import { EnhancedNightscoutService, NightscoutServiceResponse } from '../services/nightscout/enhancedNightscoutService';
 
@@ -67,9 +66,13 @@ const EnhancedDashboard: React.FC = () => {
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
   const [isNightscoutConfigOpen, setIsNightscoutConfigOpen] = useState(false);
+  const [configTimeoutId, setConfigTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
   const [nightscoutConfig, setNightscoutConfig] = useState<NightscoutConfig | null>(null);
+
+  // Removed helper functions to prevent dependency loops
 
   // Helper functions for Nightscout data conversion
   const convertTrendToArrow = (direction: string): string => {
@@ -133,10 +136,13 @@ const EnhancedDashboard: React.FC = () => {
         setError(response.error || 'No current glucose data available');
         console.warn('⚠️ No current glucose data available');
         
-        // If response indicates configuration is needed, open the config dialog
+        // If response indicates configuration is needed, schedule the config dialog
         if (response.needsConfiguration) {
-          console.log('🔧 Opening Nightscout configuration dialog due to 400 error');
-          setIsNightscoutConfigOpen(true);
+          console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error (2 second delay)');
+          setTimeout(() => {
+            console.log('🔧 Opening Nightscout configuration dialog after delay');
+            setIsNightscoutConfigOpen(true);
+          }, 2000);
         }
       }
     } catch (err: any) {
@@ -151,8 +157,11 @@ const EnhancedDashboard: React.FC = () => {
       
       // Check if it's a 400 error (no data/configuration issue)
       if (err.response?.status === 400) {
-        console.log('🔧 Detected 400 error - Opening Nightscout configuration dialog');
-        setIsNightscoutConfigOpen(true);
+        console.log('🔧 Detected 400 error - Scheduling Nightscout configuration dialog (2 second delay)');
+        setTimeout(() => {
+          console.log('🔧 Opening Nightscout configuration dialog after delay');
+          setIsNightscoutConfigOpen(true);
+        }, 2000);
         setError('No Nightscout data available. Please configure your Nightscout settings.');
       } else {
         setError(`Failed to fetch current glucose: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -203,8 +212,11 @@ const EnhancedDashboard: React.FC = () => {
       } else {
         // Check if configuration is needed
         if (response.needsConfiguration) {
-          console.log('🔧 Opening Nightscout configuration dialog due to 400 error in historical data');
-          setIsNightscoutConfigOpen(true);
+          console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error in historical data (2 second delay)');
+          setTimeout(() => {
+            console.log('🔧 Opening Nightscout configuration dialog after delay');
+            setIsNightscoutConfigOpen(true);
+          }, 2000);
           setError(response.error || 'No historical glucose data available');
           return;
         }
@@ -231,10 +243,13 @@ const EnhancedDashboard: React.FC = () => {
           setError(recentResponse.error || 'No historical glucose data available');
           console.warn('⚠️ No historical glucose data available');
           
-          // If recent response also needs configuration, open the dialog
+          // If recent response also needs configuration, schedule the dialog
           if (recentResponse.needsConfiguration) {
-            console.log('🔧 Opening Nightscout configuration dialog due to 400 error in recent data');
-            setIsNightscoutConfigOpen(true);
+            console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error in recent data (2 second delay)');
+            setTimeout(() => {
+              console.log('🔧 Opening Nightscout configuration dialog after delay');
+              setIsNightscoutConfigOpen(true);
+            }, 2000);
           }
         }
       }
@@ -250,8 +265,11 @@ const EnhancedDashboard: React.FC = () => {
       
       // Check if it's a 400 error (no data/configuration issue)
       if (err.response?.status === 400) {
-        console.log('🔧 Detected 400 error in historical data - Opening Nightscout configuration dialog');
-        setIsNightscoutConfigOpen(true);
+        console.log('🔧 Detected 400 error in historical data - Scheduling Nightscout configuration dialog (2 second delay)');
+        setTimeout(() => {
+          console.log('🔧 Opening Nightscout configuration dialog after delay');
+          setIsNightscoutConfigOpen(true);
+        }, 2000);
         setError('No Nightscout data available. Please configure your Nightscout settings.');
       } else {
         setError(`Failed to fetch historical data: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -287,75 +305,223 @@ const EnhancedDashboard: React.FC = () => {
     }
   }, [fetchCurrentGlucose, fetchHistoricalData, currentReading, glucoseHistory.length]);
 
-  // Status change handler
-  const handleStatusChange = useCallback((status: DataStatus) => {
-    setDataStatus(status);
-    if (status.healthy) {
-      setError(null);
-    }
-  }, []);
 
-  // Load data on component mount and when authentication changes
+  // Single initialization effect - loads everything in sequence to avoid duplicate requests
   useEffect(() => {
-    if (isAuthenticated) {
-      // Only fetch data if Nightscout credentials are configured
-      if (nightscoutConfig) {
-        fetchCurrentGlucose();
-        fetchHistoricalData();
-      }
-    }
-  }, [isAuthenticated, nightscoutConfig, fetchCurrentGlucose, fetchHistoricalData]);
+    if (!isAuthenticated || isInitializing) return;
 
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    if (!isAuthenticated || !nightscoutConfig) return;
+    let isMounted = true; // Flag to prevent state updates if component unmounts
+    setIsInitializing(true);
 
-    const interval = setInterval(() => {
-      fetchCurrentGlucose();
-      fetchHistoricalData();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [isAuthenticated, nightscoutConfig, fetchCurrentGlucose, fetchHistoricalData]);
-
-  // Load other data
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const loadData = async () => {
+    const initializeApp = async () => {
       try {
-        // Load COB settings
-        const cobData = await cobSettingsApi.getCOBSettings();
-        setCobSettings(cobData);
-
-        // Load glucose calculations (only if we have current reading)
-        if (currentReading) {
-          const calcData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
-          setGlucoseCalculations(calcData);
-        }
-
-        // Load Nightscout config
+        console.log('🚀 Starting app initialization...');
+        
+        // Step 1: Load Nightscout configuration
+        console.log('🔧 Step 1: Loading Nightscout configuration...');
         const nsConfig = await nightscoutConfigApi.getConfig();
+        
+        if (!isMounted) return; // Component unmounted, stop here
+        
         setNightscoutConfig(nsConfig);
-
-        // Only load notes if Nightscout credentials are configured
+        
         if (nsConfig) {
-          const notesData = await hybridNotesApiService.getNotes();
+          console.log('✅ Step 2: Nightscout configuration found, fetching glucose data...');
+          // Step 2: Load glucose data - call functions directly to avoid dependency loop
+          try {
+            const currentResponse = await nightscoutService.getCurrentGlucose();
+            if (currentResponse.success && currentResponse.data) {
+              const reading = currentResponse.data;
+              const glucoseReading: GlucoseReading = {
+                timestamp: new Date(reading.date),
+                value: convertToMmolL(reading.sgv),
+                trend: reading.trend || 0,
+                trendArrow: convertTrendToArrow(reading.direction),
+                status: calculateGlucoseStatus(reading.sgv),
+                unit: 'mmol/L',
+                originalTimestamp: new Date(reading.date),
+              };
+              
+              if (!isMounted) return;
+              setCurrentReading(glucoseReading);
+              setError(null);
+              console.log(`✅ Current glucose fetched from ${currentResponse.source}: ${glucoseReading.value} ${glucoseReading.unit}`);
+            }
+          } catch (err: any) {
+            console.error('❌ Current glucose fetch failed during init:', err);
+            if (!isMounted) return;
+            if (err.response?.status === 400) {
+              setError('No Nightscout data available. Please configure your Nightscout settings.');
+            } else {
+              setError(`Failed to fetch current glucose: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            }
+          }
+
+          try {
+            const response = await nightscoutService.getGlucoseEntries(288);
+            if (response.success && response.data) {
+              const allGlucoseEntries = response.data.filter((entry: any) => entry.type === 'sgv');
+              const history = allGlucoseEntries.map((entry: any) => ({
+                timestamp: new Date(entry.date),
+                value: convertToMmolL(entry.sgv),
+                trend: entry.trend || 0,
+                trendArrow: convertTrendToArrow(entry.direction),
+                status: calculateGlucoseStatus(entry.sgv),
+                unit: 'mmol/L',
+                originalTimestamp: new Date(entry.date),
+              }));
+              
+              history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
+              
+              if (!isMounted) return;
+              setGlucoseHistory(history);
+              setError(null);
+              console.log(`✅ Historical data fetched from ${response.source}: ${history.length} entries`);
+            }
+          } catch (err: any) {
+            console.error('❌ Historical data fetch failed during init:', err);
+            if (!isMounted) return;
+            setError(`Failed to fetch historical data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          }
+          
+          if (!isMounted) return;
+          
+          console.log('✅ Step 3: Loading additional data...');
+          // Step 3: Load other data in parallel
+          const [cobData, notesData] = await Promise.all([
+            cobSettingsApi.getCOBSettings(),
+            hybridNotesApiService.getNotes()
+          ]);
+          
+          if (!isMounted) return;
+          
+          setCobSettings(cobData);
           setNotes(notesData);
           setNotesBackendStatus('backend');
+          
+          // Load glucose calculations if we have current reading
+          if (currentReading) {
+            try {
+              const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
+              setGlucoseCalculations(calculationsData);
+            } catch (err) {
+              console.error('Failed to fetch glucose calculations:', err);
+            }
+          }
+          
+          console.log('✅ App initialization completed successfully');
         } else {
-          console.log('🔍 Skipping notes load - no Nightscout credentials configured');
+          console.log('⚠️ Step 2: No Nightscout configuration found, scheduling config modal...');
+          // No configuration, show config modal after delay
+          setTimeout(() => {
+            if (isMounted) {
+              console.log('🔧 Opening Nightscout configuration dialog after delay');
+              setIsNightscoutConfigOpen(true);
+            }
+          }, 2000);
+          
+          // Still load COB settings even without Nightscout config
+          if (!isMounted) return;
+          
+          console.log('✅ Step 3: Loading COB settings...');
+          const cobData = await cobSettingsApi.getCOBSettings();
+          
+          if (!isMounted) return;
+          
+          setCobSettings(cobData);
           setNotes([]);
           setNotesBackendStatus('backend');
+          
+          console.log('✅ App initialization completed (no Nightscout config)');
         }
       } catch (error) {
-        console.error('Failed to load additional data:', error);
+        console.error('❌ App initialization failed:', error);
+        if (!isMounted) return;
+        
+        // On error, assume we need configuration
+        setTimeout(() => {
+          if (isMounted) {
+            console.log('🔧 Opening Nightscout configuration dialog after error');
+            setIsNightscoutConfigOpen(true);
+          }
+        }, 2000);
         setNotesBackendStatus('error');
+      } finally {
+        // Always mark initialization as complete
+        if (isMounted) {
+          setIsInitializing(false);
+        }
       }
     };
 
-    loadData();
+    initializeApp();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      setIsInitializing(false);
+    };
   }, [isAuthenticated]);
+
+  // Auto-refresh every 5 minutes (only after initial load)
+  useEffect(() => {
+    if (!isAuthenticated || !nightscoutConfig) return;
+
+    const interval = setInterval(async () => {
+      console.log('🔄 Auto-refreshing glucose data...');
+      try {
+        const currentResponse = await nightscoutService.getCurrentGlucose();
+        if (currentResponse.success && currentResponse.data) {
+          const reading = currentResponse.data;
+          const glucoseReading: GlucoseReading = {
+            timestamp: new Date(reading.date),
+            value: convertToMmolL(reading.sgv),
+            trend: reading.trend || 0,
+            trendArrow: convertTrendToArrow(reading.direction),
+            status: calculateGlucoseStatus(reading.sgv),
+            unit: 'mmol/L',
+            originalTimestamp: new Date(reading.date),
+          };
+          setCurrentReading(glucoseReading);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Auto-refresh current glucose failed:', err);
+      }
+
+      try {
+        const response = await nightscoutService.getGlucoseEntries(288);
+        if (response.success && response.data) {
+          const allGlucoseEntries = response.data.filter((entry: any) => entry.type === 'sgv');
+          const history = allGlucoseEntries.map((entry: any) => ({
+            timestamp: new Date(entry.date),
+            value: convertToMmolL(entry.sgv),
+            trend: entry.trend || 0,
+            trendArrow: convertTrendToArrow(entry.direction),
+            status: calculateGlucoseStatus(entry.sgv),
+            unit: 'mmol/L',
+            originalTimestamp: new Date(entry.date),
+          }));
+          history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
+          setGlucoseHistory(history);
+        }
+      } catch (err) {
+        console.error('Auto-refresh historical data failed:', err);
+      }
+
+      // Refresh glucose calculations if we have current reading
+      if (currentReading) {
+        try {
+          const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
+          setGlucoseCalculations(calculationsData);
+        } catch (err) {
+          console.error('Auto-refresh glucose calculations failed:', err);
+        }
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, nightscoutConfig]);
 
   // Auto-update data status when we have data
   useEffect(() => {
@@ -369,8 +535,37 @@ const EnhancedDashboard: React.FC = () => {
         errorCount: 0,
         fallbackUsed: false
       }));
+      
+      // Data loaded successfully
     }
   }, [currentReading, glucoseHistory.length]);
+
+  // Fetch glucose calculations when current reading changes
+  useEffect(() => {
+    if (currentReading && isAuthenticated) {
+      const fetchCalculations = async () => {
+        try {
+          console.log('🔧 Fetching glucose calculations for current reading:', currentReading.value);
+          const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
+          setGlucoseCalculations(calculationsData);
+          console.log('✅ Glucose calculations updated:', calculationsData);
+        } catch (err) {
+          console.error('❌ Failed to fetch glucose calculations:', err);
+        }
+      };
+
+      fetchCalculations();
+    }
+  }, [currentReading, isAuthenticated]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (configTimeoutId) {
+        clearTimeout(configTimeoutId);
+      }
+    };
+  }, [configTimeoutId]);
 
   // Show fallback UI if no data is available
   console.log('🔧 EnhancedDashboard: Checking data status:', {
@@ -408,35 +603,48 @@ const EnhancedDashboard: React.FC = () => {
     );
   }
 
+  // Show loading indicator during initialization
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Initializing application...</p>
+          <p className="text-sm text-gray-500 mt-2">Loading configuration and data</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <NightscoutErrorBoundary>
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-6">
+        <div className="max-w-7xl mx-auto py-2 sm:px-6 lg:px-8">
+          {/* Compact Header */}
+          <div className="mb-4">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Glucose Monitor</h1>
-                <p className="text-sm text-gray-600">
+                <h1 className="text-xl font-bold text-gray-900">Glucose Monitor</h1>
+                <p className="text-xs text-gray-600">
                   Welcome back, {user?.username} • {new Date().toLocaleTimeString()}
                 </p>
               </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setIsNightscoutConfigOpen(true)}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="text-xs text-gray-500 hover:text-gray-700"
                 >
-                  Nightscout Config
+                  Config
                 </button>
                 <button
                   onClick={() => setIsVersionInfoOpen(true)}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="text-xs text-gray-500 hover:text-gray-700"
                 >
-                  Version Info
+                  Version
                 </button>
                 <button
                   onClick={logout}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="text-xs text-gray-500 hover:text-gray-700"
                 >
                   Logout
                 </button>
@@ -444,14 +652,63 @@ const EnhancedDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Data Status */}
-          <div className="mb-6">
-            <NightscoutDataStatus
-              service={nightscoutService}
-              onStatusChange={handleStatusChange}
-              hasCredentials={!!nightscoutConfig}
-            />
+          {/* Compact Metrics Bar */}
+          <div className="mb-4">
+            <div className="bg-white rounded-lg shadow-sm p-3">
+              <div className="grid grid-cols-4 gap-4">
+                {/* Current Glucose */}
+                <div className="text-center">
+                  <div className="text-xs text-blue-600 mb-1">Current Glucose</div>
+                  <div className="font-bold text-lg text-blue-800">
+                    {currentReading ? `${currentReading.value} ${currentReading.unit}` : '--'}
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    {currentReading ? currentReading.trendArrow : ''}
+                  </div>
+                </div>
+
+                {/* Active Carbs (COB) */}
+                <div className="text-center">
+                  <div className="text-xs text-orange-600 mb-1">Active Carbs</div>
+                  <div className="font-bold text-lg text-orange-800">
+                    {(() => {
+                      const cobValue = glucoseCalculations?.activeCarbsOnBoard;
+                      return cobValue !== undefined && cobValue !== null ? 
+                        `${cobValue.toFixed(1)}g` : 
+                        '--';
+                    })()}
+                  </div>
+                </div>
+
+                {/* Active Insulin */}
+                <div className="text-center">
+                  <div className="text-xs text-purple-600 mb-1">Active Insulin</div>
+                  <div className="font-bold text-lg text-purple-800">
+                    {(() => {
+                      const insulinValue = glucoseCalculations?.activeInsulinOnBoard;
+                      return insulinValue !== undefined && insulinValue !== null ? 
+                        `${insulinValue.toFixed(2)}u` : 
+                        '--';
+                    })()}
+                  </div>
+                </div>
+
+                {/* 2h Prediction */}
+                <div className="text-center">
+                  <div className="text-xs text-indigo-600 mb-1">2h Prediction</div>
+                  <div className="font-bold text-lg text-indigo-800">
+                    {(() => {
+                      const predictionValue = glucoseCalculations?.twoHourPrediction;
+                      return predictionValue !== undefined && predictionValue !== null ? 
+                        `${predictionValue.toFixed(1)} ${currentReading?.unit || 'mmol/L'}` : 
+                        '--';
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
 
           {/* Error Display */}
           {error && (
@@ -481,10 +738,10 @@ const EnhancedDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Chart */}
-            <div className="lg:col-span-2">
+          {/* Main Content - Compact Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-200px)]">
+            {/* Chart - Takes most of the space */}
+            <div className="lg:col-span-3">
               <CombinedGlucoseChart
                 glucoseData={glucoseHistory}
                 iobData={[]}
@@ -493,48 +750,93 @@ const EnhancedDashboard: React.FC = () => {
               />
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Current Reading */}
-              {currentReading && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Current Reading</h3>
-                  <div className="text-center">
-                    <div className={`text-4xl font-bold ${
-                      currentReading.status === 'low' ? 'text-red-600' :
-                      currentReading.status === 'high' ? 'text-yellow-600' :
-                      currentReading.status === 'critical' ? 'text-red-800' :
-                      'text-green-600'
-                    }`}>
-                      {currentReading.value} {currentReading.unit}
-                    </div>
-                    <div className="text-2xl mt-2">{currentReading.trendArrow}</div>
-                    <div className="text-sm text-gray-500 mt-2">
-                      {currentReading.timestamp.toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-                <div className="space-y-3">
+            {/* Compact Sidebar */}
+            <div className="space-y-3">
+              {/* Recent Notes - Compact */}
+              <div className="bg-white rounded-lg shadow p-4 h-[calc(100vh-240px)] overflow-y-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-900">Recent Notes</h3>
                   <button
                     onClick={() => setIsNoteModalOpen(true)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    📝 Add Note
+                    + Add
                   </button>
+                </div>
+                
+                {notes.length === 0 ? (
+                  <div className="text-center py-4">
+                    <div className="text-gray-400 text-xl mb-2">🍽️</div>
+                    <p className="text-xs text-gray-500">No notes yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {notes.slice(0, 8).map((note) => (
+                      <div
+                        key={note.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+                        onClick={() => setEditingNote(note)}
+                      >
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-xs text-gray-900 truncate">{note.meal}</div>
+                            <div className="text-xs text-gray-500">
+                              {note.timestamp.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1 ml-2">
+                          {note.carbs > 0 && (
+                            <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-[10px]">
+                              {note.carbs}g
+                            </span>
+                          )}
+                          {note.insulin > 0 && (
+                            <span className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-[10px]">
+                              {note.insulin}u
+                            </span>
+                          )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await hybridNotesApiService.deleteNote(note.id);
+                                const updatedNotes = await hybridNotesApiService.getNotes();
+                                setNotes(updatedNotes);
+                              } catch (error) {
+                                console.error('Failed to delete note:', error);
+                              }
+                            }}
+                            className="text-gray-400 hover:text-red-500 text-xs"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Compact Quick Actions */}
+              <div className="bg-white rounded-lg shadow p-3">
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Actions</h3>
+                <div className="space-y-1">
                   <button
                     onClick={() => setIsCOBSettingsOpen(true)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                    className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
                   >
                     ⚙️ COB Settings
                   </button>
                   <button
                     onClick={() => setIsNightscoutConfigOpen(true)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+                    className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
                   >
                     🔗 Nightscout Config
                   </button>
@@ -546,13 +848,21 @@ const EnhancedDashboard: React.FC = () => {
           {/* Modals */}
           <NoteInputModal
             isOpen={isNoteModalOpen}
-            onClose={() => setIsNoteModalOpen(false)}
+            onClose={() => {
+              setIsNoteModalOpen(false);
+              setEditingNote(null);
+            }}
             onSave={async (note) => {
               try {
-                await hybridNotesApiService.addNote(note);
+                if (editingNote) {
+                  await hybridNotesApiService.updateNote(editingNote.id, note);
+                } else {
+                  await hybridNotesApiService.addNote(note);
+                }
                 const updatedNotes = await hybridNotesApiService.getNotes();
                 setNotes(updatedNotes);
                 setIsNoteModalOpen(false);
+                setEditingNote(null);
               } catch (error) {
                 console.error('Failed to save note:', error);
               }
