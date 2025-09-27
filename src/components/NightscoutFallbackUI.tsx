@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import NightscoutConfigModal from './NightscoutConfigModal';
+// Removed NightscoutConfigModal import - using global configuration now
 import { useAuth } from '../contexts/AuthContext';
 
 interface NightscoutFallbackUIProps {
@@ -115,25 +115,7 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
         </div>
       </div>
 
-      <NightscoutConfigModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-        onLogout={logout}
-        onSave={async (config) => {
-          try {
-            console.log('🔧 NightscoutFallbackUI: Saving configuration:', config);
-            // Import the API service dynamically to avoid circular dependencies
-            const { nightscoutConfigApi } = await import('../services/nightscoutConfigApi');
-            await nightscoutConfigApi.saveConfig(config);
-            console.log('🔧 NightscoutFallbackUI: Configuration saved successfully');
-            setShowConfigModal(false);
-            onRetry();
-          } catch (error) {
-            console.error('🔧 NightscoutFallbackUI: Failed to save configuration:', error);
-            throw error; // Re-throw to let the modal handle the error
-          }
-        }}
-      />
+      {/* NightscoutConfigModal removed - using global configuration now */}
     </div>
   );
 };

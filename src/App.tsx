@@ -1,27 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import JwtLoginForm from './components/JwtLoginForm';
+import LibreLinkUpTest from './components/LibreLinkUpTest';
 import { versionService } from './services/versionService';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'libre-test'>('dashboard');
   
-  // Version compatibility check only when authenticated and Nightscout credentials are configured
+  // Version compatibility check when authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
     
     const checkVersions = async () => {
       try {
-        // Check if Nightscout credentials are configured before running version checks
-        const { nightscoutConfigApi } = await import('./services/nightscoutConfigApi');
-        const config = await nightscoutConfigApi.getConfig();
-        
-        if (!config) {
-          console.log('🔍 Skipping version checks - no Nightscout credentials configured');
-          return;
-        }
-        
         await versionService.logVersionInfo();
         const validation = await versionService.validateCompatibility();
         
@@ -62,7 +55,45 @@ const AppContent: React.FC = () => {
 
   return (
     <>
-      {isAuthenticated ? <EnhancedDashboard /> : <JwtLoginForm />}
+      {isAuthenticated ? (
+        <>
+          {currentView === 'dashboard' ? (
+            <EnhancedDashboard />
+          ) : (
+            <div className="min-h-screen bg-gray-50">
+              <div className="bg-white shadow-sm border-b">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex justify-between items-center py-4">
+                    <h1 className="text-xl font-semibold text-gray-900">LibreLinkUp Integration Test</h1>
+                    <button
+                      onClick={() => setCurrentView('dashboard')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Back to Dashboard
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <LibreLinkUpTest />
+            </div>
+          )}
+          
+          {/* Navigation for LibreLinkUp test */}
+          {currentView === 'dashboard' && (
+            <div className="fixed bottom-4 right-4">
+              <button
+                onClick={() => setCurrentView('libre-test')}
+                className="px-4 py-2 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-colors"
+                title="Test LibreLinkUp Integration"
+              >
+                🩸 Test Libre
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <JwtLoginForm />
+      )}
     </>
   );
 };

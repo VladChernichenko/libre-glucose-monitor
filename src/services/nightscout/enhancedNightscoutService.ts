@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { NightscoutEntry, NightscoutDeviceStatus } from './types';
 import { authService } from '../authService';
+import { getClientTimeInfo } from '../../utils/timezone';
+import { libreApiService } from '../libreApi';
+import { dataSourceConfigApi } from '../dataSourceConfigApi';
 
 export interface NightscoutServiceResponse<T> {
   data: T | null;
@@ -44,12 +47,18 @@ export class EnhancedNightscoutService {
       },
     });
 
-    // Add request interceptor for authentication
+    // Add request interceptor for authentication and timezone
     this.api.interceptors.request.use((config) => {
       const token = authService.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Add timezone information to all requests
+      const timeInfo = getClientTimeInfo();
+      config.headers['X-Timezone-Offset'] = timeInfo.timezoneOffset.toString();
+      config.headers['X-Timezone'] = timeInfo.timezone;
+      
       return config;
     });
 
@@ -133,7 +142,26 @@ export class EnhancedNightscoutService {
       }
     }
 
-    // Strategy 4: Demo data fallback
+    // Strategy 4: LibreLinkUp fallback
+    if (this.config.enableFallbacks) {
+      try {
+        console.log('🩸 Trying LibreLinkUp as fallback...');
+        const libreData = await this.getLibreLinkUpData(count);
+        if (libreData && libreData.length > 0) {
+          console.log(`✅ Successfully fetched ${libreData.length} entries from LibreLinkUp`);
+          return {
+            data: libreData,
+            success: true,
+            fallbackUsed: true,
+            source: 'stored'
+          };
+        }
+      } catch (error) {
+        console.warn('⚠️ LibreLinkUp fallback failed, trying demo data...', error);
+      }
+    }
+
+    // Strategy 5: Demo data fallback
     if (this.config.enableDemoData) {
       console.log('📊 Using demo data as final fallback');
       const demoData = this.generateDemoGlucoseData(count);
@@ -198,6 +226,23 @@ export class EnhancedNightscoutService {
           fallbackUsed: true,
           source: entriesResponse.source
         };
+      }
+
+      // LibreLinkUp fallback for current glucose
+      try {
+        console.log('🩸 Trying LibreLinkUp for current glucose...');
+        const libreCurrent = await this.getLibreLinkUpCurrentGlucose();
+        if (libreCurrent) {
+          console.log('✅ Successfully fetched current glucose from LibreLinkUp');
+          return {
+            data: libreCurrent,
+            success: true,
+            fallbackUsed: true,
+            source: 'stored'
+          };
+        }
+      } catch (error) {
+        console.warn('⚠️ LibreLinkUp current glucose fallback failed:', error);
       }
     }
 
@@ -405,6 +450,8 @@ export class EnhancedNightscoutService {
   private generateDemoGlucoseData(count: number): NightscoutEntry[] {
     const now = new Date();
     const data: NightscoutEntry[] = [];
+    const timeInfo = getClientTimeInfo();
+    const utcOffset = -timeInfo.timezoneOffset; // Convert from JavaScript offset to standard offset
 
     for (let i = 0; i < count; i++) {
       const timestamp = new Date(now.getTime() - (count - i) * 5 * 60 * 1000); // 5 minutes apart
@@ -419,12 +466,106 @@ export class EnhancedNightscoutService {
         direction: ['DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown'][Math.floor(Math.random() * 7)],
         device: 'Demo Device',
         type: 'sgv',
-        utcOffset: 0,
+        utcOffset: utcOffset, // Use actual user timezone offset
         sysTime: timestamp.toISOString()
       });
     }
 
     return data;
+  }
+
+  /**
+   * Get LibreLinkUp data as fallback
+   */
+  private async getLibreLinkUpData(count: number): Promise<NightscoutEntry[]> {
+    try {
+      // Check if LibreLinkUp is configured
+      const isLibreConfigured = await dataSourceConfigApi.isDataSourceConfigured('libre');
+      if (!isLibreConfigured) {
+        throw new Error('LibreLinkUp not configured');
+      }
+
+      // Authenticate with LibreLinkUp using stored credentials
+      if (!libreApiService.isAuthenticated()) {
+        await libreApiService.authenticate();
+      }
+
+      // Get connections
+      const connections = await libreApiService.getConnections();
+      if (!connections || connections.length === 0) {
+        throw new Error('No LibreLinkUp connections available');
+      }
+
+      // Get glucose data from first connection
+      const patientId = connections[0].patientId;
+      const graphData = await libreApiService.getGlucoseData(patientId, 1);
+      
+      // Convert to NightscoutEntry format
+      const entries: NightscoutEntry[] = graphData.data.slice(0, count).map((point: any) => ({
+        _id: `libre_${point.timestamp}`,
+        sgv: Math.round(point.value), // Convert back to mg/dL
+        date: new Date(point.timestamp).getTime(),
+        dateString: new Date(point.timestamp).toISOString(),
+        trend: point.trend,
+        direction: point.trendArrow,
+        device: 'LibreLinkUp',
+        type: 'sgv',
+        utcOffset: 0, // Will be set by frontend timezone logic
+        sysTime: new Date(point.timestamp).toISOString()
+      }));
+
+      return entries;
+    } catch (error) {
+      console.error('LibreLinkUp data fetch failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get LibreLinkUp current glucose as fallback
+   */
+  private async getLibreLinkUpCurrentGlucose(): Promise<NightscoutEntry | null> {
+    try {
+      // Check if LibreLinkUp is configured
+      const isLibreConfigured = await dataSourceConfigApi.isDataSourceConfigured('libre');
+      if (!isLibreConfigured) {
+        throw new Error('LibreLinkUp not configured');
+      }
+
+      // Authenticate with LibreLinkUp using stored credentials
+      if (!libreApiService.isAuthenticated()) {
+        await libreApiService.authenticate();
+      }
+
+      // Get connections
+      const connections = await libreApiService.getConnections();
+      if (!connections || connections.length === 0) {
+        throw new Error('No LibreLinkUp connections available');
+      }
+
+      // Get current glucose from first connection
+      const patientId = connections[0].patientId;
+      const currentReading = await libreApiService.getRealTimeData(patientId);
+      
+      // Convert to NightscoutEntry format
+      const entry: NightscoutEntry = {
+        _id: `libre_current_${currentReading.timestamp.getTime()}`,
+        sgv: Math.round(currentReading.value * 18), // Convert mmol/L to mg/dL
+        date: currentReading.timestamp.getTime(),
+        dateString: currentReading.timestamp.toISOString(),
+        trend: currentReading.trend,
+        direction: currentReading.trendArrow,
+        device: 'LibreLinkUp',
+        type: 'sgv',
+        utcOffset: 0, // Will be set by frontend timezone logic
+        sysTime: currentReading.timestamp.toISOString()
+      };
+
+      return entry;
+    } catch (error) {
+      console.error('LibreLinkUp current glucose fetch failed:', error);
+      throw error;
+    }
   }
 }
 

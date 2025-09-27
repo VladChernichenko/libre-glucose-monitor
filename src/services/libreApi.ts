@@ -1,59 +1,85 @@
 import axios, { AxiosInstance } from 'axios';
-import { 
-  LibreAuthResponse, 
-  LibrePatient, 
-  LibreGraphData, 
+import {
+  LibreAuthResponse,
+  LibrePatient,
+  LibreGraphData,
   LibreConnection,
-  GlucoseReading 
+  GlucoseReading
 } from '../types/libre';
+import { dataSourceConfigApi } from './dataSourceConfigApi';
+import { authService } from './authService';
 
 class LibreApiService {
   private api: AxiosInstance;
-  private baseUrl: string;
+  private backendUrl: string;
   private token: string | null = null;
 
   constructor() {
-    this.baseUrl = process.env.REACT_APP_LIBRE_API_URL || 'https://api.libreview.com';
+    // Use backend URL instead of direct LibreLinkUp API
+    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
     this.api = axios.create({
-      baseURL: this.baseUrl,
+      baseURL: this.backendUrl,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
     });
 
+    // Add request interceptor for authentication
+    this.api.interceptors.request.use((config) => {
+      const token = authService.getAccessToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
+
     // Load token from localStorage
     this.token = localStorage.getItem('libre_token');
-    if (this.token) {
-      this.setAuthToken(this.token);
-    }
   }
 
-  private setAuthToken(token: string) {
-    this.token = token;
-    this.api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('libre_token', token);
-  }
 
-  async authenticate(email: string, password: string): Promise<LibreAuthResponse> {
+  async authenticate(email?: string, password?: string): Promise<LibreAuthResponse> {
     try {
-      const response = await this.api.post('/auth/login', {
-        email,
-        password,
+      // If credentials not provided, try to get them from configuration
+      let authEmail = email;
+      let authPassword = password;
+
+      if (!authEmail || !authPassword) {
+        const credentials = dataSourceConfigApi.getLibreCredentials();
+        if (!credentials) {
+          throw new Error('LibreLinkUp credentials not found. Please configure LibreLinkUp in settings.');
+        }
+        authEmail = credentials.email;
+        authPassword = credentials.password;
+      }
+
+      // Call backend proxy instead of direct LibreLinkUp API
+      const response = await this.api.post('/api/libre/auth/login', {
+        email: authEmail,
+        password: authPassword,
       });
-      
+
       const authData = response.data;
-      this.setAuthToken(authData.token);
-      return authData;
+      if (authData.token) {
+        this.token = authData.token;
+        localStorage.setItem('libre_token', authData.token);
+        return {
+          token: authData.token,
+          expires: authData.expires || Date.now() + (24 * 60 * 60 * 1000) // Default 24 hours
+        };
+      } else {
+        throw new Error('No authentication token received');
+      }
     } catch (error) {
-      console.error('Authentication failed:', error);
-      throw new Error('Authentication failed. Please check your credentials.');
+      console.error('LibreLinkUp authentication failed:', error);
+      throw new Error('LibreLinkUp authentication failed. Please check your credentials.');
     }
   }
 
   async getPatientInfo(): Promise<LibrePatient> {
     try {
-      const response = await this.api.get('/user/profile');
+      const response = await this.api.get('/api/libre/profile');
       return response.data;
     } catch (error) {
       console.error('Failed to fetch patient info:', error);
@@ -63,63 +89,68 @@ class LibreApiService {
 
   async getConnections(): Promise<LibreConnection[]> {
     try {
-      const response = await this.api.get('/connections');
+      const response = await this.api.get('/api/libre/connections');
+      // Backend already returns properly formatted connections
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch connections:', error);
-      throw new Error('Failed to fetch connections.');
+      console.error('Failed to fetch LibreLinkUp connections:', error);
+      throw new Error('Failed to fetch LibreLinkUp connections.');
     }
   }
 
   async getGlucoseData(patientId: string, days: number = 1): Promise<LibreGraphData> {
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
-      const response = await this.api.get(`/patients/${patientId}/glucose`, {
-        params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
+      // Call backend proxy
+      const response = await this.api.get(`/api/libre/connections/${patientId}/graph`, {
+        params: { days }
       });
-      
-      return response.data;
+
+      // Backend already returns properly formatted data
+      const graphData = response.data;
+      const transformedData = graphData.data?.map((point: any) => ({
+        timestamp: point.timestamp,
+        value: point.value * 18, // Convert mmol/L back to mg/dL for compatibility
+        trend: point.trend || 0,
+        trendArrow: point.trendArrow,
+        isHigh: point.value > 10.0, // mmol/L
+        isLow: point.value < 3.9,
+        isInRange: point.value >= 3.9 && point.value <= 10.0,
+      })) || [];
+
+      return {
+        patientId,
+        data: transformedData,
+        startDate: graphData.startDate,
+        endDate: graphData.endDate,
+        unit: 'mmol/L'
+      };
     } catch (error) {
-      console.error('Failed to fetch glucose data:', error);
-      throw new Error('Failed to fetch glucose data.');
+      console.error('Failed to fetch LibreLinkUp glucose data:', error);
+      throw new Error('Failed to fetch LibreLinkUp glucose data.');
     }
   }
 
   async getRealTimeData(patientId: string): Promise<GlucoseReading> {
     try {
-      const response = await this.api.get(`/patients/${patientId}/glucose/current`);
-      const data = response.data;
-      
-      // Convert to mmol/L if needed
-      const value = data.unit === 'mg/dL' ? data.value / 18 : data.value;
-      
+      // Call backend proxy for current glucose
+      const response = await this.api.get(`/api/libre/connections/${patientId}/current`);
+      const currentReading = response.data;
+
       return {
-        timestamp: new Date(data.timestamp),
-        value,
-        trend: data.trend,
-        trendArrow: data.trendArrow,
-        status: this.getGlucoseStatus(value),
-        unit: 'mmol/L',
+        timestamp: new Date(currentReading.timestamp),
+        value: currentReading.value,
+        trend: currentReading.trend || 0,
+        trendArrow: currentReading.trendArrow,
+        status: currentReading.status,
+        unit: currentReading.unit,
+        originalTimestamp: new Date(currentReading.originalTimestamp)
       };
     } catch (error) {
-      console.error('Failed to fetch real-time data:', error);
-      throw new Error('Failed to fetch real-time glucose data.');
+      console.error('Failed to fetch LibreLinkUp real-time data:', error);
+      throw new Error('Failed to fetch LibreLinkUp real-time glucose data.');
     }
   }
 
-  private getGlucoseStatus(value: number): 'low' | 'normal' | 'high' | 'critical' {
-    // value is now in mmol/L
-    if (value < 3.9) return 'low';      // < 70 mg/dL
-    if (value < 10.0) return 'normal';  // 70-180 mg/dL
-    if (value < 13.9) return 'high';    // 180-250 mg/dL
-    return 'critical';                   // > 250 mg/dL
-  }
 
   isAuthenticated(): boolean {
     return !!this.token;

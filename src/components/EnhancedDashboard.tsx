@@ -5,9 +5,10 @@ import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
 import VersionInfo from './VersionInfo';
-import NightscoutConfigModal from './NightscoutConfigModal';
+// Removed NightscoutConfigModal import - using global configuration now
 import NightscoutErrorBoundary from './NightscoutErrorBoundary';
 import NightscoutFallbackUI from './NightscoutFallbackUI';
+import DataSourceConfigModal from './DataSourceConfigModal';
 import { EnhancedNightscoutService, NightscoutServiceResponse } from '../services/nightscout/enhancedNightscoutService';
 
 import { GlucoseReading } from '../types/libre';
@@ -15,7 +16,8 @@ import { GlucoseNote } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services/glucoseCalculationsApi';
-import { nightscoutConfigApi, NightscoutConfig } from '../services/nightscoutConfigApi';
+// Removed nightscoutConfigApi import - using global configuration now
+import { dataSourceConfigApi } from '../services/dataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
 import { logTimezoneInfo, getTimezoneDisplayName, getCurrentLocalTime } from '../utils/timezone';
 
@@ -66,11 +68,12 @@ const EnhancedDashboard: React.FC = () => {
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
   const [isNightscoutConfigOpen, setIsNightscoutConfigOpen] = useState(false);
+  const [isDataSourceConfigOpen, setIsDataSourceConfigOpen] = useState(false);
   const [configTimeoutId, setConfigTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
-  const [nightscoutConfig, setNightscoutConfig] = useState<NightscoutConfig | null>(null);
+  // Removed nightscoutConfig state - using global configuration now
 
   // Removed helper functions to prevent dependency loops
 
@@ -109,10 +112,7 @@ const EnhancedDashboard: React.FC = () => {
       return;
     }
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping current glucose fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
 
     try {
       console.log('🔗 Fetching current glucose with enhanced error handling...');
@@ -167,7 +167,7 @@ const EnhancedDashboard: React.FC = () => {
         setError(`Failed to fetch current glucose: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
-  }, [isAuthenticated, nightscoutService, calculateGlucoseStatus, nightscoutConfig]);
+  }, [isAuthenticated, nightscoutService, calculateGlucoseStatus]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -175,10 +175,7 @@ const EnhancedDashboard: React.FC = () => {
       return;
     }
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping historical data fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
 
     try {
       console.log('🔗 Fetching historical glucose data with enhanced error handling...');
@@ -275,7 +272,7 @@ const EnhancedDashboard: React.FC = () => {
         setError(`Failed to fetch historical data: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
-  }, [isAuthenticated, nightscoutService, calculateGlucoseStatus, nightscoutConfig]);
+  }, [isAuthenticated, nightscoutService, calculateGlucoseStatus]);
 
   // Retry mechanism
   const handleRetry = useCallback(async () => {
@@ -317,16 +314,14 @@ const EnhancedDashboard: React.FC = () => {
       try {
         console.log('🚀 Starting app initialization...');
         
-        // Step 1: Load Nightscout configuration
-        console.log('🔧 Step 1: Loading Nightscout configuration...');
-        const nsConfig = await nightscoutConfigApi.getConfig();
+        // Step 1: Skip Nightscout configuration loading - using global configuration now
+        console.log('🔧 Step 1: Using global Nightscout configuration...');
         
         if (!isMounted) return; // Component unmounted, stop here
         
-        setNightscoutConfig(nsConfig);
+        // Removed setNightscoutConfig - using global configuration now
         
-        if (nsConfig) {
-          console.log('✅ Step 2: Nightscout configuration found, fetching glucose data...');
+        console.log('✅ Step 2: Using global configuration, fetching glucose data...');
           // Step 2: Load glucose data - call functions directly to avoid dependency loop
           try {
             const currentResponse = await nightscoutService.getCurrentGlucose();
@@ -358,7 +353,7 @@ const EnhancedDashboard: React.FC = () => {
           }
 
           try {
-            const response = await nightscoutService.getGlucoseEntries(288);
+            const response = await nightscoutService.getGlucoseEntries(100);
             if (response.success && response.data) {
               const allGlucoseEntries = response.data.filter((entry: any) => entry.type === 'sgv');
               const history = allGlucoseEntries.map((entry: any) => ({
@@ -410,30 +405,6 @@ const EnhancedDashboard: React.FC = () => {
           }
           
           console.log('✅ App initialization completed successfully');
-        } else {
-          console.log('⚠️ Step 2: No Nightscout configuration found, scheduling config modal...');
-          // No configuration, show config modal after delay
-          setTimeout(() => {
-            if (isMounted) {
-              console.log('🔧 Opening Nightscout configuration dialog after delay');
-              setIsNightscoutConfigOpen(true);
-            }
-          }, 2000);
-          
-          // Still load COB settings even without Nightscout config
-          if (!isMounted) return;
-          
-          console.log('✅ Step 3: Loading COB settings...');
-          const cobData = await cobSettingsApi.getCOBSettings();
-          
-          if (!isMounted) return;
-          
-          setCobSettings(cobData);
-          setNotes([]);
-          setNotesBackendStatus('backend');
-          
-          console.log('✅ App initialization completed (no Nightscout config)');
-        }
       } catch (error) {
         console.error('❌ App initialization failed:', error);
         if (!isMounted) return;
@@ -465,7 +436,7 @@ const EnhancedDashboard: React.FC = () => {
 
   // Auto-refresh every 5 minutes (only after initial load)
   useEffect(() => {
-    if (!isAuthenticated || !nightscoutConfig) return;
+    if (!isAuthenticated) return;
 
     const interval = setInterval(async () => {
       console.log('🔄 Auto-refreshing glucose data...');
@@ -490,7 +461,7 @@ const EnhancedDashboard: React.FC = () => {
       }
 
       try {
-        const response = await nightscoutService.getGlucoseEntries(288);
+        const response = await nightscoutService.getGlucoseEntries(100);
         if (response.success && response.data) {
           const allGlucoseEntries = response.data.filter((entry: any) => entry.type === 'sgv');
           const history = allGlucoseEntries.map((entry: any) => ({
@@ -521,7 +492,7 @@ const EnhancedDashboard: React.FC = () => {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, nightscoutConfig]);
+  }, [isAuthenticated]);
 
   // Auto-update data status when we have data
   useEffect(() => {
@@ -573,7 +544,7 @@ const EnhancedDashboard: React.FC = () => {
     isRetrying: isRetrying,
     currentReading: !!currentReading,
     glucoseHistoryLength: glucoseHistory.length,
-    nightscoutConfig: !!nightscoutConfig
+    // Removed nightscoutConfig from debug info
   });
   
   // Check if we have data or if we're retrying
@@ -631,10 +602,10 @@ const EnhancedDashboard: React.FC = () => {
               </div>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setIsNightscoutConfigOpen(true)}
+                  onClick={() => setIsDataSourceConfigOpen(true)}
                   className="text-xs text-gray-500 hover:text-gray-700"
                 >
-                  Config
+                  Data Source
                 </button>
                 <button
                   onClick={() => setIsVersionInfoOpen(true)}
@@ -904,46 +875,45 @@ const EnhancedDashboard: React.FC = () => {
             onClose={() => setIsVersionInfoOpen(false)}
           />
 
-          <NightscoutConfigModal
-            isOpen={isNightscoutConfigOpen}
-            onClose={() => setIsNightscoutConfigOpen(false)}
-            onLogout={logout}
+          <DataSourceConfigModal
+            isOpen={isDataSourceConfigOpen}
+            onClose={() => setIsDataSourceConfigOpen(false)}
             onSave={async (config) => {
               try {
-                console.log('🔧 EnhancedDashboard: onSave called with config:', config);
-                console.log('🔧 EnhancedDashboard: Calling nightscoutConfigApi.saveConfig...');
-                const result = await nightscoutConfigApi.saveConfig(config);
-                console.log('🔧 EnhancedDashboard: Save result:', result);
-                setNightscoutConfig(config);
-                console.log('🔧 EnhancedDashboard: Closing modal...');
-                setIsNightscoutConfigOpen(false);
+                console.log('💾 Saving data source configuration...', config);
                 
-                // Immediately update data status since we now have credentials
+                if (config.dataSource === 'nightscout' && config.nightscout) {
+                  // Note: Nightscout configuration is now handled globally via environment variables
+                  console.log('Nightscout configuration should be set via environment variables');
+                } else if (config.dataSource === 'libre' && config.libre) {
+                  dataSourceConfigApi.saveLibreConfig(config.libre);
+                }
+                
+                // Immediately update data status to healthy
                 setDataStatus(prev => ({
                   ...prev,
                   healthy: true,
-                  source: 'nightscout',
+                  source: config.dataSource === 'libre' ? 'stored' : 'nightscout',
                   lastUpdate: new Date(),
-                  errorCount: 0,
-                  fallbackUsed: false
+                  errorCount: 0
                 }));
-                console.log('🔧 EnhancedDashboard: Data status updated to healthy after config save');
                 
-                console.log('🔧 EnhancedDashboard: Calling handleRetry...');
-                // Retry data fetch after config update
-                handleRetry();
-                console.log('🔧 EnhancedDashboard: onSave completed successfully');
+                console.log('✅ Data source configuration saved successfully');
+                setIsDataSourceConfigOpen(false);
+                
+                // Refresh data after successful configuration
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
               } catch (error) {
-                console.error('🔧 EnhancedDashboard: Failed to save Nightscout config:', error);
-                console.error('🔧 EnhancedDashboard: Error details:', {
-                  message: error instanceof Error ? error.message : 'Unknown error',
-                  stack: error instanceof Error ? error.stack : undefined
-                });
-                throw error; // Re-throw to let the modal handle the error
+                console.error('❌ Failed to save data source configuration:', error);
+                throw error; // Re-throw to show error in modal
               }
             }}
-            existingConfig={nightscoutConfig}
+            logout={logout}
           />
+
+          {/* NightscoutConfigModal removed - using global configuration now */}
         </div>
       </div>
     </NightscoutErrorBoundary>

@@ -5,7 +5,7 @@ import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
 import VersionInfo from './VersionInfo';
-import NightscoutConfigModal from './NightscoutConfigModal';
+// Removed NightscoutConfigModal import - using global configuration now
 import { generateDemoGlucoseData } from '../services/demoData';
 import { NightscoutProxyService } from '../services/nightscout/nightscoutProxyService';
 
@@ -18,7 +18,7 @@ import { hybridNotesApiService } from '../services/hybridNotesApi';
 // import { glucosePredictionService } from '../services/glucosePrediction';
 import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services/glucoseCalculationsApi';
-import { nightscoutConfigApi, NightscoutConfig } from '../services/nightscoutConfigApi';
+// Removed nightscoutConfigApi import - using global configuration now
 import { getEnvironmentConfig } from '../config/environments';
 import { logTimezoneInfo, getTimezoneDisplayName, getCurrentLocalTime } from '../utils/timezone';
 
@@ -48,7 +48,7 @@ const Dashboard: React.FC = () => {
   const [isNightscoutConfigOpen, setIsNightscoutConfigOpen] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
-  const [nightscoutConfig, setNightscoutConfig] = useState<NightscoutConfig | null>(null);
+  // Removed nightscoutConfig state - using global configuration now
 
   // Backend predictions only - no local IOB calculation needed
   // const [iobData, setIobData] = useState<IOBProjection[]>([]);
@@ -183,10 +183,7 @@ const Dashboard: React.FC = () => {
     
     if (!selectedConnection) return;
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping glucose fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     setError(null);
     
@@ -223,7 +220,7 @@ const Dashboard: React.FC = () => {
         setCurrentReading(demoData[demoData.length - 1]);
       }
     }
-  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated, nightscoutConfig]);
+  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -233,10 +230,7 @@ const Dashboard: React.FC = () => {
     
     if (!selectedConnection) return;
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping historical data fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     try {
       console.log('🔗 Fetching historical glucose data via backend proxy...');
@@ -315,7 +309,7 @@ const Dashboard: React.FC = () => {
         setGlucoseHistory([]);
       }
     }
-  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated, nightscoutConfig]);
+  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated]);
 
 
   // Initial data fetch
@@ -392,12 +386,7 @@ const Dashboard: React.FC = () => {
       return;
     }
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping notes load - no Nightscout credentials configured');
-      setNotes([]);
-      setNotesBackendStatus('backend');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     try {
       // Check if backend is available
@@ -413,7 +402,7 @@ const Dashboard: React.FC = () => {
       setError('Failed to load notes. Please check your connection and try again.');
       setNotes([]);
     }
-  }, [isAuthenticated, nightscoutConfig]);
+  }, [isAuthenticated]);
 
   // COB calculations now handled entirely by backend via fetchGlucoseCalculations
 
@@ -505,30 +494,14 @@ const Dashboard: React.FC = () => {
     setIsNightscoutConfigOpen(false);
   };
 
-  const handleNightscoutConfigSave = async (config: NightscoutConfig): Promise<void> => {
-    console.log('🔧 Dashboard: handleNightscoutConfigSave called with config:', config);
-    try {
-      console.log('🔧 Dashboard: Calling nightscoutConfigApi.saveConfig...');
-      const savedConfig = await nightscoutConfigApi.saveConfig(config);
-      console.log('🔧 Dashboard: Save successful, received config:', savedConfig);
-      setNightscoutConfig(savedConfig);
-      console.log('✅ Nightscout configuration saved successfully');
-    } catch (error) {
-      console.error('❌ Failed to save Nightscout configuration:', error);
-      setError('Failed to save Nightscout configuration');
-      throw error; // Re-throw to let the modal handle the error
-    }
+  const handleNightscoutConfigSave = async (config: any): Promise<void> => {
+    console.log('🔧 Dashboard: Nightscout configuration is now handled globally via environment variables');
+    console.log('🔧 Dashboard: Please set NIGHTSCOUT_URL, NIGHTSCOUT_API_SECRET, and NIGHTSCOUT_API_TOKEN environment variables');
   };
 
-  const loadNightscoutConfig = async (): Promise<NightscoutConfig | null> => {
-    try {
-      const config = await nightscoutConfigApi.getConfig();
-      setNightscoutConfig(config);
-      return config;
-    } catch (error) {
-      console.error('Failed to load Nightscout configuration:', error);
-      return null;
-    }
+  const loadNightscoutConfig = async (): Promise<any> => {
+    console.log('🔧 Dashboard: Using global Nightscout configuration');
+    return null;
   };
 
   const handleNoteClick = (note: GlucoseNote) => {
@@ -1014,13 +987,7 @@ const Dashboard: React.FC = () => {
           onClose={() => setIsVersionInfoOpen(false)}
         />
 
-        {/* Nightscout Configuration Modal */}
-        <NightscoutConfigModal
-          isOpen={isNightscoutConfigOpen}
-          onClose={handleNightscoutConfigClose}
-          onSave={handleNightscoutConfigSave}
-          existingConfig={nightscoutConfig}
-        />
+        {/* Nightscout Configuration Modal removed - using global configuration now */}
 
       </main>
     </div>
