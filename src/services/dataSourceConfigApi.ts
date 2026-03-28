@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { authService } from './authService';
+import { userDataSourceConfigApi } from './userDataSourceConfigApi';
 
 export interface DataSourceConfig {
   dataSource: 'nightscout' | 'libre';
@@ -11,6 +12,7 @@ export interface DataSourceConfig {
   libre?: {
     email: string;
     password: string;
+    patientId?: string;
   };
 }
 
@@ -60,12 +62,35 @@ class DataSourceConfigApi {
         };
       }
 
+      // Per-user Nightscout from Data Source settings (preferred over Libre localStorage)
+      if (authService.isAuthenticated()) {
+        try {
+          const userNs = await userDataSourceConfigApi.getActiveConfig('NIGHTSCOUT');
+          if (userNs?.nightscoutUrl?.trim()) {
+            return {
+              dataSource: 'nightscout',
+              nightscout: {
+                url: userNs.nightscoutUrl,
+                secret: userNs.nightscoutApiSecret || '',
+                token: userNs.nightscoutApiToken || '',
+              },
+            };
+          }
+        } catch {
+          // ignore; fall through to Libre
+        }
+      }
+
       // Check for LibreLinkUp configuration
       const libreConfig = this.getLibreConfig();
       if (libreConfig) {
         return {
           dataSource: 'libre',
-          libre: libreConfig
+          libre: {
+            email: libreConfig.email,
+            password: libreConfig.password,
+            patientId: libreConfig.patientId,
+          }
         };
       }
 
@@ -94,8 +119,15 @@ class DataSourceConfigApi {
   /**
    * Save LibreLinkUp configuration
    */
-  saveLibreConfig(config: { email: string; password: string }): void {
-    localStorage.setItem('libre_config', JSON.stringify(config));
+  saveLibreConfig(config: { email: string; password: string; patientId?: string }): void {
+    localStorage.setItem(
+      'libre_config',
+      JSON.stringify({
+        email: config.email,
+        password: config.password,
+        patientId: config.patientId?.trim() ?? '',
+      })
+    );
   }
 
   /**
@@ -121,7 +153,7 @@ class DataSourceConfigApi {
   /**
    * Get LibreLinkUp configuration from localStorage
    */
-  private getLibreConfig(): { email: string; password: string } | null {
+  private getLibreConfig(): { email: string; password: string; patientId?: string } | null {
     try {
       const config = localStorage.getItem('libre_config');
       if (config) {
@@ -169,7 +201,17 @@ class DataSourceConfigApi {
    * Get LibreLinkUp credentials for API calls
    */
   getLibreCredentials(): { email: string; password: string } | null {
-    return this.getLibreConfig();
+    const full = this.getLibreConfig();
+    if (!full) return null;
+    return { email: full.email, password: full.password };
+  }
+
+  /**
+   * Configured Libre Link Up patient ID (connection id for /llu/connections/{id}/...).
+   */
+  getLibrePatientId(): string | null {
+    const id = this.getLibreConfig()?.patientId?.trim();
+    return id || null;
   }
 }
 

@@ -19,7 +19,6 @@ import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services
 // Removed nightscoutConfigApi import - using global configuration now
 import { dataSourceConfigApi } from '../services/dataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
-import { logTimezoneInfo, getTimezoneDisplayName, getCurrentLocalTime } from '../utils/timezone';
 
 interface DataStatus {
   source: 'nightscout' | 'stored' | 'demo' | 'error';
@@ -33,7 +32,6 @@ const EnhancedDashboard: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
-  const [selectedConnection, setSelectedConnection] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -50,10 +48,10 @@ const EnhancedDashboard: React.FC = () => {
     });
   });
 
-  // Data status tracking
-  const [dataStatus, setDataStatus] = useState<DataStatus>({
-    source: 'error',
-    healthy: false,
+  // Data status tracking - initialize as healthy to show dashboard directly
+  const [, setDataStatus] = useState<DataStatus>({
+    source: 'demo', // Use 'demo' as initial source to show dashboard
+    healthy: true,
     errorCount: 0,
     fallbackUsed: false
   });
@@ -62,14 +60,12 @@ const EnhancedDashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
-  const [notesBackendStatus, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
+  const [, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
 
   // Settings and modals
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
-  const [isNightscoutConfigOpen, setIsNightscoutConfigOpen] = useState(false);
   const [isDataSourceConfigOpen, setIsDataSourceConfigOpen] = useState(false);
-  const [configTimeoutId, setConfigTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
@@ -92,7 +88,6 @@ const EnhancedDashboard: React.FC = () => {
     };
     return trendMap[direction] || '→';
   };
-
   const convertToMmolL = (mgdL: number): number => {
     return Math.round((mgdL / 18) * 10) / 10;
   };
@@ -108,14 +103,12 @@ const EnhancedDashboard: React.FC = () => {
   // Enhanced data fetching with comprehensive error handling
   const fetchCurrentGlucose = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping current glucose fetch - user not authenticated');
       return;
     }
     
     // Removed nightscoutConfig check - using global configuration now
 
     try {
-      console.log('🔗 Fetching current glucose with enhanced error handling...');
       const response: NightscoutServiceResponse<any> = await nightscoutService.getCurrentGlucose();
 
       if (response.success && response.data) {
@@ -131,36 +124,21 @@ const EnhancedDashboard: React.FC = () => {
         };
         setCurrentReading(reading);
         setError(null);
-        console.log(`✅ Current glucose fetched from ${response.source}: ${reading.value} ${reading.unit}`);
       } else {
         setError(response.error || 'No current glucose data available');
-        console.warn('⚠️ No current glucose data available');
         
         // If response indicates configuration is needed, schedule the config dialog
         if (response.needsConfiguration) {
-          console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error (2 second delay)');
           setTimeout(() => {
-            console.log('🔧 Opening Nightscout configuration dialog after delay');
-            setIsNightscoutConfigOpen(true);
+            setIsDataSourceConfigOpen(true);
           }, 2000);
         }
       }
     } catch (err: any) {
-      console.error('❌ Current glucose fetch failed:', err);
-      console.log('🔍 Error details:', {
-        response: err.response,
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-        errorObject: err
-      });
-      
       // Check if it's a 400 error (no data/configuration issue)
       if (err.response?.status === 400) {
-        console.log('🔧 Detected 400 error - Scheduling Nightscout configuration dialog (2 second delay)');
         setTimeout(() => {
-          console.log('🔧 Opening Nightscout configuration dialog after delay');
-          setIsNightscoutConfigOpen(true);
+          setIsDataSourceConfigOpen(true);
         }, 2000);
         setError('No Nightscout data available. Please configure your Nightscout settings.');
       } else {
@@ -171,14 +149,12 @@ const EnhancedDashboard: React.FC = () => {
 
   const fetchHistoricalData = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping historical data fetch - user not authenticated');
       return;
     }
     
     // Removed nightscoutConfig check - using global configuration now
 
     try {
-      console.log('🔗 Fetching historical glucose data with enhanced error handling...');
       
       const now = new Date();
       const endDate = new Date();
@@ -205,14 +181,11 @@ const EnhancedDashboard: React.FC = () => {
         history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
         setGlucoseHistory(history);
         setError(null);
-        console.log(`✅ Historical data fetched from ${response.source}: ${history.length} entries`);
       } else {
         // Check if configuration is needed
         if (response.needsConfiguration) {
-          console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error in historical data (2 second delay)');
           setTimeout(() => {
-            console.log('🔧 Opening Nightscout configuration dialog after delay');
-            setIsNightscoutConfigOpen(true);
+            setIsDataSourceConfigOpen(true);
           }, 2000);
           setError(response.error || 'No historical glucose data available');
           return;
@@ -235,37 +208,22 @@ const EnhancedDashboard: React.FC = () => {
           
           history.sort((a: GlucoseReading, b: GlucoseReading) => a.timestamp.getTime() - b.timestamp.getTime());
           setGlucoseHistory(history);
-          console.log(`✅ Recent data fetched from ${recentResponse.source}: ${history.length} entries`);
         } else {
           setError(recentResponse.error || 'No historical glucose data available');
-          console.warn('⚠️ No historical glucose data available');
           
           // If recent response also needs configuration, schedule the dialog
           if (recentResponse.needsConfiguration) {
-            console.log('🔧 Scheduling Nightscout configuration dialog due to 400 error in recent data (2 second delay)');
             setTimeout(() => {
-              console.log('🔧 Opening Nightscout configuration dialog after delay');
-              setIsNightscoutConfigOpen(true);
+              setIsDataSourceConfigOpen(true);
             }, 2000);
           }
         }
       }
     } catch (err: any) {
-      console.error('❌ Historical data fetch failed:', err);
-      console.log('🔍 Historical error details:', {
-        response: err.response,
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-        errorObject: err
-      });
-      
       // Check if it's a 400 error (no data/configuration issue)
       if (err.response?.status === 400) {
-        console.log('🔧 Detected 400 error in historical data - Scheduling Nightscout configuration dialog (2 second delay)');
         setTimeout(() => {
-          console.log('🔧 Opening Nightscout configuration dialog after delay');
-          setIsNightscoutConfigOpen(true);
+          setIsDataSourceConfigOpen(true);
         }, 2000);
         setError('No Nightscout data available. Please configure your Nightscout settings.');
       } else {
@@ -295,7 +253,6 @@ const EnhancedDashboard: React.FC = () => {
           errorCount: 0,
           fallbackUsed: false
         }));
-        console.log('🔧 Data status updated to healthy after retry');
       }
     } finally {
       setIsRetrying(false);
@@ -304,6 +261,7 @@ const EnhancedDashboard: React.FC = () => {
 
 
   // Single initialization effect - loads everything in sequence to avoid duplicate requests
+  /* eslint-disable react-hooks/exhaustive-deps -- run once per auth; nightscoutService/calculateGlucoseStatus are stable */
   useEffect(() => {
     if (!isAuthenticated || isInitializing) return;
 
@@ -312,16 +270,13 @@ const EnhancedDashboard: React.FC = () => {
 
     const initializeApp = async () => {
       try {
-        console.log('🚀 Starting app initialization...');
         
         // Step 1: Skip Nightscout configuration loading - using global configuration now
-        console.log('🔧 Step 1: Using global Nightscout configuration...');
         
         if (!isMounted) return; // Component unmounted, stop here
         
         // Removed setNightscoutConfig - using global configuration now
         
-        console.log('✅ Step 2: Using global configuration, fetching glucose data...');
           // Step 2: Load glucose data - call functions directly to avoid dependency loop
           try {
             const currentResponse = await nightscoutService.getCurrentGlucose();
@@ -340,10 +295,8 @@ const EnhancedDashboard: React.FC = () => {
               if (!isMounted) return;
               setCurrentReading(glucoseReading);
               setError(null);
-              console.log(`✅ Current glucose fetched from ${currentResponse.source}: ${glucoseReading.value} ${glucoseReading.unit}`);
             }
           } catch (err: any) {
-            console.error('❌ Current glucose fetch failed during init:', err);
             if (!isMounted) return;
             if (err.response?.status === 400) {
               setError('No Nightscout data available. Please configure your Nightscout settings.');
@@ -371,17 +324,14 @@ const EnhancedDashboard: React.FC = () => {
               if (!isMounted) return;
               setGlucoseHistory(history);
               setError(null);
-              console.log(`✅ Historical data fetched from ${response.source}: ${history.length} entries`);
             }
           } catch (err: any) {
-            console.error('❌ Historical data fetch failed during init:', err);
             if (!isMounted) return;
             setError(`Failed to fetch historical data: ${err instanceof Error ? err.message : 'Unknown error'}`);
           }
           
           if (!isMounted) return;
           
-          console.log('✅ Step 3: Loading additional data...');
           // Step 3: Load other data in parallel
           const [cobData, notesData] = await Promise.all([
             cobSettingsApi.getCOBSettings(),
@@ -404,16 +354,13 @@ const EnhancedDashboard: React.FC = () => {
             }
           }
           
-          console.log('✅ App initialization completed successfully');
       } catch (error) {
-        console.error('❌ App initialization failed:', error);
         if (!isMounted) return;
         
         // On error, assume we need configuration
         setTimeout(() => {
           if (isMounted) {
-            console.log('🔧 Opening Nightscout configuration dialog after error');
-            setIsNightscoutConfigOpen(true);
+            setIsDataSourceConfigOpen(true);
           }
         }, 2000);
         setNotesBackendStatus('error');
@@ -433,13 +380,14 @@ const EnhancedDashboard: React.FC = () => {
       setIsInitializing(false);
     };
   }, [isAuthenticated]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Auto-refresh every 5 minutes (only after initial load)
+  /* eslint-disable react-hooks/exhaustive-deps -- interval uses latest currentReading via closure; expanding deps would reset timer every reading */
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const interval = setInterval(async () => {
-      console.log('🔄 Auto-refreshing glucose data...');
       try {
         const currentResponse = await nightscoutService.getCurrentGlucose();
         if (currentResponse.success && currentResponse.data) {
@@ -493,11 +441,11 @@ const EnhancedDashboard: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [isAuthenticated]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Auto-update data status when we have data
   useEffect(() => {
     if (currentReading || glucoseHistory.length > 0) {
-      console.log('🔧 EnhancedDashboard: Auto-updating data status - data detected');
       setDataStatus(prev => ({
         ...prev,
         healthy: true,
@@ -516,12 +464,9 @@ const EnhancedDashboard: React.FC = () => {
     if (currentReading && isAuthenticated) {
       const fetchCalculations = async () => {
         try {
-          console.log('🔧 Fetching glucose calculations for current reading:', currentReading.value);
           const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
           setGlucoseCalculations(calculationsData);
-          console.log('✅ Glucose calculations updated:', calculationsData);
         } catch (err) {
-          console.error('❌ Failed to fetch glucose calculations:', err);
         }
       };
 
@@ -529,42 +474,16 @@ const EnhancedDashboard: React.FC = () => {
     }
   }, [currentReading, isAuthenticated]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (configTimeoutId) {
-        clearTimeout(configTimeoutId);
-      }
-    };
-  }, [configTimeoutId]);
+  // Only show fallback UI for critical errors, not for normal initialization
+  const shouldShowFallback = false; // Always show dashboard with chart
 
-  // Show fallback UI if no data is available
-  console.log('🔧 EnhancedDashboard: Checking data status:', {
-    healthy: dataStatus.healthy,
-    isRetrying: isRetrying,
-    currentReading: !!currentReading,
-    glucoseHistoryLength: glucoseHistory.length,
-    // Removed nightscoutConfig from debug info
-  });
-  
-  // Check if we have data or if we're retrying
-  const hasData = currentReading || glucoseHistory.length > 0;
-  const shouldShowFallback = !dataStatus.healthy && !isRetrying && !hasData;
-  
-  console.log('🔧 EnhancedDashboard: Fallback decision:', {
-    shouldShowFallback,
-    hasData,
-    dataStatusHealthy: dataStatus.healthy,
-    isRetrying
-  });
-  
   if (shouldShowFallback) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="h-[100dvh] overflow-hidden bg-gray-50 flex flex-col">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <NightscoutFallbackUI
             onRetry={handleRetry}
-            onConfigure={() => setIsNightscoutConfigOpen(true)}
+            onConfigure={() => setIsDataSourceConfigOpen(true)}
             error={error || undefined}
             isRetrying={isRetrying}
             needsConfiguration={error?.includes('configure') || false}
@@ -577,7 +496,7 @@ const EnhancedDashboard: React.FC = () => {
   // Show loading indicator during initialization
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-[100dvh] overflow-hidden bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Initializing application...</p>
@@ -589,15 +508,15 @@ const EnhancedDashboard: React.FC = () => {
 
   return (
     <NightscoutErrorBoundary>
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto py-2 sm:px-6 lg:px-8">
+      <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-gray-50 flex flex-col">
+        <div className="max-w-7xl mx-auto flex flex-col flex-1 min-h-0 w-full py-2 px-4 sm:px-6 lg:px-8">
           {/* Compact Header */}
-          <div className="mb-4">
+          <div className="mb-2 shrink-0">
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Glucose Monitor</h1>
                 <p className="text-xs text-gray-600">
-                  Welcome back, {user?.username} • {new Date().toLocaleTimeString()}
+                  Welcome back, {user?.username} - {new Date().toLocaleTimeString()}
                 </p>
               </div>
               <div className="flex space-x-2">
@@ -624,7 +543,7 @@ const EnhancedDashboard: React.FC = () => {
           </div>
 
           {/* Compact Metrics Bar */}
-          <div className="mb-4">
+          <div className="mb-2 shrink-0">
             <div className="bg-white rounded-lg shadow-sm p-3">
               <div className="grid grid-cols-4 gap-4">
                 {/* Current Glucose */}
@@ -683,7 +602,7 @@ const EnhancedDashboard: React.FC = () => {
 
           {/* Error Display */}
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="mb-2 shrink-0 max-h-28 overflow-y-auto bg-red-50 border border-red-200 rounded-lg p-3">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -709,23 +628,25 @@ const EnhancedDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Main Content - Compact Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[calc(100vh-200px)]">
+          {/* Main Content - fills remaining viewport; no page scroll */}
+          <div className="flex flex-col lg:grid lg:grid-cols-4 gap-3 flex-1 min-h-0 overflow-hidden">
             {/* Chart - Takes most of the space */}
-            <div className="lg:col-span-3">
-              <CombinedGlucoseChart
-                glucoseData={glucoseHistory}
-                iobData={[]}
-                notes={notes}
-                onNoteClick={(note) => setEditingNote(note)}
-              />
+            <div className="order-1 lg:order-none lg:col-span-3 flex flex-col min-h-0 flex-1 min-h-[140px]">
+              <div className="bg-white rounded-lg shadow-sm p-2 flex flex-col flex-1 min-h-0">
+                <CombinedGlucoseChart
+                  glucoseData={glucoseHistory}
+                  iobData={[]}
+                  notes={notes}
+                  onNoteClick={(note) => setEditingNote(note)}
+                />
+              </div>
             </div>
 
             {/* Compact Sidebar */}
-            <div className="space-y-3">
+            <div className="order-2 lg:order-none flex flex-col gap-2 min-h-0 max-h-[34vh] shrink-0 lg:max-h-none lg:h-full lg:flex-1">
               {/* Recent Notes - Compact */}
-              <div className="bg-white rounded-lg shadow p-4 h-[calc(100vh-240px)] overflow-y-auto">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-white rounded-lg shadow p-3 flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between mb-2 shrink-0">
                   <h3 className="text-sm font-medium text-gray-900">Recent Notes</h3>
                   <button
                     onClick={() => setIsNoteModalOpen(true)}
@@ -735,9 +656,10 @@ const EnhancedDashboard: React.FC = () => {
                   </button>
                 </div>
                 
+                <div className="flex-1 min-h-0 overflow-y-auto">
                 {notes.length === 0 ? (
                   <div className="text-center py-4">
-                    <div className="text-gray-400 text-xl mb-2">🍽️</div>
+                    <div className="text-gray-400 text-sm mb-2">Notes</div>
                     <p className="text-xs text-gray-500">No notes yet</p>
                   </div>
                 ) : (
@@ -786,30 +708,31 @@ const EnhancedDashboard: React.FC = () => {
                             }}
                             className="text-gray-400 hover:text-red-500 text-xs"
                           >
-                            🗑️
+                            Del
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+                </div>
               </div>
 
               {/* Compact Quick Actions */}
-              <div className="bg-white rounded-lg shadow p-3">
+              <div className="bg-white rounded-lg shadow p-3 shrink-0">
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Actions</h3>
                 <div className="space-y-1">
                   <button
                     onClick={() => setIsCOBSettingsOpen(true)}
                     className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
                   >
-                    ⚙️ COB Settings
+                    COB Settings
                   </button>
                   <button
-                    onClick={() => setIsNightscoutConfigOpen(true)}
+                    onClick={() => setIsDataSourceConfigOpen(true)}
                     className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
                   >
-                    🔗 Nightscout Config
+                    Nightscout Config
                   </button>
                 </div>
               </div>
@@ -880,7 +803,6 @@ const EnhancedDashboard: React.FC = () => {
             onClose={() => setIsDataSourceConfigOpen(false)}
             onSave={async (config) => {
               try {
-                console.log('💾 Saving data source configuration...', config);
                 
                 if (config.dataSource === 'nightscout' && config.nightscout) {
                   // Note: Nightscout configuration is now handled globally via environment variables
@@ -898,7 +820,6 @@ const EnhancedDashboard: React.FC = () => {
                   errorCount: 0
                 }));
                 
-                console.log('✅ Data source configuration saved successfully');
                 setIsDataSourceConfigOpen(false);
                 
                 // Refresh data after successful configuration
@@ -906,7 +827,6 @@ const EnhancedDashboard: React.FC = () => {
                   window.location.reload();
                 }, 1000);
               } catch (error) {
-                console.error('❌ Failed to save data source configuration:', error);
                 throw error; // Re-throw to show error in modal
               }
             }}

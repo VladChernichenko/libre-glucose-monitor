@@ -139,7 +139,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return (
       <div className="h-full w-full flex items-center justify-center">
         <div className="text-center text-gray-500">
-          <div className="text-4xl mb-2">📊</div>
           <div className="text-lg font-medium">No data available</div>
           <div className="text-sm">Please check your data source</div>
         </div>
@@ -152,7 +151,6 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return (
       <div className="h-full w-full flex items-center justify-center">
         <div className="text-center text-gray-500">
-          <div className="text-4xl mb-2">⏰</div>
           <div className="text-lg font-medium">Data is outdated</div>
           <div className="text-sm">Latest reading is more than 15 minutes old</div>
           <div className="text-xs mt-2 text-gray-400">Please refresh or check your data source</div>
@@ -214,8 +212,9 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   };
 
   return (
-    <div className="h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-full w-full flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 w-full">
+        <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
           
@@ -331,10 +330,11 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             return null;
           })}
         </ComposedChart>
-      </ResponsiveContainer>
-      
+        </ResponsiveContainer>
+      </div>
+
       {/* Legend */}
-      <div className="flex justify-center space-x-4 mt-2 text-xs">
+      <div className="flex justify-center flex-wrap gap-x-4 gap-y-1 mt-2 text-xs shrink-0">
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
           <span>Glucose (mmol/L)</span>

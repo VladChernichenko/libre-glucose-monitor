@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// Removed nightscoutConfigApi import - using global configuration now
+import { userDataSourceConfigApi, DataSourceConfigRequest } from '../services/userDataSourceConfigApi';
+import { libreApiService } from '../services/libreApi';
 
 interface DataSourceConfig {
   dataSource: 'nightscout' | 'libre';
@@ -11,6 +12,7 @@ interface DataSourceConfig {
   libre: {
     email: string;
     password: string;
+    patientId: string;
   };
 }
 
@@ -36,14 +38,23 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
     },
     libre: {
       email: '',
-      password: ''
+      password: '',
+      patientId: ''
     }
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [libreTestResult, setLibreTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isTestingLibre, setIsTestingLibre] = useState(false);
+  const [nightscoutTestResult, setNightscoutTestResult] = useState<{ ok: boolean; message: string } | null>(
+    null
+  );
+  const [isTestingNightscout, setIsTestingNightscout] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setLibreTestResult(null);
+      setNightscoutTestResult(null);
       loadExistingConfig();
     }
   }, [isOpen]);
@@ -51,24 +62,55 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
   const loadExistingConfig = async () => {
     try {
       setIsLoading(true);
-      // Note: Nightscout configuration is now handled globally via environment variables
-      console.log('Nightscout configuration should be set via environment variables');
       
-      // Load LibreLinkUp config from localStorage if available
+      // Load user-specific configurations from backend
+      const configStatus = await userDataSourceConfigApi.getConfigStatus();
+      
+      if (configStatus.hasAnyConfig) {
+        // Prefer active Nightscout when present; otherwise last used or first active config
+        const preferredConfig =
+          configStatus.activeNightscoutConfig ||
+          configStatus.mostRecentlyUsedConfig ||
+          configStatus.allConfigs[0];
+        
+        if (preferredConfig.dataSource === 'NIGHTSCOUT') {
+          setConfig(prev => ({
+            ...prev,
+            dataSource: 'nightscout',
+            nightscout: {
+              url: preferredConfig.nightscoutUrl || '',
+              secret: preferredConfig.nightscoutApiSecret || '',
+              token: preferredConfig.nightscoutApiToken || ''
+            }
+          }));
+        } else if (preferredConfig.dataSource === 'LIBRE_LINK_UP') {
+          setConfig(prev => ({
+            ...prev,
+            dataSource: 'libre',
+            libre: {
+              email: preferredConfig.libreEmail || '',
+              password: preferredConfig.librePassword || '',
+              patientId: preferredConfig.librePatientId || ''
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load existing config:', error);
+      // Keep Nightscout as the selected source; only prefill Libre fields from localStorage
       const savedLibreConfig = localStorage.getItem('libre_config');
       if (savedLibreConfig) {
         const libreConfig = JSON.parse(savedLibreConfig);
         setConfig(prev => ({
           ...prev,
-          dataSource: 'libre',
+          dataSource: 'nightscout',
           libre: {
             email: libreConfig.email || '',
-            password: libreConfig.password || ''
+            password: libreConfig.password || '',
+            patientId: libreConfig.patientId || ''
           }
         }));
       }
-    } catch (error) {
-      console.error('Failed to load existing config:', error);
     } finally {
       setIsLoading(false);
     }
@@ -80,20 +122,31 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
     setIsLoading(true);
 
     try {
+      // Create the configuration request for the backend
+      const configRequest: DataSourceConfigRequest = {
+        dataSource: config.dataSource === 'nightscout' ? 'NIGHTSCOUT' : 'LIBRE_LINK_UP',
+        isActive: true
+      };
+
       if (config.dataSource === 'nightscout') {
-        // Note: Nightscout configuration is now handled globally via environment variables
-        console.log('Nightscout configuration should be set via environment variables:');
-        console.log('NIGHTSCOUT_URL=' + config.nightscout.url);
-        console.log('NIGHTSCOUT_API_SECRET=' + config.nightscout.secret);
-        if (config.nightscout.token) {
-          console.log('NIGHTSCOUT_API_TOKEN=' + config.nightscout.token);
-        }
+        configRequest.nightscoutUrl = config.nightscout.url;
+        configRequest.nightscoutApiSecret = config.nightscout.secret;
+        configRequest.nightscoutApiToken = config.nightscout.token || '';
       } else {
-        // For LibreLinkUp, we'll store it in localStorage for now
-        // In a production app, you might want to store this in the backend
+        configRequest.libreEmail = config.libre.email;
+        configRequest.librePassword = config.libre.password;
+        configRequest.librePatientId = config.libre.patientId?.trim() || '';
+      }
+
+      // Save configuration to backend
+      await userDataSourceConfigApi.saveConfig(configRequest);
+      
+      // Also save LibreLinkUp to localStorage as backup
+      if (config.dataSource === 'libre') {
         localStorage.setItem('libre_config', JSON.stringify({
           email: config.libre.email,
-          password: config.libre.password
+          password: config.libre.password,
+          patientId: config.libre.patientId?.trim() || ''
         }));
       }
 
@@ -112,6 +165,8 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
       dataSource
     }));
     setError(null);
+    setLibreTestResult(null);
+    setNightscoutTestResult(null);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -123,6 +178,45 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
       }
     }));
     setError(null);
+    setLibreTestResult(null);
+    setNightscoutTestResult(null);
+  };
+
+  const handleTestNightscoutConnection = async () => {
+    setNightscoutTestResult(null);
+    setIsTestingNightscout(true);
+    try {
+      const result = await userDataSourceConfigApi.testNightscoutConnection({
+        nightscoutUrl: config.nightscout.url,
+        nightscoutApiSecret: config.nightscout.secret,
+        nightscoutApiToken: config.nightscout.token,
+      });
+      setNightscoutTestResult(result);
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : 'Nightscout connection test failed.';
+      setNightscoutTestResult({ ok: false, message });
+    } finally {
+      setIsTestingNightscout(false);
+    }
+  };
+
+  const handleTestLibreConnection = async () => {
+    setLibreTestResult(null);
+    setIsTestingLibre(true);
+    try {
+      const result = await libreApiService.testConnection(
+        config.libre.email,
+        config.libre.password,
+        config.libre.patientId
+      );
+      setLibreTestResult(result);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Libre Link Up connection test failed.';
+      setLibreTestResult({ ok: false, message });
+    } finally {
+      setIsTestingLibre(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -165,13 +259,12 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">Nightscout</div>
                     <div className="text-sm text-gray-500">
-                      Global Nightscout configuration via environment variables
-                    </div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      Configure via NIGHTSCOUT_URL, NIGHTSCOUT_API_SECRET, NIGHTSCOUT_API_TOKEN
+                      Connect to your Nightscout instance for comprehensive glucose monitoring
                     </div>
                   </div>
-                  <div className="text-2xl ml-3">🌙</div>
+                  <div className="ml-3 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    NS
+                  </div>
                 </label>
 
                 <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
@@ -189,35 +282,76 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
                       Connect directly to Abbott's LibreLinkUp service
                     </div>
                   </div>
-                  <div className="text-2xl ml-3">🩸</div>
+                  <div className="ml-3 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    LLU
+                  </div>
                 </label>
               </div>
             </div>
 
             {/* Configuration Fields */}
             {config.dataSource === 'nightscout' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Global Configuration
-                    </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <p>Nightscout is now configured globally via environment variables on the backend server.</p>
-                      <p className="mt-2">To configure Nightscout, set these environment variables:</p>
-                      <ul className="mt-2 list-disc list-inside space-y-1">
-                        <li><code className="bg-blue-100 px-1 rounded">NIGHTSCOUT_URL</code> - Your Nightscout site URL</li>
-                        <li><code className="bg-blue-100 px-1 rounded">NIGHTSCOUT_API_SECRET</code> - Your API secret</li>
-                        <li><code className="bg-blue-100 px-1 rounded">NIGHTSCOUT_API_TOKEN</code> - Your API token (optional)</li>
-                      </ul>
-                      <p className="mt-2">Contact your system administrator to configure these settings.</p>
-                    </div>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nightscout URL
+                  </label>
+                  <input
+                    type="url"
+                    value={config.nightscout.url}
+                    onChange={(e) => handleInputChange('url', e.target.value)}
+                    placeholder="https://your-nightscout.herokuapp.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={config.nightscout.secret}
+                    onChange={(e) => handleInputChange('secret', e.target.value)}
+                    placeholder="Your Nightscout API secret"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Token (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    value={config.nightscout.token || ''}
+                    onChange={(e) => handleInputChange('token', e.target.value)}
+                    placeholder="Your Nightscout API token"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleTestNightscoutConnection}
+                    disabled={isTestingNightscout || !config.nightscout.url.trim()}
+                    className="w-full px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isTestingNightscout ? 'Testing...' : 'Test connection'}
+                  </button>
+                  {nightscoutTestResult && (
+                    <p
+                      className={`mt-2 text-sm ${
+                        nightscoutTestResult.ok ? 'text-green-700' : 'text-red-700'
+                      }`}
+                      role="status"
+                    >
+                      {nightscoutTestResult.message}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -250,6 +384,47 @@ const DataSourceConfigModal: React.FC<DataSourceConfigModalProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Patient ID (connection)
+                  </label>
+                  <input
+                    type="text"
+                    value={config.libre.patientId}
+                    onChange={(e) => handleInputChange('patientId', e.target.value)}
+                    placeholder="e.g. from GET /api/libre/connections -> patientId"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Optional. When set, glucose calls use this connection; otherwise the app may use the first connection.
+                  </p>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleTestLibreConnection}
+                    disabled={
+                      isTestingLibre ||
+                      !config.libre.email.trim() ||
+                      !config.libre.password
+                    }
+                    className="w-full px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isTestingLibre ? 'Testing...' : 'Test connection'}
+                  </button>
+                  {libreTestResult && (
+                    <p
+                      className={`mt-2 text-sm ${
+                        libreTestResult.ok ? 'text-green-700' : 'text-red-700'
+                      }`}
+                      role="status"
+                    >
+                      {libreTestResult.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
