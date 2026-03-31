@@ -17,6 +17,7 @@ export interface BackendNote {
   glucoseValue?: number;
   detailedInput?: string;
   insulinDose?: any; // Will be serialized JSON
+  mockData?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +31,7 @@ export interface CreateNoteRequest {
   glucoseValue?: number;
   detailedInput?: string;
   insulinDose?: any;
+  mockData?: boolean;
 }
 
 export interface UpdateNoteRequest {
@@ -41,6 +43,7 @@ export interface UpdateNoteRequest {
   glucoseValue?: number;
   detailedInput?: string;
   insulinDose?: any;
+  mockData?: boolean;
 }
 
 const config = getEnvironmentConfig();
@@ -135,6 +138,7 @@ const convertBackendNoteToFrontend = (backendNote: BackendNote): GlucoseNote => 
     glucoseValue: backendNote.glucoseValue,
     detailedInput: backendNote.detailedInput,
     insulinDose: backendNote.insulinDose ? JSON.parse(backendNote.insulinDose) : undefined,
+    mockData: backendNote.mockData ?? false,
   };
 };
 
@@ -149,6 +153,7 @@ const convertFrontendNoteToBackend = (note: NoteInputData): CreateNoteRequest =>
     glucoseValue: note.glucoseValue,
     detailedInput: note.detailedInput,
     insulinDose: note.insulinDose ? JSON.stringify(note.insulinDose) : undefined,
+    mockData: note.mockData ?? false,
   };
 };
 
@@ -229,6 +234,7 @@ export const backendNotesApi = {
       if (updates.glucoseValue !== undefined) backendData.glucoseValue = updates.glucoseValue;
       if (updates.detailedInput !== undefined) backendData.detailedInput = updates.detailedInput;
       if (updates.insulinDose !== undefined) backendData.insulinDose = updates.insulinDose ? JSON.stringify(updates.insulinDose) : undefined;
+      if (updates.mockData !== undefined) backendData.mockData = updates.mockData;
 
       const response = await notesApiClient.put<BackendNote>(`/${id}`, backendData);
       return convertBackendNoteToFrontend(response.data);

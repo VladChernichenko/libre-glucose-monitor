@@ -3,6 +3,8 @@ import { aiInsightsApi, AiAnalysisResponse, AiStreamEvent } from '../services/ai
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+const STREAM_STUCK_TIMEOUT_MS = 20000;
+
 const AIInsightPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [result, setResult] = useState<AiAnalysisResponse | null>(null);
@@ -11,6 +13,9 @@ const AIInsightPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const stoppedByUserRef = useRef(false);
+  const stoppedByTimeoutRef = useRef(false);
+  const lastStreamActivityAtRef = useRef<number>(0);
+  const streamWatchdogRef = useRef<number | null>(null);
 
   const stopAnalysis = () => {
     stoppedByUserRef.current = true;
@@ -23,6 +28,22 @@ const AIInsightPanel: React.FC = () => {
     const controller = new AbortController();
     streamAbortRef.current = controller;
     stoppedByUserRef.current = false;
+    stoppedByTimeoutRef.current = false;
+    lastStreamActivityAtRef.current = Date.now();
+
+    if (streamWatchdogRef.current) {
+      window.clearInterval(streamWatchdogRef.current);
+    }
+    streamWatchdogRef.current = window.setInterval(() => {
+      if (!streamAbortRef.current) return;
+      const idleMs = Date.now() - lastStreamActivityAtRef.current;
+      if (idleMs >= STREAM_STUCK_TIMEOUT_MS) {
+        stoppedByTimeoutRef.current = true;
+        streamAbortRef.current.abort();
+        setError('AI analysis got stuck (no response chunks). The process was stopped.');
+        setIsLoading(false);
+      }
+    }, 1000);
 
     try {
       setIsLoading(true);
@@ -33,22 +54,31 @@ const AIInsightPanel: React.FC = () => {
         12,
         (event: AiStreamEvent) => {
           if (event.type === 'token') {
+            lastStreamActivityAtRef.current = Date.now();
             setStreamText((prev) => prev + event.token);
           } else if (event.type === 'result') {
+            lastStreamActivityAtRef.current = Date.now();
             setResult(event.result);
+          } else if (event.type === 'done') {
+            lastStreamActivityAtRef.current = Date.now();
           } else if (event.type === 'error') {
+            lastStreamActivityAtRef.current = Date.now();
             setError(event.message || 'Failed to run AI analysis');
           }
         },
         controller.signal,
       );
     } catch (e) {
-      if ((e as Error).name !== 'AbortError' && !stoppedByUserRef.current) {
+      if ((e as Error).name !== 'AbortError' && !stoppedByUserRef.current && !stoppedByTimeoutRef.current) {
         setError('Failed to run AI analysis');
       }
     } finally {
       setIsLoading(false);
       streamAbortRef.current = null;
+      if (streamWatchdogRef.current) {
+        window.clearInterval(streamWatchdogRef.current);
+        streamWatchdogRef.current = null;
+      }
     }
   };
 
@@ -67,6 +97,9 @@ const AIInsightPanel: React.FC = () => {
   useEffect(() => {
     return () => {
       streamAbortRef.current?.abort();
+      if (streamWatchdogRef.current) {
+        window.clearInterval(streamWatchdogRef.current);
+      }
     };
   }, []);
 
@@ -169,6 +202,33 @@ const AIInsightPanel: React.FC = () => {
               </ul>
             )}
           </div>
+
+          {result.evidenceRefs && result.evidenceRefs.length > 0 && (
+            <div>
+              <div className="font-medium text-gray-800">Evidence references</div>
+              <ul className="list-disc list-inside text-gray-700">
+                {result.evidenceRefs.map((e) => (
+                  <li key={e.chunkId}>
+                    {(e.sourceTitle || e.title) ?? 'Reference'} ({e.conditionTag})
+                    {e.sourceTopic ? ` - ${e.sourceTopic}` : ''}
+                    {e.sourceUrl ? (
+                      <>
+                        {' '}
+                        <a
+                          href={e.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          open source
+                        </a>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <p className="text-[11px] text-gray-500">{result.disclaimer}</p>
         </div>

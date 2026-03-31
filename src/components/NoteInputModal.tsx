@@ -27,7 +27,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     insulin: 0,
     meal: 'Breakfast',
     comment: '',
-    glucoseValue: currentGlucose
+    glucoseValue: currentGlucose,
+    mockData: false
   });
 
   // Display values for inputs (empty string instead of 0 for better UX)
@@ -82,7 +83,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           meal: initialData.meal,
           comment: initialData.comment || '',
           glucoseValue: initialData.glucoseValue,
-          detailedInput: initialData.detailedInput || ''
+          detailedInput: initialData.detailedInput || '',
+          mockData: initialData.mockData ?? false
         });
         // Set display values for editing
         setDisplayValues({
@@ -98,7 +100,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           meal: getMealTypeByTime(currentTime),
           comment: '',
           glucoseValue: currentGlucose,
-          detailedInput: ''
+          detailedInput: '',
+          mockData: false
         });
         // Set display values for adding (completely empty)
         setDisplayValues({
@@ -121,7 +124,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         meal: getMealTypeByTime(currentTime),
         comment: '',
         glucoseValue: 0,
-        detailedInput: ''
+        detailedInput: '',
+        mockData: false
       });
       setDisplayValues({
         carbsInsulin: ''
@@ -400,6 +404,19 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               placeholder="What did you eat? Any special notes?"
               autoComplete="off"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="mockData"
+              type="checkbox"
+              checked={!!formData.mockData}
+              onChange={(e) => handleInputChange('mockData', e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="mockData" className="text-xs text-gray-700">
+              Mark as test/mock note (excluded from real-life interpretation)
+            </label>
           </div>
 
           {/* Error Display */}

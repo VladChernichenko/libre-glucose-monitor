@@ -18,6 +18,11 @@ export interface AiEvidence {
   chunkId: string;
   title: string;
   conditionTag: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceTopic?: string;
+  evidenceLevel?: string;
 }
 
 export interface AiAnalysisResponse {
