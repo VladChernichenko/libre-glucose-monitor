@@ -518,6 +518,17 @@ const EnhancedDashboard: React.FC = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }, [notes, nowTick]);
 
+  const predictionTrackData = useMemo(() => {
+    const path = glucoseCalculations?.predictionPath ?? [];
+    return path
+      .map((p) => ({
+        time: new Date(p.timestamp),
+        iob: 0,
+        prediction: p.predictedGlucose,
+      }))
+      .filter((p) => !Number.isNaN(p.time.getTime()));
+  }, [glucoseCalculations?.predictionPath]);
+
   const recentNotesLast12Hours = useMemo(() => {
     const normalizedNotes = notes
       .map((note) => ({
@@ -709,7 +720,7 @@ const EnhancedDashboard: React.FC = () => {
               <div className="bg-white rounded-lg shadow-sm p-2 flex flex-col flex-1 min-h-0">
                 <CombinedGlucoseChart
                   glucoseData={glucoseHistory}
-                  iobData={[]}
+                  iobData={predictionTrackData}
                   notes={notes}
                   onNoteClick={openNoteForEdit}
                 />
