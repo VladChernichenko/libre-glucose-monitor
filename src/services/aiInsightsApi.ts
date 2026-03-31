@@ -33,6 +33,12 @@ export interface AiAnalysisResponse {
   generatedAt: string;
 }
 
+export type AiStreamEvent =
+  | { type: 'token'; token: string }
+  | { type: 'result'; result: AiAnalysisResponse }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
+
 const config = getEnvironmentConfig();
 
 const api = axios.create({
@@ -53,5 +59,54 @@ export const aiInsightsApi = {
   async analyzeRetrospective(windowHours: number = 12): Promise<AiAnalysisResponse> {
     const { data } = await api.post<AiAnalysisResponse>('/api/ai-insights/retrospective', { windowHours });
     return data;
+  },
+
+  async analyzeRetrospectiveStream(
+    windowHours: number,
+    onEvent: (event: AiStreamEvent) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
+      throw new Error('User not authenticated or logout in progress');
+    }
+
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(`${config.backendUrl}/api/ai-insights/retrospective/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ windowHours }),
+      signal,
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`AI stream failed with status ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        onEvent(JSON.parse(trimmed) as AiStreamEvent);
+      }
+    }
+
+    const tail = buffer.trim();
+    if (tail) {
+      onEvent(JSON.parse(tail) as AiStreamEvent);
+    }
   },
 };

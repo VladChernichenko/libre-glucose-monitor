@@ -78,18 +78,6 @@ const AppContent: React.FC = () => {
             </div>
           )}
           
-          {/* Navigation for LibreLinkUp test */}
-          {currentView === 'dashboard' && (
-            <div className="fixed bottom-4 right-4">
-              <button
-                onClick={() => setCurrentView('libre-test')}
-                className="px-4 py-2 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-colors"
-                title="Test LibreLinkUp Integration"
-              >
-                🩸 Test Libre
-              </button>
-            </div>
-          )}
         </>
       ) : (
         <JwtLoginForm />
