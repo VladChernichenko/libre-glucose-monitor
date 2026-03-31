@@ -73,6 +73,7 @@ const EnhancedDashboard: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
   // Removed nightscoutConfig state - using global configuration now
 
   // Removed helper functions to prevent dependency loops
@@ -469,6 +470,28 @@ const EnhancedDashboard: React.FC = () => {
     setIsNoteModalOpen(true);
   }, []);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const preBolusTimerLabel = useMemo(() => {
+    const preBolusNotes = notes
+      .filter((note) => (note.insulin ?? 0) > 0)
+      .filter((note) => (note.meal || '').toLowerCase() === 'pre-bolus' || (note.meal || '').toLowerCase() === 'prebolus')
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    if (preBolusNotes.length === 0) {
+      return '--';
+    }
+
+    const latest = preBolusNotes[0];
+    const elapsedSec = Math.max(0, Math.floor((nowTick - latest.timestamp.getTime()) / 1000));
+    const minutes = Math.floor(elapsedSec / 60);
+    const seconds = elapsedSec % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, [notes, nowTick]);
+
   const recentNotesLast12Hours = useMemo(() => {
     const now = Date.now();
     const startTime = now - (12 * 60 * 60 * 1000);
@@ -551,7 +574,7 @@ const EnhancedDashboard: React.FC = () => {
           {/* Compact Metrics Bar */}
           <div className="mb-2 shrink-0">
             <div className="bg-white rounded-lg shadow-sm p-3">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-5 gap-4">
                 {/* Current Glucose */}
                 <div className="text-center">
                   <div className="text-xs text-blue-600 mb-1">Current Glucose</div>
@@ -600,6 +623,13 @@ const EnhancedDashboard: React.FC = () => {
                         '--';
                     })()}
                   </div>
+                </div>
+
+                {/* Time after Pre-bolus */}
+                <div className="text-center">
+                  <div className="text-xs text-emerald-600 mb-1">After Pre-bolus</div>
+                  <div className="font-bold text-lg text-emerald-800">{preBolusTimerLabel}</div>
+                  <div className="text-xs text-emerald-600">mm:ss</div>
                 </div>
               </div>
             </div>

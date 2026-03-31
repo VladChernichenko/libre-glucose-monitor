@@ -277,7 +277,7 @@ class HybridNotesApiService implements NotesApiService {
       errors.push('Insulin must be a number between 0 and 100');
     }
     
-    if (!data.meal || !['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Correction', 'Other'].includes(data.meal)) {
+    if (!data.meal || !['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Pre-bolus', 'Correction', 'Other'].includes(data.meal)) {
       errors.push('Invalid meal category');
     }
     

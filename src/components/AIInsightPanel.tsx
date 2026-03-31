@@ -106,7 +106,10 @@ const AIInsightPanel: React.FC = () => {
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setIsOpen(true);
+          void runAnalysis();
+        }}
         className="text-xs px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700"
       >
         AI Analyzer
@@ -132,23 +135,16 @@ const AIInsightPanel: React.FC = () => {
             <div className="p-4">
               <div className="flex items-center justify-end mb-3">
         <button
-          onClick={runAnalysis}
-          disabled={isLoading}
-          className="text-xs px-3 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-400"
-        >
-          {isLoading ? 'Analyzing...' : 'Analyze'}
-        </button>
-        <button
           onClick={stopAnalysis}
           disabled={!isLoading}
-          className="ml-2 text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:bg-gray-300"
+          className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:bg-gray-300"
         >
           Stop
         </button>
       </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
-      {!error && !result && !streamText && <p className="text-xs text-gray-500">Run analysis to get management feedback.</p>}
+      {!error && !result && !streamText && <p className="text-xs text-gray-500">Starting analysis...</p>}
       {streamText && (
         <div className="mb-3 p-2 rounded border border-gray-200 bg-gray-50">
           <div className="text-[11px] font-medium text-gray-500 mb-1">Live model output</div>

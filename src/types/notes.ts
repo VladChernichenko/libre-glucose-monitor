@@ -41,6 +41,7 @@ export const MEAL_CATEGORIES = [
   'Lunch',
   'Dinner',
   'Snack',
+  'Pre-bolus',
   'Correction',
   'Other'
 ] as const;
