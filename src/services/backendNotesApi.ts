@@ -57,7 +57,6 @@ const notesApiClient = axios.create({
 notesApiClient.interceptors.request.use((config) => {
   // Check if user is still authenticated or logout is in progress
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
-    console.log('🚫 Blocking notes API request - user not authenticated or logout in progress');
     return Promise.reject(new Error('User not authenticated or logout in progress'));
   }
   
@@ -86,6 +85,10 @@ notesApiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    if (error?.message === 'User not authenticated or logout in progress') {
+      return Promise.reject(error);
+    }
 
     console.error('❌ Notes API Response Error:', {
       status: error.response?.status,
@@ -277,6 +280,10 @@ export const backendNotesApi = {
    * Test connection to notes API
    */
   async testConnection(): Promise<boolean> {
+    if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
+      return false;
+    }
+
     try {
       console.log('🔍 Testing notes API connection...');
       // Try to get notes first (this will test authentication too)
@@ -284,14 +291,12 @@ export const backendNotesApi = {
       console.log('✅ Notes API connection test successful:', response.status);
       return response.status === 200;
     } catch (error) {
-      console.error('❌ Notes API connection test failed:', error);
       // Try a simpler health check as fallback
       try {
         const healthResponse = await notesApiClient.get('/health');
         console.log('✅ Notes API health check successful:', healthResponse.status);
         return healthResponse.status === 200;
-      } catch (healthError) {
-        console.error('❌ Notes API health check also failed:', healthError);
+      } catch (_healthError) {
         return false;
       }
     }

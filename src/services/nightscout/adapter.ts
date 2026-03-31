@@ -1,5 +1,6 @@
 import { NightscoutEntry, NightscoutDeviceStatus } from './types';
 import { GlucoseReading } from '../../types/libre';
+import { nightscoutDirectionToArrow } from '../../utils/nightscoutTrend';
 
 export class NightscoutDataAdapter {
   static convertEntryToGlucoseReading(entry: NightscoutEntry): GlucoseReading {
@@ -10,25 +11,15 @@ export class NightscoutDataAdapter {
       timestamp: new Date(entry.date),
       value: mmolL,
       trend: this.convertTrendToNumber(entry.direction),
-      trendArrow: this.convertTrendToArrow(entry.direction),
+      trendArrow: nightscoutDirectionToArrow(entry.direction),
       status: this.calculateGlucoseStatus(mmolL),
       unit: 'mmol/L',
     };
   }
 
+  /** @deprecated Prefer {@link nightscoutDirectionToArrow} from `utils/nightscoutTrend`. */
   static convertTrendToArrow(direction: string): string {
-    const trendMap: { [key: string]: string } = {
-      'DoubleUp': '↗↗',
-      'SingleUp': '↗',
-      'FortyFiveUp': '↗',
-      'Flat': '→',
-      'FortyFiveDown': '↘',
-      'SingleDown': '↘',
-      'DoubleDown': '↘↘',
-      'NOT COMPUTABLE': '→',
-      'RATE OUT OF RANGE': '→',
-    };
-    return trendMap[direction] || '→';
+    return nightscoutDirectionToArrow(direction);
   }
 
   static calculateGlucoseStatus(value: number): 'low' | 'normal' | 'high' | 'critical' {

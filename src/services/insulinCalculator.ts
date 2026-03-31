@@ -18,32 +18,62 @@ export interface ActiveInsulin {
 }
 
 export class InsulinCalculator {
-  // Fiasp insulin constants
-  private static readonly HALF_LIFE_MINUTES = 42; // 42 minutes
-  private static readonly HALF_LIFE_HOURS = 42 / 60; // 0.7 hours
-  private static readonly PEAK_TIME_MINUTES = 75; // 75 minutes (average of 60-90)
-  private static readonly DURATION_HOURS = 4; // 4 hours (conservative estimate)
-  
+  /** DIA (hours); bolus IOB is 0 after this. */
+  private static readonly DURATION_HOURS = 4;
+  /** OpenAPS "ultra-rapid" peak (Fiasp-class), minutes. */
+  private static readonly PEAK_TIME_MINUTES = 55;
+  /** Legacy: timeline "near peak" band width. */
+  private static readonly HALF_LIFE_MINUTES = 42;
+
   /**
-   * Calculate remaining insulin units at a given time
-   * Uses exponential decay formula: remaining = initial * (0.5)^(time/halfLife)
+   * OpenAPS oref0 exponential IOB (Loop #388), ported from lib/iob/calculate.js.
+   * Matches backend InsulinCalculatorService.iobOpenApsExponential.
    */
-  static calculateRemainingInsulin(
-    dose: InsulinDose, 
-    currentTime: Date
+  static iobOpenApsExponential(
+    insulinUnits: number,
+    minsAgo: number,
+    diaHours: number,
+    peakMinutes: number
   ): number {
-    const timeDiffMinutes = (currentTime.getTime() - dose.timestamp.getTime()) / (1000 * 60);
-    
-    // If beyond duration, no insulin remains
-    if (timeDiffMinutes > this.DURATION_HOURS * 60) {
+    const end = diaHours * 60;
+    const peak = peakMinutes;
+    if (minsAgo < 0 || minsAgo >= end || insulinUnits <= 0) {
       return 0;
     }
-    
-    // Calculate remaining using half-life formula
-    const halfLives = timeDiffMinutes / this.HALF_LIFE_MINUTES;
-    const remainingUnits = dose.units * Math.pow(0.5, halfLives);
-    
-    return Math.max(0, remainingUnits);
+    const denom = 1 - (2 * peak) / end;
+    if (Math.abs(denom) < 1e-5) {
+      return insulinUnits * Math.max(0, 1 - minsAgo / end);
+    }
+    const tau = (peak * (1 - peak / end)) / denom;
+    const a = (2 * tau) / end;
+    const expNegEndOverTau = Math.exp(-end / tau);
+    const s = 1 / (1 - a + (1 + a) * expNegEndOverTau);
+    const expNegTOverTau = Math.exp(-minsAgo / tau);
+    const bracket =
+      ((minsAgo * minsAgo) / (tau * end * (1 - a)) - minsAgo / tau - 1) * expNegTOverTau + 1;
+    let iobContrib = insulinUnits * (1 - s * (1 - a) * bracket);
+    if (!Number.isFinite(iobContrib)) {
+      iobContrib = insulinUnits * Math.max(0, 1 - minsAgo / end);
+    }
+    return Math.max(0, Math.min(insulinUnits, iobContrib));
+  }
+
+  /**
+   * IOB for one bolus at currentTime (future doses contribute 0; OpenAPS exponential curve).
+   */
+  static calculateRemainingInsulin(dose: InsulinDose, currentTime: Date): number {
+    const u = dose.units;
+    if (u <= 0 || !dose.timestamp) {
+      return 0;
+    }
+    const minsAgo = (currentTime.getTime() - dose.timestamp.getTime()) / (1000 * 60);
+    if (minsAgo < 0) {
+      return 0;
+    }
+    if (minsAgo >= this.DURATION_HOURS * 60) {
+      return 0;
+    }
+    return this.iobOpenApsExponential(u, minsAgo, this.DURATION_HOURS, this.PEAK_TIME_MINUTES);
   }
   
   /**
@@ -76,7 +106,7 @@ export class InsulinCalculator {
       
       // Check if this is peak time
       const minutesSinceDose = hour * 60;
-      const isPeak = Math.abs(minutesSinceDose - this.PEAK_TIME_MINUTES) <= 15; // Within 15 min of peak
+      const isPeak = Math.abs(minutesSinceDose - InsulinCalculator.PEAK_TIME_MINUTES) <= 15;
       
       timeline.push({
         timestamp: currentTime,
@@ -118,7 +148,7 @@ export class InsulinCalculator {
       // Check if any dose is at peak
       const isPeak = doses.some(dose => {
         const minutesSinceDose = (currentTime.getTime() - dose.timestamp.getTime()) / (1000 * 60);
-        return Math.abs(minutesSinceDose - this.PEAK_TIME_MINUTES) <= 15;
+        return Math.abs(minutesSinceDose - InsulinCalculator.PEAK_TIME_MINUTES) <= 15;
       });
       
       timeline.push({

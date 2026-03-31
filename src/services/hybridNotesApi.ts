@@ -1,6 +1,7 @@
 import { GlucoseNote, NoteInputData } from '../types/notes';
 import { backendNotesApi } from './backendNotesApi';
 import { notesStorageService } from './notesStorage';
+import { authService } from './authService';
 
 export interface NotesApiService {
   // Notes CRUD operations
@@ -42,10 +43,14 @@ class HybridNotesApiService implements NotesApiService {
     try {
       console.log('🔄 Initializing Notes API service...');
       
-      // Test backend connection
-      console.log('🔍 Testing backend connection...');
-      const isBackendAvailable = await backendNotesApi.testConnection();
-      this.useBackend = isBackendAvailable;
+      // Test backend connection only for authenticated users
+      if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
+        this.useBackend = false;
+      } else {
+        console.log('🔍 Testing backend connection...');
+        const isBackendAvailable = await backendNotesApi.testConnection();
+        this.useBackend = isBackendAvailable;
+      }
       
       console.log(`📝 Notes API: Using ${this.useBackend ? 'backend' : 'localStorage'} storage`);
       
@@ -63,9 +68,13 @@ class HybridNotesApiService implements NotesApiService {
   }
 
   async isBackendAvailable(): Promise<boolean> {
+    if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
+      return false;
+    }
+
     try {
       return await backendNotesApi.testConnection();
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

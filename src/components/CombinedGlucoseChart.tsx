@@ -32,6 +32,10 @@ interface ChartDataPoint {
   isPrediction?: boolean;
 }
 
+/** Min time between glucose value labels on the chart (reduces overlap when data is dense). */
+const GLUCOSE_LABEL_MIN_GAP_MS = 45 * 60 * 1000;
+const GLUCOSE_LABEL_MAX_COUNT = 24;
+
 const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({ 
   glucoseData, 
   iobData, 
@@ -128,7 +132,22 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return extremes;
   };
 
-  const extremePoints = findLocalExtremes(chartData);
+  const rawExtremePoints = findLocalExtremes(chartData);
+
+  const extremePoints = useMemo(() => {
+    const sorted = [...rawExtremePoints].sort((a, b) => a.point.time - b.point.time);
+    const picked: typeof sorted = [];
+    let lastTime = -Infinity;
+    for (const ex of sorted) {
+      if (ex.point.time - lastTime >= GLUCOSE_LABEL_MIN_GAP_MS) {
+        picked.push(ex);
+        lastTime = ex.point.time;
+      }
+    }
+    if (picked.length <= GLUCOSE_LABEL_MAX_COUNT) return picked;
+    const step = Math.ceil(picked.length / GLUCOSE_LABEL_MAX_COUNT);
+    return picked.filter((_, i) => i % step === 0);
+  }, [rawExtremePoints]);
 
   const getValueColor = (value: number): string => {
     return getGlucoseColor(value);

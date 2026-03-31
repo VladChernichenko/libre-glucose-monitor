@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
+import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
+import AIInsightPanel from './AIInsightPanel';
 // Removed NightscoutConfigModal import - using global configuration now
 import NightscoutErrorBoundary from './NightscoutErrorBoundary';
 import NightscoutFallbackUI from './NightscoutFallbackUI';
@@ -19,6 +21,7 @@ import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services
 // Removed nightscoutConfigApi import - using global configuration now
 import { dataSourceConfigApi } from '../services/dataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
+import { nightscoutDirectionToArrow } from '../utils/nightscoutTrend';
 
 interface DataStatus {
   source: 'nightscout' | 'stored' | 'demo' | 'error';
@@ -64,6 +67,7 @@ const EnhancedDashboard: React.FC = () => {
 
   // Settings and modals
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
+  const [isInsulinSettingsOpen, setIsInsulinSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
   const [isDataSourceConfigOpen, setIsDataSourceConfigOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -74,20 +78,6 @@ const EnhancedDashboard: React.FC = () => {
   // Removed helper functions to prevent dependency loops
 
   // Helper functions for Nightscout data conversion
-  const convertTrendToArrow = (direction: string): string => {
-    const trendMap: { [key: string]: string } = {
-      'DoubleUp': '↗↗',
-      'SingleUp': '↗',
-      'FortyFiveUp': '↗',
-      'Flat': '→',
-      'FortyFiveDown': '↘',
-      'SingleDown': '↘',
-      'DoubleDown': '↘↘',
-      'NOT COMPUTABLE': '→',
-      'RATE OUT OF RANGE': '→',
-    };
-    return trendMap[direction] || '→';
-  };
   const convertToMmolL = (mgdL: number): number => {
     return Math.round((mgdL / 18) * 10) / 10;
   };
@@ -117,7 +107,7 @@ const EnhancedDashboard: React.FC = () => {
           timestamp: new Date(entry.date),
           value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
-          trendArrow: convertTrendToArrow(entry.direction),
+          trendArrow: nightscoutDirectionToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
           unit: 'mmol/L',
           originalTimestamp: new Date(entry.date),
@@ -172,7 +162,7 @@ const EnhancedDashboard: React.FC = () => {
           timestamp: new Date(entry.date),
           value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
-          trendArrow: convertTrendToArrow(entry.direction),
+          trendArrow: nightscoutDirectionToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
           unit: 'mmol/L',
           originalTimestamp: new Date(entry.date),
@@ -200,7 +190,7 @@ const EnhancedDashboard: React.FC = () => {
             timestamp: new Date(entry.date),
             value: convertToMmolL(entry.sgv),
             trend: entry.trend || 0,
-            trendArrow: convertTrendToArrow(entry.direction),
+            trendArrow: nightscoutDirectionToArrow(entry.direction),
             status: calculateGlucoseStatus(entry.sgv),
             unit: 'mmol/L',
             originalTimestamp: new Date(entry.date),
@@ -286,7 +276,7 @@ const EnhancedDashboard: React.FC = () => {
                 timestamp: new Date(reading.date),
                 value: convertToMmolL(reading.sgv),
                 trend: reading.trend || 0,
-                trendArrow: convertTrendToArrow(reading.direction),
+                trendArrow: nightscoutDirectionToArrow(reading.direction),
                 status: calculateGlucoseStatus(reading.sgv),
                 unit: 'mmol/L',
                 originalTimestamp: new Date(reading.date),
@@ -313,7 +303,7 @@ const EnhancedDashboard: React.FC = () => {
                 timestamp: new Date(entry.date),
                 value: convertToMmolL(entry.sgv),
                 trend: entry.trend || 0,
-                trendArrow: convertTrendToArrow(entry.direction),
+                trendArrow: nightscoutDirectionToArrow(entry.direction),
                 status: calculateGlucoseStatus(entry.sgv),
                 unit: 'mmol/L',
                 originalTimestamp: new Date(entry.date),
@@ -396,7 +386,7 @@ const EnhancedDashboard: React.FC = () => {
             timestamp: new Date(reading.date),
             value: convertToMmolL(reading.sgv),
             trend: reading.trend || 0,
-            trendArrow: convertTrendToArrow(reading.direction),
+            trendArrow: nightscoutDirectionToArrow(reading.direction),
             status: calculateGlucoseStatus(reading.sgv),
             unit: 'mmol/L',
             originalTimestamp: new Date(reading.date),
@@ -416,7 +406,7 @@ const EnhancedDashboard: React.FC = () => {
             timestamp: new Date(entry.date),
             value: convertToMmolL(entry.sgv),
             trend: entry.trend || 0,
-            trendArrow: convertTrendToArrow(entry.direction),
+            trendArrow: nightscoutDirectionToArrow(entry.direction),
             status: calculateGlucoseStatus(entry.sgv),
             unit: 'mmol/L',
             originalTimestamp: new Date(entry.date),
@@ -473,6 +463,22 @@ const EnhancedDashboard: React.FC = () => {
       fetchCalculations();
     }
   }, [currentReading, isAuthenticated]);
+
+  const openNoteForEdit = useCallback((note: GlucoseNote) => {
+    setEditingNote(note);
+    setIsNoteModalOpen(true);
+  }, []);
+
+  const recentNotesLast12Hours = useMemo(() => {
+    const now = Date.now();
+    const startTime = now - (12 * 60 * 60 * 1000);
+    return notes
+      .filter((note) => {
+        const noteTime = note.timestamp.getTime();
+        return noteTime >= startTime && noteTime <= now;
+      })
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [notes]);
 
   // Only show fallback UI for critical errors, not for normal initialization
   const shouldShowFallback = false; // Always show dashboard with chart
@@ -637,7 +643,7 @@ const EnhancedDashboard: React.FC = () => {
                   glucoseData={glucoseHistory}
                   iobData={[]}
                   notes={notes}
-                  onNoteClick={(note) => setEditingNote(note)}
+                  onNoteClick={openNoteForEdit}
                 />
               </div>
             </div>
@@ -657,18 +663,18 @@ const EnhancedDashboard: React.FC = () => {
                 </div>
                 
                 <div className="flex-1 min-h-0 overflow-y-auto">
-                {notes.length === 0 ? (
+                {recentNotesLast12Hours.length === 0 ? (
                   <div className="text-center py-4">
                     <div className="text-gray-400 text-sm mb-2">Notes</div>
-                    <p className="text-xs text-gray-500">No notes yet</p>
+                    <p className="text-xs text-gray-500">No notes in last 12h</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {notes.slice(0, 8).map((note) => (
+                    {recentNotesLast12Hours.slice(0, 8).map((note) => (
                       <div
                         key={note.id}
                         className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors"
-                        onClick={() => setEditingNote(note)}
+                        onClick={() => openNoteForEdit(note)}
                       >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                           <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
@@ -718,6 +724,8 @@ const EnhancedDashboard: React.FC = () => {
                 </div>
               </div>
 
+              <AIInsightPanel />
+
               {/* Compact Quick Actions */}
               <div className="bg-white rounded-lg shadow p-3 shrink-0">
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Actions</h3>
@@ -727,6 +735,12 @@ const EnhancedDashboard: React.FC = () => {
                     className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
                   >
                     COB Settings
+                  </button>
+                  <button
+                    onClick={() => setIsInsulinSettingsOpen(true)}
+                    className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
+                  >
+                    Insulin types
                   </button>
                   <button
                     onClick={() => setIsDataSourceConfigOpen(true)}
@@ -746,19 +760,15 @@ const EnhancedDashboard: React.FC = () => {
               setIsNoteModalOpen(false);
               setEditingNote(null);
             }}
-            onSave={async (note) => {
+            onSave={async () => {
+              // NoteInputModal already persisted via hybridNotesApi; only refresh local list.
               try {
-                if (editingNote) {
-                  await hybridNotesApiService.updateNote(editingNote.id, note);
-                } else {
-                  await hybridNotesApiService.addNote(note);
-                }
                 const updatedNotes = await hybridNotesApiService.getNotes();
                 setNotes(updatedNotes);
                 setIsNoteModalOpen(false);
                 setEditingNote(null);
               } catch (error) {
-                console.error('Failed to save note:', error);
+                console.error('Failed to refresh notes after save:', error);
               }
             }}
             initialData={editingNote || undefined}
@@ -790,6 +800,25 @@ const EnhancedDashboard: React.FC = () => {
                 }
               }}
               onClose={() => setIsCOBSettingsOpen(false)}
+            />
+          )}
+
+          {isInsulinSettingsOpen && (
+            <InsulinPreferencesSettings
+              onClose={() => setIsInsulinSettingsOpen(false)}
+              onSaved={() => {
+                if (!currentReading) return;
+                void (async () => {
+                  try {
+                    const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(
+                      currentReading.value
+                    );
+                    setGlucoseCalculations(calculationsData);
+                  } catch (err) {
+                    console.error('Failed to refresh glucose calculations after insulin save:', err);
+                  }
+                })();
+              }}
             />
           )}
 
