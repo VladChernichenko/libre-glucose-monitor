@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const STREAM_STUCK_TIMEOUT_MS = 20000;
+const LONG_DECIMAL_PATTERN = /\b\d+\.\d{2,}\b/g;
 
 const AIInsightPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,6 +12,13 @@ const AIInsightPanel: React.FC = () => {
   const [streamText, setStreamText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamUsage, setStreamUsage] = useState<{
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    contextWindowTokens?: number;
+    remainingContextTokens?: number;
+  } | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const stoppedByUserRef = useRef(false);
   const stoppedByTimeoutRef = useRef(false);
@@ -21,6 +29,14 @@ const AIInsightPanel: React.FC = () => {
     stoppedByUserRef.current = true;
     streamAbortRef.current?.abort();
     setIsLoading(false);
+  };
+
+  const normalizeNumericPrecision = (text: string): string => {
+    return text.replace(LONG_DECIMAL_PATTERN, (raw) => {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return raw;
+      return value.toFixed(1);
+    });
   };
 
   const runAnalysis = async () => {
@@ -50,6 +66,7 @@ const AIInsightPanel: React.FC = () => {
       setError(null);
       setResult(null);
       setStreamText('');
+      setStreamUsage(null);
       await aiInsightsApi.analyzeRetrospectiveStream(
         12,
         (event: AiStreamEvent) => {
@@ -61,6 +78,13 @@ const AIInsightPanel: React.FC = () => {
             setResult(event.result);
           } else if (event.type === 'done') {
             lastStreamActivityAtRef.current = Date.now();
+            setStreamUsage({
+              promptTokens: event.promptTokens,
+              completionTokens: event.completionTokens,
+              totalTokens: event.totalTokens,
+              contextWindowTokens: event.contextWindowTokens,
+              remainingContextTokens: event.remainingContextTokens,
+            });
           } else if (event.type === 'error') {
             lastStreamActivityAtRef.current = Date.now();
             setError(event.message || 'Failed to run AI analysis');
@@ -135,11 +159,16 @@ const AIInsightPanel: React.FC = () => {
             <div className="p-4">
               <div className="flex items-center justify-end mb-3">
         <button
-          onClick={stopAnalysis}
-          disabled={!isLoading}
+          onClick={() => {
+            if (isLoading) {
+              stopAnalysis();
+            } else {
+              setIsOpen(false);
+            }
+          }}
           className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:bg-gray-300"
         >
-          Stop
+          {isLoading ? 'Stop' : 'Close'}
         </button>
       </div>
 
@@ -162,16 +191,28 @@ const AIInsightPanel: React.FC = () => {
                 em: ({ children }) => <em className="italic">{children}</em>,
               }}
             >
-              {streamText}
+              {normalizeNumericPrecision(streamText)}
             </ReactMarkdown>
           </div>
+          {streamUsage && (
+            <div className="mt-2 text-[11px] text-gray-600">
+              Tokens used: {streamUsage.totalTokens ?? 0} (prompt {streamUsage.promptTokens ?? 0}, completion {streamUsage.completionTokens ?? 0}){' '}
+              | context: {streamUsage.contextWindowTokens ?? 0} | remaining: {streamUsage.remainingContextTokens ?? 0}
+            </div>
+          )}
         </div>
       )}
 
       {result && (
         <div className="space-y-2 text-sm">
-          <p className="text-gray-800"><span className="font-medium">Summary:</span> {result.summary}</p>
+          <p className="text-gray-800"><span className="font-medium">Summary:</span> {normalizeNumericPrecision(result.summary)}</p>
           <p className="text-gray-600">Confidence: {(result.confidence * 100).toFixed(0)}% | Model: {result.modelId}</p>
+          {(result.totalTokens ?? result.remainingContextTokens) !== undefined && (
+            <p className="text-[11px] text-gray-600">
+              Tokens used: {result.totalTokens ?? 0} (prompt {result.promptTokens ?? 0}, completion {result.completionTokens ?? 0}) | context:{' '}
+              {result.contextWindowTokens ?? 0} | remaining: {result.remainingContextTokens ?? 0}
+            </p>
+          )}
 
           <div>
             <div className="font-medium text-gray-800">Likely mistakes</div>
@@ -180,7 +221,7 @@ const AIInsightPanel: React.FC = () => {
             ) : (
               <ul className="list-disc list-inside text-gray-700">
                 {result.likelyMistakes.map((m) => (
-                  <li key={m.code}>{m.description}</li>
+                  <li key={m.code}>{normalizeNumericPrecision(m.description)}</li>
                 ))}
               </ul>
             )}
@@ -193,7 +234,7 @@ const AIInsightPanel: React.FC = () => {
             ) : (
               <ul className="list-disc list-inside text-gray-700">
                 {result.recommendations.map((r) => (
-                  <li key={r.code}>{r.text}</li>
+                  <li key={r.code}>{normalizeNumericPrecision(r.text)}</li>
                 ))}
               </ul>
             )}

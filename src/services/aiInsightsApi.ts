@@ -34,6 +34,11 @@ export interface AiAnalysisResponse {
   confidence: number;
   disclaimer: string;
   modelId: string;
+  contextWindowTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  remainingContextTokens?: number;
   latencyMs: number;
   generatedAt: string;
 }
@@ -41,7 +46,14 @@ export interface AiAnalysisResponse {
 export type AiStreamEvent =
   | { type: 'token'; token: string }
   | { type: 'result'; result: AiAnalysisResponse }
-  | { type: 'done' }
+  | {
+      type: 'done';
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      contextWindowTokens?: number;
+      remainingContextTokens?: number;
+    }
   | { type: 'error'; message: string };
 
 const config = getEnvironmentConfig();

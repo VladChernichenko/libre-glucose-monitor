@@ -77,6 +77,15 @@ const EnhancedDashboard: React.FC = () => {
   // Removed nightscoutConfig state - using global configuration now
 
   // Removed helper functions to prevent dependency loops
+  const refreshGlucoseCalculations = useCallback(async () => {
+    if (!isAuthenticated || !currentReading) return;
+    try {
+      const calculationsData = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
+      setGlucoseCalculations(calculationsData);
+    } catch (err) {
+      console.error('Failed to refresh glucose calculations:', err);
+    }
+  }, [isAuthenticated, currentReading]);
 
   // Helper functions for Nightscout data conversion
   const convertToMmolL = (mgdL: number): number => {
@@ -476,7 +485,14 @@ const EnhancedDashboard: React.FC = () => {
   }, []);
 
   const preBolusTimerLabel = useMemo(() => {
-    const preBolusNotes = notes
+    const sortedNotes = [...notes]
+      .map((note) => ({
+        ...note,
+        timestamp: note.timestamp instanceof Date ? note.timestamp : new Date(note.timestamp as any),
+      }))
+      .filter((note) => !Number.isNaN(note.timestamp.getTime()))
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const preBolusNotes = sortedNotes
       .filter((note) => (note.insulin ?? 0) > 0)
       .filter((note) => (note.meal || '').toLowerCase() === 'pre-bolus' || (note.meal || '').toLowerCase() === 'prebolus')
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -486,21 +502,43 @@ const EnhancedDashboard: React.FC = () => {
     }
 
     const latest = preBolusNotes[0];
-    const elapsedSec = Math.max(0, Math.floor((nowTick - latest.timestamp.getTime()) / 1000));
+    const mealAfterPreBolus = sortedNotes.find((note) => {
+      const noteTime = note.timestamp.getTime();
+      const bolusTime = latest.timestamp.getTime();
+      if (noteTime < bolusTime) return false;
+      if ((note.carbs ?? 0) <= 0) return false;
+      const mealType = (note.meal || '').toLowerCase();
+      return mealType !== 'correction' && mealType !== 'pre-bolus' && mealType !== 'prebolus';
+    });
+
+    const stopAt = mealAfterPreBolus ? mealAfterPreBolus.timestamp.getTime() : nowTick;
+    const elapsedSec = Math.max(0, Math.floor((stopAt - latest.timestamp.getTime()) / 1000));
     const minutes = Math.floor(elapsedSec / 60);
     const seconds = elapsedSec % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }, [notes, nowTick]);
 
   const recentNotesLast12Hours = useMemo(() => {
+    const normalizedNotes = notes
+      .map((note) => ({
+        ...note,
+        timestamp: note.timestamp instanceof Date ? note.timestamp : new Date(note.timestamp as any),
+      }))
+      .filter((note) => !Number.isNaN(note.timestamp.getTime()));
     const now = Date.now();
     const startTime = now - (12 * 60 * 60 * 1000);
-    return notes
+    const inLast12Hours = normalizedNotes
       .filter((note) => {
         const noteTime = note.timestamp.getTime();
         return noteTime >= startTime && noteTime <= now;
       })
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      // Chat-like flow: oldest at top, newest at bottom.
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    if (inLast12Hours.length > 0) {
+      return inLast12Hours;
+    }
+    // Fallback: show latest notes even if 12h window misses due timezone/legacy timestamps.
+    return normalizedNotes.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [notes]);
 
   // Only show fallback UI for critical errors, not for normal initialization
@@ -700,7 +738,7 @@ const EnhancedDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {recentNotesLast12Hours.slice(0, 8).map((note) => (
+                    {recentNotesLast12Hours.slice(-8).map((note) => (
                       <div
                         key={note.id}
                         className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors"
@@ -738,6 +776,7 @@ const EnhancedDashboard: React.FC = () => {
                                 await hybridNotesApiService.deleteNote(note.id);
                                 const updatedNotes = await hybridNotesApiService.getNotes();
                                 setNotes(updatedNotes);
+                                await refreshGlucoseCalculations();
                               } catch (error) {
                                 console.error('Failed to delete note:', error);
                               }
@@ -795,6 +834,7 @@ const EnhancedDashboard: React.FC = () => {
               try {
                 const updatedNotes = await hybridNotesApiService.getNotes();
                 setNotes(updatedNotes);
+                await refreshGlucoseCalculations();
                 setIsNoteModalOpen(false);
                 setEditingNote(null);
               } catch (error) {
@@ -824,6 +864,7 @@ const EnhancedDashboard: React.FC = () => {
                   };
                   await cobSettingsApi.saveCOBSettings(settings);
                   setCobSettings(settings);
+                  await refreshGlucoseCalculations();
                   setIsCOBSettingsOpen(false);
                 } catch (error) {
                   console.error('Failed to save COB settings:', error);
