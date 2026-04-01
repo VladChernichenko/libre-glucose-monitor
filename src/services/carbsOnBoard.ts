@@ -1,3 +1,5 @@
+import { InsulinCalculator } from './insulinCalculator';
+
 export interface COBConfig {
   carbRatio: number;        // mmol/L increase per 10g carbs - default: 2.0
   isf: number;              // insulin sensitivity factor (mmol/L per unit) - default: 1.0
@@ -48,7 +50,7 @@ export class CarbsOnBoardService {
   // Update configuration
   updateConfig(newConfig: Partial<COBConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('✅ COB configuration updated:', this.config);
+    console.log('[COB] configuration updated:', this.config);
   }
 
   // Get current configuration
@@ -86,7 +88,6 @@ export class CarbsOnBoardService {
         });
       }
 
-      // Calculate insulin on board (IOB) - insulin has its own half-life
       const remainingInsulin = this.calculateRemainingInsulin(entry.insulin, ageMinutes);
       if (remainingInsulin > 0.01) { // Only count if more than 0.01u remaining
         totalIOB += remainingInsulin;
@@ -119,16 +120,13 @@ export class CarbsOnBoardService {
     return Math.max(0, remaining);
   }
 
-  // Calculate remaining insulin using insulin half-life (typically 3-4 hours)
+  /** IOB from bolus insulin; OpenAPS exponential curve (aligned with backend). */
   private calculateRemainingInsulin(initialInsulin: number, ageMinutes: number): number {
-    if (ageMinutes <= 0) return initialInsulin;
-    
-    // Insulin typically has a half-life of about 3-4 hours (180-240 minutes)
-    // Using 3.5 hours (210 minutes) as a reasonable default
-    const insulinHalfLife = 210; // minutes
-    const remaining = initialInsulin * Math.pow(0.5, ageMinutes / insulinHalfLife);
-    
-    return Math.max(0, remaining);
+    if (initialInsulin <= 0) return 0;
+    if (ageMinutes < 0) return 0;
+    const diaHours = 4;
+    const peakMinutes = 55;
+    return InsulinCalculator.iobOpenApsExponential(initialInsulin, ageMinutes, diaHours, peakMinutes);
   }
 
   // Estimate glucose impact considering both carbs and insulin

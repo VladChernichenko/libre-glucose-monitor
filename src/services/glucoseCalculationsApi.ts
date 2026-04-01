@@ -28,6 +28,12 @@ export interface GlucoseCalculationsResponse {
   
   // Breakdown of factors contributing to prediction
   factors: PredictionFactors;
+
+  // Minute-by-minute prediction path (future)
+  predictionPath?: Array<{
+    timestamp: string;
+    predictedGlucose: number;
+  }>;
 }
 
 export interface PredictionFactors {

@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import NightscoutConfigModal from './NightscoutConfigModal';
-import { useAuth } from '../contexts/AuthContext';
+import React from 'react';
+// Removed NightscoutConfigModal import - using global configuration now
 
 interface NightscoutFallbackUIProps {
   onRetry: () => void;
@@ -17,9 +16,6 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
   isRetrying = false,
   needsConfiguration = false
 }) => {
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const { logout } = useAuth();
-
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6 m-4">
       <div className="text-center">
@@ -41,10 +37,10 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
         </p>
         
         <ul className="text-sm text-gray-600 text-left max-w-md mx-auto mb-6 space-y-1">
-          <li>• Network connectivity issues</li>
-          <li>• Nightscout site is temporarily down</li>
-          <li>• Incorrect configuration settings</li>
-          <li>• Authentication problems</li>
+          <li>Network connectivity issues</li>
+          <li>Nightscout site is temporarily down</li>
+          <li>Incorrect configuration settings</li>
+          <li>Authentication problems</li>
         </ul>
 
         {error && (
@@ -80,60 +76,32 @@ const NightscoutFallbackUI: React.FC<NightscoutFallbackUIProps> = ({
           </button>
 
           <button
-            onClick={() => setShowConfigModal(true)}
+            onClick={onConfigure}
             className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Configure Nightscout
-          </button>
-
-          <button
-            onClick={onConfigure}
-            className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            View Settings
+            Configure data source
           </button>
         </div>
 
         <div className="mt-6 p-4 bg-blue-50 rounded-md">
           <h4 className="text-sm font-medium text-blue-900 mb-2">
-            💡 What you can do:
+            What you can do:
           </h4>
           <ul className="text-xs text-blue-800 space-y-1">
-            <li>• Check your internet connection</li>
-            <li>• Verify your Nightscout site is running</li>
-            <li>• Review your Nightscout configuration</li>
-            <li>• Try refreshing the page</li>
-            <li>• Contact support if the issue persists</li>
+            <li>Check your internet connection</li>
+            <li>Verify your Nightscout site is running</li>
+            <li>Review your Nightscout configuration</li>
+            <li>Try refreshing the page</li>
+            <li>Contact support if the issue persists</li>
           </ul>
         </div>
       </div>
 
-      <NightscoutConfigModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-        onLogout={logout}
-        onSave={async (config) => {
-          try {
-            console.log('🔧 NightscoutFallbackUI: Saving configuration:', config);
-            // Import the API service dynamically to avoid circular dependencies
-            const { nightscoutConfigApi } = await import('../services/nightscoutConfigApi');
-            await nightscoutConfigApi.saveConfig(config);
-            console.log('🔧 NightscoutFallbackUI: Configuration saved successfully');
-            setShowConfigModal(false);
-            onRetry();
-          } catch (error) {
-            console.error('🔧 NightscoutFallbackUI: Failed to save configuration:', error);
-            throw error; // Re-throw to let the modal handle the error
-          }
-        }}
-      />
+      {/* NightscoutConfigModal removed - using global configuration now */}
     </div>
   );
 };

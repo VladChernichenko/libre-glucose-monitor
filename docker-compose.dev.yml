@@ -12,6 +12,8 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - DB_PASSWORD=dev_password
+      - APP_AI_OLLAMA_ENABLED=true
+      - APP_AI_OLLAMA_URL=http://ollama:11434/api/generate
     volumes:
       - ../IdeaProjects/glucose-monitor-be:/app
       - ./backend-logs:/app/logs
@@ -20,6 +22,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - ollama
 
   # Frontend Service (Development)
   frontend:
@@ -71,9 +74,21 @@ services:
     networks:
       - glucose-monitor-network
 
+  # Local LLM (Ollama)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: glucose-monitor-ollama-dev
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data_dev:/root/.ollama
+    networks:
+      - glucose-monitor-network
+
 volumes:
   postgres_data_dev:
   redis_data_dev:
+  ollama_data_dev:
 
 networks:
   glucose-monitor-network:

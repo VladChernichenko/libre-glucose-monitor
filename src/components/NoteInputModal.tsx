@@ -27,7 +27,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     insulin: 0,
     meal: 'Breakfast',
     comment: '',
-    glucoseValue: currentGlucose
+    glucoseValue: currentGlucose,
+    mockData: false
   });
 
   // Display values for inputs (empty string instead of 0 for better UX)
@@ -37,6 +38,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
 
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [manualMealSelection, setManualMealSelection] = useState(false);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -82,12 +84,14 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           meal: initialData.meal,
           comment: initialData.comment || '',
           glucoseValue: initialData.glucoseValue,
-          detailedInput: initialData.detailedInput || ''
+          detailedInput: initialData.detailedInput || '',
+          mockData: initialData.mockData ?? false
         });
         // Set display values for editing
         setDisplayValues({
           carbsInsulin: initialData.detailedInput || `${initialData.carbs > 0 ? initialData.carbs + 'g' : ''} ${initialData.insulin > 0 ? initialData.insulin + 'u' : ''}`.trim()
         });
+        setManualMealSelection(true);
       } else {
         // For add mode, start completely fresh with time-based meal type
         const currentTime = new Date();
@@ -98,12 +102,14 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           meal: getMealTypeByTime(currentTime),
           comment: '',
           glucoseValue: currentGlucose,
-          detailedInput: ''
+          detailedInput: '',
+          mockData: false
         });
         // Set display values for adding (completely empty)
         setDisplayValues({
           carbsInsulin: ''
         });
+        setManualMealSelection(false);
       }
       setErrors([]);
     }
@@ -121,11 +127,13 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         meal: getMealTypeByTime(currentTime),
         comment: '',
         glucoseValue: 0,
-        detailedInput: ''
+        detailedInput: '',
+        mockData: false
       });
       setDisplayValues({
         carbsInsulin: ''
       });
+      setManualMealSelection(false);
       setErrors([]);
     }
   }, [isOpen]);
@@ -186,10 +194,12 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         detailedInput: value
       }));
       
-      // Auto-update meal type based on new values
-      const smartMealType = getSmartMealType(carbs, insulin, formData.timestamp);
-      if (smartMealType !== formData.meal) {
-        setFormData(prev => ({ ...prev, meal: smartMealType }));
+      // Auto-update meal type only until user manually chooses a type.
+      if (!manualMealSelection) {
+        const smartMealType = getSmartMealType(carbs, insulin, formData.timestamp);
+        if (smartMealType !== formData.meal) {
+          setFormData(prev => ({ ...prev, meal: smartMealType }));
+        }
       }
     } else {
       // For other fields, allow normal input
@@ -230,8 +240,8 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       // Only carbs filled - likely a meal, use time-based selection
       return getMealTypeByTime(timestamp);
     } else if (carbs === 0 && insulin > 0) {
-      // Only insulin filled - likely a correction dose
-      return 'Correction';
+      // Only insulin filled - default to pre-bolus (user can manually select correction).
+      return 'Pre-bolus';
     } else {
       // Neither filled - use time-based meal type
       return getMealTypeByTime(timestamp);
@@ -240,12 +250,6 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Auto-select meal type based on inputs and time
-    const smartMealType = getSmartMealType(formData.carbs, formData.insulin, formData.timestamp);
-    if (smartMealType !== formData.meal) {
-      setFormData(prev => ({ ...prev, meal: smartMealType }));
-    }
     
     // Validate form data
     const validation = hybridNotesApiService.validateNoteData ? 
@@ -332,7 +336,10 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               <select
                 id="meal"
                 value={formData.meal}
-                onChange={(e) => handleInputChange('meal', e.target.value)}
+                onChange={(e) => {
+                  setManualMealSelection(true);
+                  handleInputChange('meal', e.target.value);
+                }}
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -400,6 +407,19 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               placeholder="What did you eat? Any special notes?"
               autoComplete="off"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="mockData"
+              type="checkbox"
+              checked={!!formData.mockData}
+              onChange={(e) => handleInputChange('mockData', e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="mockData" className="text-xs text-gray-700">
+              Mark as test/mock note (excluded from real-life interpretation)
+            </label>
           </div>
 
           {/* Error Display */}

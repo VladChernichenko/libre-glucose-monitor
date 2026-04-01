@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { COBConfig } from '../services/carbsOnBoard';
-import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 
 interface COBSettingsProps {
   config: COBConfig;
@@ -27,35 +26,17 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSettingsFromBackend = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const backendSettings = await cobSettingsApi.getCOBSettings();
-      
-      // Convert backend settings to frontend config format
-      const frontendConfig: LocalCOBConfig = {
-        carbRatio: backendSettings.carbRatio,
-        isf: backendSettings.isf,
-        carbHalfLife: backendSettings.carbHalfLife,
-        maxCOBDuration: backendSettings.maxCOBDuration
-      };
-      
-      setLocalConfig(frontendConfig);
-      setIsDirty(false);
-    } catch (error) {
-      console.error('Error loading COB settings from backend:', error);
-      setError('Failed to load settings from server');
-      // Fall back to local config
-      setLocalConfig(config);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [config]);
-
   useEffect(() => {
-    loadSettingsFromBackend();
-  }, [loadSettingsFromBackend]);
+    // Initialize from parent-provided config once when modal opens.
+    setLocalConfig({
+      carbRatio: config.carbRatio,
+      isf: config.isf,
+      carbHalfLife: config.carbHalfLife,
+      maxCOBDuration: config.maxCOBDuration,
+    });
+    setIsDirty(false);
+    setError(null);
+  }, [config.carbHalfLife, config.carbRatio, config.isf, config.maxCOBDuration]);
 
   const handleInputChange = (field: keyof LocalCOBConfig, value: string) => {
     const numericValue = value === '' ? '' : parseFloat(value);
@@ -87,22 +68,12 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
         maxCOBDuration: localConfig.maxCOBDuration as number
       };
       
-      // Convert frontend config to backend format
-      const backendSettings: COBSettingsData = {
-        carbRatio: validConfig.carbRatio,
-        isf: validConfig.isf,
-        carbHalfLife: validConfig.carbHalfLife,
-        maxCOBDuration: validConfig.maxCOBDuration
-      };
-      
-      await cobSettingsApi.saveCOBSettings(backendSettings);
-      
-      // Update parent component
-      onConfigChange(validConfig);
+      // Persist via parent callback to keep a single save path.
+      await Promise.resolve(onConfigChange(validConfig));
       setIsDirty(false);
       onClose();
     } catch (error) {
-      console.error('Error saving COB settings to backend:', error);
+      console.error('Error saving COB settings:', error);
       setError('Failed to save settings to server');
     } finally {
       setIsLoading(false);
@@ -283,6 +254,8 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
                   const hours = e.target.value === '' ? '' : parseFloat(e.target.value);
                   if (hours !== '' && !isNaN(hours)) {
                     handleInputChange('maxCOBDuration', (hours * 60).toString());
+                  } else if (e.target.value === '') {
+                    handleInputChange('maxCOBDuration', '');
                   }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

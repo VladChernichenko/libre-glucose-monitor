@@ -4,8 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import CombinedGlucoseChart from './CombinedGlucoseChart';
 import NoteInputModal from './NoteInputModal';
 import COBSettings from './COBSettings';
+import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
-import NightscoutConfigModal from './NightscoutConfigModal';
+import AIInsightPanel from './AIInsightPanel';
+// Removed NightscoutConfigModal import - using global configuration now
 import { generateDemoGlucoseData } from '../services/demoData';
 import { NightscoutProxyService } from '../services/nightscout/nightscoutProxyService';
 
@@ -18,9 +20,10 @@ import { hybridNotesApiService } from '../services/hybridNotesApi';
 // import { glucosePredictionService } from '../services/glucosePrediction';
 import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services/glucoseCalculationsApi';
-import { nightscoutConfigApi, NightscoutConfig } from '../services/nightscoutConfigApi';
+// Removed nightscoutConfigApi import - using global configuration now
 import { getEnvironmentConfig } from '../config/environments';
 import { logTimezoneInfo, getTimezoneDisplayName, getCurrentLocalTime } from '../utils/timezone';
+import { nightscoutDirectionToArrow, predictionTrendToArrow } from '../utils/nightscoutTrend';
 
 const Dashboard: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -44,11 +47,12 @@ const Dashboard: React.FC = () => {
   //   insulinOnBoard: 0
   // });
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
+  const [isInsulinSettingsOpen, setIsInsulinSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
   const [isNightscoutConfigOpen, setIsNightscoutConfigOpen] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
   const [glucoseCalculations, setGlucoseCalculations] = useState<GlucoseCalculationsResponse | null>(null);
-  const [nightscoutConfig, setNightscoutConfig] = useState<NightscoutConfig | null>(null);
+  // Removed nightscoutConfig state - using global configuration now
 
   // Backend predictions only - no local IOB calculation needed
   // const [iobData, setIobData] = useState<IOBProjection[]>([]);
@@ -58,26 +62,9 @@ const Dashboard: React.FC = () => {
   // Backend proxy service for Nightscout integration
   const [nightscoutProxy] = useState(() => {
     const config = getEnvironmentConfig();
-    console.log('🔧 Dashboard using backend URL:', config.backendUrl);
+    console.log('[Dashboard] Using backend URL:', config.backendUrl);
     return new NightscoutProxyService(config.backendUrl);
   });
-
-
-  // Helper functions for Nightscout data conversion
-  const convertTrendToArrow = (direction: string): string => {
-    const trendMap: { [key: string]: string } = {
-      'DoubleUp': '↗↗',
-      'SingleUp': '↗',
-      'FortyFiveUp': '↗',
-      'Flat': '→',
-      'FortyFiveDown': '↘',
-      'SingleDown': '↘',
-      'DoubleDown': '↘↘',
-      'NOT COMPUTABLE': '→',
-      'RATE OUT OF RANGE': '→',
-    };
-    return trendMap[direction] || '→';
-  };
 
   // Convert mg/dL to mmol/L (divide by 18)
   const convertToMmolL = (mgdL: number): number => {
@@ -110,15 +97,15 @@ const Dashboard: React.FC = () => {
 
   const fetchCOBSettings = useCallback(async () => {
     try {
-      console.log('🔗 Fetching COB settings from database...');
+      console.log('[Dashboard] Fetching COB settings from database...');
       const settings = await cobSettingsApi.getCOBSettings();
-      console.log('✅ COB settings loaded:', settings);
+      console.log('[Dashboard] COB settings loaded:', settings);
       setCobSettings(settings);
       
       // Settings are now handled entirely by backend calculations
-      console.log('✅ COB settings loaded for backend calculations:', settings);
+      console.log('[Dashboard] COB settings loaded for backend calculations:', settings);
     } catch (error) {
-      console.error('❌ Error fetching COB settings:', error);
+      console.error('[Dashboard] Error fetching COB settings:', error);
       // Use default settings if database fetch fails
       setCobSettings({
         carbRatio: 2.0,
@@ -131,24 +118,24 @@ const Dashboard: React.FC = () => {
 
   const fetchGlucoseCalculations = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping glucose calculations - user not authenticated');
+      console.log('[Dashboard] Skipping glucose calculations - user not authenticated');
       return;
     }
     
     if (!currentReading?.value) {
-      console.log('🔍 Skipping glucose calculations - no current reading');
+      console.log('[Dashboard] Skipping glucose calculations - no current reading');
       return;
     }
     
     try {
-      console.log('🔗 Fetching glucose calculations from backend...', {
+      console.log('[Dashboard] Fetching glucose calculations from backend...', {
         currentGlucose: currentReading.value,
         timestamp: new Date().toISOString()
       });
       const calculations = await glucoseCalculationsApi.getGlucoseCalculations(currentReading.value);
-      console.log('✅ Glucose calculations response:', calculations);
+      console.log('[Dashboard] Glucose calculations response:', calculations);
       
-      console.log('✅ Glucose calculations loaded:', {
+      console.log('[Dashboard] Glucose calculations loaded:', {
         activeCOB: calculations?.activeCarbsOnBoard,
         activeIOB: calculations?.activeInsulinOnBoard,
         prediction: calculations?.twoHourPrediction,
@@ -161,37 +148,34 @@ const Dashboard: React.FC = () => {
           typeof calculations.activeCarbsOnBoard === 'number' && 
           typeof calculations.activeInsulinOnBoard === 'number') {
         setGlucoseCalculations(calculations);
-        console.log('✅ Glucose calculations state updated:', {
+        console.log('[Dashboard] Glucose calculations state updated:', {
           activeCOB: calculations.activeCarbsOnBoard,
           activeIOB: calculations.activeInsulinOnBoard,
           prediction: calculations.twoHourPrediction
         });
       } else {
-        console.warn('⚠️ Invalid glucose calculations data received:', calculations);
+        console.warn('[Dashboard] Invalid glucose calculations data received:', calculations);
       }
     } catch (error) {
-      console.error('❌ Error fetching glucose calculations:', error);
+      console.error('[Dashboard] Error fetching glucose calculations:', error);
       // Keep existing local calculations as fallback
     }
   }, [currentReading, isAuthenticated]);
 
   const fetchCurrentGlucose = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping glucose fetch - user not authenticated');
+      console.log('[Dashboard] Skipping glucose fetch - user not authenticated');
       return;
     }
     
     if (!selectedConnection) return;
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping glucose fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     setError(null);
     
     try {
-      console.log('🔗 Fetching current glucose via backend proxy...');
+      console.log('[Dashboard] Fetching current glucose via backend proxy...');
       const entry = await nightscoutProxy.getCurrentGlucose();
       
       if (entry) {
@@ -199,7 +183,7 @@ const Dashboard: React.FC = () => {
           timestamp: new Date(), // Use current time when we fetch the data
           value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
-          trendArrow: convertTrendToArrow(entry.direction),
+          trendArrow: nightscoutDirectionToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
           unit: 'mmol/L',
           originalTimestamp: new Date(entry.date), // Keep original sensor timestamp for reference
@@ -213,7 +197,7 @@ const Dashboard: React.FC = () => {
         setError('No glucose data available from Nightscout');
       }
     } catch (err) {
-      console.error('❌ Nightscout proxy fetch failed:', err);
+      console.error('[Dashboard] Nightscout proxy fetch failed:', err);
       setError(`Failed to fetch from Nightscout via backend proxy: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       // Fallback to demo data if Nightscout fails
@@ -223,23 +207,20 @@ const Dashboard: React.FC = () => {
         setCurrentReading(demoData[demoData.length - 1]);
       }
     }
-  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated, nightscoutConfig]);
+  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated]);
 
   const fetchHistoricalData = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping historical data fetch - user not authenticated');
+      console.log('[Dashboard] Skipping historical data fetch - user not authenticated');
       return;
     }
     
     if (!selectedConnection) return;
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping historical data fetch - no Nightscout credentials configured');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     try {
-      console.log('🔗 Fetching historical glucose data via backend proxy...');
+      console.log('[Dashboard] Fetching historical glucose data via backend proxy...');
       
       // Calculate date range based on time range - centered approach
       const now = new Date();
@@ -271,7 +252,7 @@ const Dashboard: React.FC = () => {
           timestamp: new Date(entry.date),
           value: convertToMmolL(entry.sgv),
           trend: entry.trend || 0,
-          trendArrow: convertTrendToArrow(entry.direction),
+          trendArrow: nightscoutDirectionToArrow(entry.direction),
           status: calculateGlucoseStatus(entry.sgv),
           unit: 'mmol/L',
           originalTimestamp: new Date(entry.date),
@@ -288,7 +269,7 @@ const Dashboard: React.FC = () => {
         timestamp: new Date(entry.date),
         value: convertToMmolL(entry.sgv),
         trend: entry.trend || 0,
-        trendArrow: convertTrendToArrow(entry.direction),
+        trendArrow: nightscoutDirectionToArrow(entry.direction),
         status: calculateGlucoseStatus(entry.sgv),
         unit: 'mmol/L',
         originalTimestamp: new Date(entry.date),
@@ -299,7 +280,7 @@ const Dashboard: React.FC = () => {
       
       setGlucoseHistory(history);
     } catch (err) {
-      console.error('❌ Nightscout proxy historical fetch failed:', err);
+      console.error('[Dashboard] Nightscout proxy historical fetch failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(`Failed to fetch historical data from Nightscout via backend proxy: ${errorMessage}`);
       
@@ -315,21 +296,21 @@ const Dashboard: React.FC = () => {
         setGlucoseHistory([]);
       }
     }
-  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated, nightscoutConfig]);
+  }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated]);
 
 
   // Initial data fetch
   useEffect(() => {
     const initializeData = async () => {
       if (!isAuthenticated) {
-        console.log('🔍 Skipping initial data fetch - user not authenticated');
+        console.log('[Dashboard] Skipping initial data fetch - user not authenticated');
         return;
       }
       
       // Log timezone information for debugging
       logTimezoneInfo();
-      console.log('🕐 User timezone:', getTimezoneDisplayName());
-      console.log('🕐 Current local time:', getCurrentLocalTime().toLocaleString());
+      console.log('[Dashboard] User timezone:', getTimezoneDisplayName());
+      console.log('[Dashboard] Current local time:', getCurrentLocalTime().toLocaleString());
       
       fetchPatientInfo();
       fetchConnections();
@@ -354,7 +335,7 @@ const Dashboard: React.FC = () => {
   // Real-time insulin calculations update
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping real-time updates - user not authenticated');
+      console.log('[Dashboard] Skipping real-time updates - user not authenticated');
       return;
     }
     
@@ -388,16 +369,11 @@ const Dashboard: React.FC = () => {
   // Notes management functions
   const loadNotes = useCallback(async () => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping notes load - user not authenticated');
+      console.log('[Dashboard] Skipping notes load - user not authenticated');
       return;
     }
     
-    if (!nightscoutConfig) {
-      console.log('🔍 Skipping notes load - no Nightscout credentials configured');
-      setNotes([]);
-      setNotesBackendStatus('backend');
-      return;
-    }
+    // Removed nightscoutConfig check - using global configuration now
     
     try {
       // Check if backend is available
@@ -407,13 +383,13 @@ const Dashboard: React.FC = () => {
       const allNotes = await hybridNotesApiService.getNotes();
       setNotes(allNotes);
     } catch (error) {
-      console.error('❌ Error loading notes:', error);
+      console.error('[Dashboard] Error loading notes:', error);
       setNotesBackendStatus('error');
       // Show user-friendly error message
       setError('Failed to load notes. Please check your connection and try again.');
       setNotes([]);
     }
-  }, [isAuthenticated, nightscoutConfig]);
+  }, [isAuthenticated]);
 
   // COB calculations now handled entirely by backend via fetchGlucoseCalculations
 
@@ -421,7 +397,7 @@ const Dashboard: React.FC = () => {
     try {
       // Save to database
       const updatedSettings = await cobSettingsApi.saveCOBSettings(newConfig);
-      console.log('✅ COB settings saved to database:', updatedSettings);
+      console.log('[Dashboard] COB settings saved to database:', updatedSettings);
       
       // Update local state
       setCobSettings(updatedSettings);
@@ -432,9 +408,9 @@ const Dashboard: React.FC = () => {
         fetchGlucoseCalculations();
       }
     } catch (error) {
-      console.error('❌ Error saving COB settings:', error);
+      console.error('[Dashboard] Error saving COB settings:', error);
       // Settings save failed - backend will use default values
-      console.warn('⚠️ COB settings save failed, backend will use defaults');
+      console.warn('[Dashboard] COB settings save failed, backend will use defaults');
     }
   }, [currentReading, fetchGlucoseCalculations]);
 
@@ -481,7 +457,7 @@ const Dashboard: React.FC = () => {
         setError('Failed to delete note. Please try again.');
       }
     } catch (error) {
-      console.error('❌ Error deleting note:', error);
+      console.error('[Dashboard] Error deleting note:', error);
       setError('Failed to delete note. Please check your connection and try again.');
     }
   }, [loadNotes]);
@@ -505,30 +481,14 @@ const Dashboard: React.FC = () => {
     setIsNightscoutConfigOpen(false);
   };
 
-  const handleNightscoutConfigSave = async (config: NightscoutConfig): Promise<void> => {
-    console.log('🔧 Dashboard: handleNightscoutConfigSave called with config:', config);
-    try {
-      console.log('🔧 Dashboard: Calling nightscoutConfigApi.saveConfig...');
-      const savedConfig = await nightscoutConfigApi.saveConfig(config);
-      console.log('🔧 Dashboard: Save successful, received config:', savedConfig);
-      setNightscoutConfig(savedConfig);
-      console.log('✅ Nightscout configuration saved successfully');
-    } catch (error) {
-      console.error('❌ Failed to save Nightscout configuration:', error);
-      setError('Failed to save Nightscout configuration');
-      throw error; // Re-throw to let the modal handle the error
-    }
+  const handleNightscoutConfigSave = async (config: any): Promise<void> => {
+    console.log('[Dashboard] Nightscout configuration is now handled globally via environment variables');
+    console.log('[Dashboard] Please set NIGHTSCOUT_URL, NIGHTSCOUT_API_SECRET, and NIGHTSCOUT_API_TOKEN environment variables');
   };
 
-  const loadNightscoutConfig = async (): Promise<NightscoutConfig | null> => {
-    try {
-      const config = await nightscoutConfigApi.getConfig();
-      setNightscoutConfig(config);
-      return config;
-    } catch (error) {
-      console.error('Failed to load Nightscout configuration:', error);
-      return null;
-    }
+  const loadNightscoutConfig = async (): Promise<any> => {
+    console.log('[Dashboard] Using global Nightscout configuration');
+    return null;
   };
 
   const handleNoteClick = (note: GlucoseNote) => {
@@ -548,7 +508,7 @@ const Dashboard: React.FC = () => {
   // Additional periodic refresh every 5 minutes
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('🔍 Skipping periodic refresh - user not authenticated');
+      console.log('[Dashboard] Skipping periodic refresh - user not authenticated');
       return;
     }
     
@@ -589,15 +549,15 @@ const Dashboard: React.FC = () => {
   }, [notes, handleNoteDelete]);
 
   const handleLogout = async () => {
-    console.log('🔴 DASHBOARD: Logout button clicked!');
+    console.log('[Dashboard] Logout button clicked');
     try {
-      console.log('🔓 DASHBOARD: Calling AuthContext logout...');
+      console.log('[Dashboard] Calling AuthContext logout...');
       await logout();
-      console.log('✅ DASHBOARD: Logout completed successfully');
+      console.log('[Dashboard] Logout completed successfully');
     } catch (error) {
-      console.error('❌ DASHBOARD: Logout failed:', error);
+      console.error('[Dashboard] Logout failed:', error);
       // Still attempt to logout locally even if backend fails
-      console.log('🔄 DASHBOARD: Attempting fallback logout...');
+      console.log('[Dashboard] Attempting fallback logout...');
       await logout();
     }
   };
@@ -605,7 +565,7 @@ const Dashboard: React.FC = () => {
   // Clear data when user logs out
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('🔄 Clearing dashboard data - user logged out');
+      console.log('[Dashboard] Clearing dashboard data - user logged out');
       setCurrentReading(null);
       setGlucoseHistory([]);
       setNotes([]);
@@ -641,6 +601,8 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // @ts-ignore
+  // @ts-ignore
   return (
     <div className="h-screen bg-gray-50 overflow-hidden flex flex-col">
       {/* Compact Header */}
@@ -668,6 +630,18 @@ const Dashboard: React.FC = () => {
                 </svg>
                 <span className="hidden sm:inline">COB Settings</span>
                 <span className="sm:hidden">COB</span>
+              </button>
+
+              <button
+                onClick={() => setIsInsulinSettingsOpen(true)}
+                className="btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 flex items-center space-x-1 sm:space-x-2"
+                title="Rapid and long-acting insulin types"
+              >
+                <span className="text-sm sm:text-base" aria-hidden>
+                  рџ’‰
+                </span>
+                <span className="hidden sm:inline">Insulin</span>
+                <span className="sm:hidden">Ins</span>
               </button>
 
               <button
@@ -720,7 +694,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-center space-x-6 text-sm">
                     {/* Current Glucose */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-blue-600 font-medium">📊</span>
+                      <span className="text-blue-600 font-medium">рџ“Љ</span>
                       <div className="text-center">
                         <div className="font-bold text-blue-800">
                           {currentReading ? `${currentReading.value} ${currentReading.unit}` : '--'}
@@ -739,20 +713,12 @@ const Dashboard: React.FC = () => {
 
                     {/* Active Carbs */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-orange-600 font-medium">🍞</span>
+                      <span className="text-orange-600 font-medium" aria-hidden>рџЌћ</span>
                       <div className="text-center">
                         <div className="font-bold text-orange-800">
                           {(() => {
                             const carbsValue = glucoseCalculations?.activeCarbsOnBoard;
-                            console.log('🔍 Active Carbs Display Debug:', {
-                              hasGlucoseCalculations: !!glucoseCalculations,
-                              carbsValue,
-                              carbsValueType: typeof carbsValue,
-                              isUndefined: carbsValue === undefined,
-                              isNull: carbsValue === null
-                            });
-                            
-                            return carbsValue !== undefined && carbsValue !== null ? 
+                            return carbsValue !== undefined && carbsValue !== null ?
                               `${carbsValue.toFixed(1)}g` : 
                               '--';
                           })()}
@@ -768,23 +734,14 @@ const Dashboard: React.FC = () => {
 
                     {/* Active Insulin */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-purple-600 font-medium">💉</span>
+                      <span className="text-purple-600 font-medium" aria-hidden>рџ’‰</span>
                       <div className="text-center">
                         <div className="font-bold text-purple-800">
                           {(() => {
                             const insulinValue = glucoseCalculations?.activeInsulinOnBoard;
-                            console.log('🔍 Active Insulin Display Debug:', {
-                              hasGlucoseCalculations: !!glucoseCalculations,
-                              insulinValue,
-                              insulinValueType: typeof insulinValue,
-                              isUndefined: insulinValue === undefined,
-                              isNull: insulinValue === null,
-                              fullCalculations: glucoseCalculations
-                            });
-                            
-                            return insulinValue !== undefined && insulinValue !== null ? 
-                              `${insulinValue.toFixed(2)}u` : 
-                              '--';
+                            return insulinValue !== undefined && insulinValue !== null
+                              ? `${insulinValue.toFixed(2)}u`
+                              : '--';
                           })()}
                         </div>
                         <div className="text-xs text-purple-600">
@@ -798,7 +755,7 @@ const Dashboard: React.FC = () => {
 
                     {/* 2-Hour Prediction */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-green-600 font-medium">🔮</span>
+                      <span className="text-green-600 font-medium" aria-hidden>рџ“€</span>
                       <div className="text-center">
                         {(() => {
                           if (!currentReading?.value) {
@@ -815,14 +772,6 @@ const Dashboard: React.FC = () => {
                             predictedGlucose: glucoseCalculations.twoHourPrediction,
                             trend: glucoseCalculations.predictionTrend || 'stable'
                           } : null;
-                          
-                          const getTrendIcon = (trend: string) => {
-                            switch (trend) {
-                              case 'rising': return '↗';
-                              case 'falling': return '↘';
-                              default: return '→';
-                            }
-                          };
                           
                           const getGlucoseColor = (glucose: number) => {
                             if (glucose < 3.9) return 'text-red-600';
@@ -842,7 +791,8 @@ const Dashboard: React.FC = () => {
                           return (
                             <>
                               <div className={`font-bold ${getGlucoseColor(prediction.predictedGlucose)}`}>
-                                {prediction.predictedGlucose?.toFixed(1) || 'N/A'} {getTrendIcon(prediction.trend)}
+                                {prediction.predictedGlucose?.toFixed(1) || 'N/A'}{' '}
+                                {predictionTrendToArrow(prediction.trend)}
                               </div>
                               <div className="text-xs text-green-600">
                                 2h Prediction
@@ -877,7 +827,7 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm p-1 h-full">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-xs font-semibold text-gray-900">🍽️ Recent Notes</h3>
+                  <h3 className="text-xs font-semibold text-gray-900">Recent Notes</h3>
                   <div className="flex items-center space-x-1">
                     {notesBackendStatus === 'checking' && (
                       <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" title="Checking backend connection..."></div>
@@ -897,7 +847,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => setIsNoteModalOpen(true)}
                   className="btn-primary text-xs px-2 py-1"
                 >
-                  ➕ Add
+                  + Add
                 </button>
               </div>
               
@@ -908,8 +858,8 @@ const Dashboard: React.FC = () => {
                     const noteTime = note.timestamp.getTime();
                     const now = new Date().getTime();
                     
-                    // Calculate time range for 6h view
-                    const startTime = now - (6 * 60 * 60 * 1000);
+                    // Calculate time range for 12h view
+                    const startTime = now - (12 * 60 * 60 * 1000);
                     
                     return noteTime >= startTime && noteTime <= now;
                   })
@@ -953,7 +903,7 @@ const Dashboard: React.FC = () => {
                 ))}
                 {(() => {
                   const now = new Date().getTime();
-                  const startTime = now - (6 * 60 * 60 * 1000);
+                  const startTime = now - (12 * 60 * 60 * 1000);
                   
                   const filteredNotes = notes.filter((note) => {
                     const noteTime = note.timestamp.getTime();
@@ -963,8 +913,8 @@ const Dashboard: React.FC = () => {
                   if (filteredNotes.length === 0) {
                     return (
                       <div className="text-center py-1">
-                        <div className="text-gray-400 text-sm mb-1">🍽️</div>
-                        <p className="text-gray-500 text-xs">No notes in 6h range</p>
+                        <div className="text-gray-400 text-sm mb-1" aria-hidden>рџ“ќ</div>
+                        <p className="text-gray-500 text-xs">No notes in 12h range</p>
                       </div>
                     );
                   }
@@ -972,7 +922,7 @@ const Dashboard: React.FC = () => {
                   if (filteredNotes.length > 4) {
                     return (
                       <div className="text-center py-1">
-                        <span className="text-xs text-gray-400">+{filteredNotes.length - 4} more in 6h</span>
+                        <span className="text-xs text-gray-400">+{filteredNotes.length - 4} more in 12h</span>
                       </div>
                     );
                   }
@@ -1008,19 +958,23 @@ const Dashboard: React.FC = () => {
           />
         )}
 
+        {isInsulinSettingsOpen && (
+          <InsulinPreferencesSettings
+            onClose={() => setIsInsulinSettingsOpen(false)}
+            onSaved={() => void fetchGlucoseCalculations()}
+          />
+        )}
+
+        <div className="mt-2">
+          <AIInsightPanel />
+        </div>
         {/* Version Info Modal */}
         <VersionInfo
           isOpen={isVersionInfoOpen}
           onClose={() => setIsVersionInfoOpen(false)}
         />
 
-        {/* Nightscout Configuration Modal */}
-        <NightscoutConfigModal
-          isOpen={isNightscoutConfigOpen}
-          onClose={handleNightscoutConfigClose}
-          onSave={handleNightscoutConfigSave}
-          existingConfig={nightscoutConfig}
-        />
+        {/* Nightscout Configuration Modal removed - using global configuration now */}
 
       </main>
     </div>

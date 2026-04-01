@@ -9,6 +9,7 @@ export interface GlucoseNote {
   glucoseValue?: number;
   detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
   insulinDose?: InsulinDose; // Insulin dose information for tracking
+  mockData?: boolean; // Mark note as synthetic test data
   createdAt?: Date; // Backend timestamp
   updatedAt?: Date; // Backend timestamp
 }
@@ -22,6 +23,7 @@ export interface NoteInputData {
   glucoseValue?: number;
   detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
   insulinDose?: InsulinDose; // Insulin dose information for tracking
+  mockData?: boolean; // Mark note as synthetic test data
 }
 
 // Insulin dose tracking
@@ -39,6 +41,7 @@ export const MEAL_CATEGORIES = [
   'Lunch',
   'Dinner',
   'Snack',
+  'Pre-bolus',
   'Correction',
   'Other'
 ] as const;

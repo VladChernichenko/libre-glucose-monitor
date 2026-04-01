@@ -28,6 +28,20 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
     hasValidData: data.length > 0 && data.every(item => item && item.timestamp && typeof item.value === 'number')
   });
 
+  // Check data freshness - consider data obsolete if latest reading is over 15 minutes old
+  const isDataObsolete = React.useMemo(() => {
+    if (!data || data.length === 0) return true;
+    
+    const latestReading = data[data.length - 1];
+    if (!latestReading || !latestReading.timestamp) return true;
+    
+    const now = new Date();
+    const latestTime = new Date(latestReading.timestamp);
+    const ageInMinutes = (now.getTime() - latestTime.getTime()) / (1000 * 60);
+    
+    return ageInMinutes > 15; // Data is obsolete if older than 15 minutes
+  }, [data]);
+
   // Early return if no data at all
   if (!data || data.length === 0) {
     console.log('❌ No data provided to GlucoseChart');
@@ -64,6 +78,21 @@ const GlucoseChart: React.FC<GlucoseChartProps> = ({ data, timeRange, notes = []
           <div className="text-4xl mb-2">⚠️</div>
           <div className="text-lg font-medium">Invalid data format</div>
           <div className="text-sm">Please check your data source</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning for obsolete data
+  if (isDataObsolete) {
+    console.log('⏰ Data is obsolete');
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <div className="text-4xl mb-2">⏰</div>
+          <div className="text-lg font-medium">Data is outdated</div>
+          <div className="text-sm">Latest reading is more than 15 minutes old</div>
+          <div className="text-xs mt-2 text-gray-400">Please refresh or check your data source</div>
         </div>
       </div>
     );

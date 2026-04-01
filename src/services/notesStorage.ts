@@ -54,7 +54,8 @@ export class NotesStorageService {
     
     const newNote: GlucoseNote = {
       id: this.generateId(),
-      ...noteData
+      ...noteData,
+      mockData: noteData.mockData ?? false,
     };
     
     notes.push(newNote);

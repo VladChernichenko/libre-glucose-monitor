@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { NightscoutEntry, NightscoutDeviceStatus } from './types';
 import { authService } from '../authService';
+import { getClientTimeInfo } from '../../utils/timezone';
+import { libreApiService } from '../libreApi';
+import { dataSourceConfigApi } from '../dataSourceConfigApi';
 
 export interface NightscoutServiceResponse<T> {
   data: T | null;
@@ -44,12 +47,18 @@ export class EnhancedNightscoutService {
       },
     });
 
-    // Add request interceptor for authentication
+    // Add request interceptor for authentication and timezone
     this.api.interceptors.request.use((config) => {
       const token = authService.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Add timezone information to all requests
+      const timeInfo = getClientTimeInfo();
+      config.headers['X-Timezone-Offset'] = timeInfo.timezoneOffset.toString();
+      config.headers['X-Timezone'] = timeInfo.timezone;
+      
       return config;
     });
 
@@ -57,7 +66,7 @@ export class EnhancedNightscoutService {
     this.api.interceptors.response.use(
       (response) => response,
       (error: AxiosError) => {
-        console.error('🌐 API Error:', {
+        console.error('API Error:', {
           url: error.config?.url,
           method: error.config?.method,
           status: error.response?.status,
@@ -73,7 +82,7 @@ export class EnhancedNightscoutService {
    * Enhanced glucose entries fetch with multiple fallback strategies
    */
   async getGlucoseEntries(count: number = 100): Promise<NightscoutServiceResponse<NightscoutEntry[]>> {
-    console.log(`🔗 Fetching ${count} glucose entries with enhanced error handling`);
+    console.log(`Fetching ${count} glucose entries with enhanced error handling`);
 
     // Strategy 1: Try fresh Nightscout data
     try {
@@ -82,7 +91,7 @@ export class EnhancedNightscoutService {
       );
       
       if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        console.log(`✅ Successfully fetched ${response.data.length} fresh entries from Nightscout`);
+        console.log(`Successfully fetched ${response.data.length} fresh entries from Nightscout`);
         return {
           data: response.data,
           success: true,
@@ -90,7 +99,7 @@ export class EnhancedNightscoutService {
         };
       }
     } catch (error) {
-      console.warn('⚠️ Fresh Nightscout data fetch failed, trying stored data...', error);
+      console.warn('Fresh Nightscout data fetch failed, trying stored data...', error);
     }
 
     // Strategy 2: Try stored data
@@ -101,7 +110,7 @@ export class EnhancedNightscoutService {
         );
         
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          console.log(`✅ Successfully fetched ${response.data.length} stored entries`);
+          console.log(`Successfully fetched ${response.data.length} stored entries`);
           return {
             data: response.data,
             success: true,
@@ -110,7 +119,7 @@ export class EnhancedNightscoutService {
           };
         }
       } catch (error) {
-        console.warn('⚠️ Stored data fetch failed, trying chart data...', error);
+        console.warn('Stored data fetch failed, trying chart data...', error);
       }
 
       // Strategy 3: Try chart data endpoint
@@ -120,7 +129,7 @@ export class EnhancedNightscoutService {
         );
         
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          console.log(`✅ Successfully fetched ${response.data.length} chart data entries`);
+          console.log(`Successfully fetched ${response.data.length} chart data entries`);
           return {
             data: response.data,
             success: true,
@@ -129,13 +138,32 @@ export class EnhancedNightscoutService {
           };
         }
       } catch (error) {
-        console.warn('⚠️ Chart data fetch failed, trying demo data...', error);
+        console.warn('Chart data fetch failed, trying demo data...', error);
       }
     }
 
-    // Strategy 4: Demo data fallback
+    // Strategy 4: LibreLinkUp fallback
+    if (this.config.enableFallbacks) {
+      try {
+        console.log('Trying LibreLinkUp as fallback...');
+        const libreData = await this.getLibreLinkUpData(count);
+        if (libreData && libreData.length > 0) {
+          console.log(`Successfully fetched ${libreData.length} entries from LibreLinkUp`);
+          return {
+            data: libreData,
+            success: true,
+            fallbackUsed: true,
+            source: 'stored'
+          };
+        }
+      } catch (error) {
+        console.warn('LibreLinkUp fallback failed, trying demo data...', error);
+      }
+    }
+
+    // Strategy 5: Demo data fallback
     if (this.config.enableDemoData) {
-      console.log('📊 Using demo data as final fallback');
+      console.log('Using demo data as final fallback');
       const demoData = this.generateDemoGlucoseData(count);
       return {
         data: demoData,
@@ -158,7 +186,7 @@ export class EnhancedNightscoutService {
    * Enhanced current glucose fetch with fallbacks
    */
   async getCurrentGlucose(): Promise<NightscoutServiceResponse<NightscoutEntry | null>> {
-    console.log('🔗 Fetching current glucose with enhanced error handling');
+    console.log('Fetching current glucose with enhanced error handling');
 
     try {
       const response = await this.retryRequest(() => 
@@ -166,7 +194,7 @@ export class EnhancedNightscoutService {
       );
       
       if (response.data) {
-        console.log('✅ Successfully fetched current glucose from Nightscout');
+        console.log('Successfully fetched current glucose from Nightscout');
         return {
           data: response.data,
           success: true,
@@ -176,7 +204,7 @@ export class EnhancedNightscoutService {
     } catch (error: any) {
       // Check if it's a 400 error (no data/configuration issue)
       if (error.response?.status === 400) {
-        console.warn('⚠️ 400 error - likely no Nightscout configuration or data available');
+        console.warn('400 error - likely no Nightscout configuration or data available');
         return {
           data: null,
           success: false,
@@ -185,7 +213,7 @@ export class EnhancedNightscoutService {
           needsConfiguration: true
         };
       }
-      console.warn('⚠️ Current glucose fetch failed, trying recent entries...', error);
+      console.warn('Current glucose fetch failed, trying recent entries...', error);
     }
 
     // Fallback: Get most recent entry from entries endpoint
@@ -198,6 +226,23 @@ export class EnhancedNightscoutService {
           fallbackUsed: true,
           source: entriesResponse.source
         };
+      }
+
+      // LibreLinkUp fallback for current glucose
+      try {
+        console.log('Trying LibreLinkUp for current glucose...');
+        const libreCurrent = await this.getLibreLinkUpCurrentGlucose();
+        if (libreCurrent) {
+          console.log('Successfully fetched current glucose from LibreLinkUp');
+          return {
+            data: libreCurrent,
+            success: true,
+            fallbackUsed: true,
+            source: 'stored'
+          };
+        }
+      } catch (error) {
+        console.warn('LibreLinkUp current glucose fallback failed:', error);
       }
     }
 
@@ -216,7 +261,7 @@ export class EnhancedNightscoutService {
     startDate: Date, 
     endDate: Date
   ): Promise<NightscoutServiceResponse<NightscoutEntry[]>> {
-    console.log(`🔗 Fetching glucose entries from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Fetching glucose entries from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
     try {
       const start = startDate.toISOString();
@@ -227,7 +272,7 @@ export class EnhancedNightscoutService {
       );
       
       if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        console.log(`✅ Successfully fetched ${response.data.length} entries for date range`);
+        console.log(`Successfully fetched ${response.data.length} entries for date range`);
         return {
           data: response.data,
           success: true,
@@ -237,7 +282,7 @@ export class EnhancedNightscoutService {
     } catch (error: any) {
       // Check if it's a 400 error (no data/configuration issue)
       if (error.response?.status === 400) {
-        console.warn('⚠️ 400 error - likely no Nightscout configuration or data available');
+        console.warn('400 error - likely no Nightscout configuration or data available');
         return {
           data: [],
           success: false,
@@ -246,7 +291,7 @@ export class EnhancedNightscoutService {
           needsConfiguration: true
         };
       }
-      console.warn('⚠️ Date range fetch failed, trying stored data...', error);
+      console.warn('Date range fetch failed, trying stored data...', error);
     }
 
     // Fallback to stored data
@@ -260,7 +305,7 @@ export class EnhancedNightscoutService {
         );
         
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          console.log(`✅ Successfully fetched ${response.data.length} stored entries for date range`);
+          console.log(`Successfully fetched ${response.data.length} stored entries for date range`);
           return {
             data: response.data,
             success: true,
@@ -269,7 +314,7 @@ export class EnhancedNightscoutService {
           };
         }
       } catch (error) {
-        console.warn('⚠️ Stored date range fetch failed, trying all stored data...', error);
+        console.warn('Stored date range fetch failed, trying all stored data...', error);
       }
 
       // Final fallback: get all stored data and filter
@@ -281,7 +326,7 @@ export class EnhancedNightscoutService {
         });
 
         if (filteredData.length > 0) {
-          console.log(`✅ Successfully filtered ${filteredData.length} entries for date range`);
+          console.log(`Successfully filtered ${filteredData.length} entries for date range`);
           return {
             data: filteredData,
             success: true,
@@ -304,7 +349,7 @@ export class EnhancedNightscoutService {
    * Enhanced device status fetch
    */
   async getDeviceStatus(count: number = 1): Promise<NightscoutServiceResponse<NightscoutDeviceStatus[]>> {
-    console.log(`🔗 Fetching ${count} device status entries`);
+    console.log(`Fetching ${count} device status entries`);
 
     try {
       const response = await this.retryRequest(() => 
@@ -317,7 +362,7 @@ export class EnhancedNightscoutService {
         source: 'nightscout'
       };
     } catch (error) {
-      console.warn('⚠️ Device status fetch failed', error);
+      console.warn('Device status fetch failed', error);
       return {
         data: [],
         success: false,
@@ -386,11 +431,11 @@ export class EnhancedNightscoutService {
         return await requestFn();
       } catch (error) {
         lastError = error as Error;
-        console.warn(`⚠️ Attempt ${attempt}/${this.config.retryAttempts} failed:`, error);
+        console.warn(`Attempt ${attempt}/${this.config.retryAttempts} failed:`, error);
 
         if (attempt < this.config.retryAttempts) {
           const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
-          console.log(`⏳ Retrying in ${delay}ms...`);
+          console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -405,6 +450,8 @@ export class EnhancedNightscoutService {
   private generateDemoGlucoseData(count: number): NightscoutEntry[] {
     const now = new Date();
     const data: NightscoutEntry[] = [];
+    const timeInfo = getClientTimeInfo();
+    const utcOffset = -timeInfo.timezoneOffset; // Convert from JavaScript offset to standard offset
 
     for (let i = 0; i < count; i++) {
       const timestamp = new Date(now.getTime() - (count - i) * 5 * 60 * 1000); // 5 minutes apart
@@ -419,12 +466,106 @@ export class EnhancedNightscoutService {
         direction: ['DoubleUp', 'SingleUp', 'FortyFiveUp', 'Flat', 'FortyFiveDown', 'SingleDown', 'DoubleDown'][Math.floor(Math.random() * 7)],
         device: 'Demo Device',
         type: 'sgv',
-        utcOffset: 0,
+        utcOffset: utcOffset, // Use actual user timezone offset
         sysTime: timestamp.toISOString()
       });
     }
 
     return data;
+  }
+
+  /**
+   * Get LibreLinkUp data as fallback
+   */
+  private async getLibreLinkUpData(count: number): Promise<NightscoutEntry[]> {
+    try {
+      // Check if LibreLinkUp is configured
+      const isLibreConfigured = await dataSourceConfigApi.isDataSourceConfigured('libre');
+      if (!isLibreConfigured) {
+        throw new Error('LibreLinkUp not configured');
+      }
+
+      // Authenticate with LibreLinkUp using stored credentials
+      if (!libreApiService.isAuthenticated()) {
+        await libreApiService.authenticate();
+      }
+
+      // Get connections
+      const connections = await libreApiService.getConnections();
+      if (!connections || connections.length === 0) {
+        throw new Error('No LibreLinkUp connections available');
+      }
+
+      const configuredId = dataSourceConfigApi.getLibrePatientId();
+      const patientId = configuredId ?? connections[0].patientId;
+      const graphData = await libreApiService.getGlucoseData(patientId, 1);
+      
+      // Convert to NightscoutEntry format
+      const entries: NightscoutEntry[] = graphData.data.slice(0, count).map((point: any) => ({
+        _id: `libre_${point.timestamp}`,
+        sgv: Math.round(point.value), // Convert back to mg/dL
+        date: new Date(point.timestamp).getTime(),
+        dateString: new Date(point.timestamp).toISOString(),
+        trend: point.trend,
+        direction: point.trendArrow,
+        device: 'LibreLinkUp',
+        type: 'sgv',
+        utcOffset: 0, // Will be set by frontend timezone logic
+        sysTime: new Date(point.timestamp).toISOString()
+      }));
+
+      return entries;
+    } catch (error) {
+      console.error('LibreLinkUp data fetch failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get LibreLinkUp current glucose as fallback
+   */
+  private async getLibreLinkUpCurrentGlucose(): Promise<NightscoutEntry | null> {
+    try {
+      // Check if LibreLinkUp is configured
+      const isLibreConfigured = await dataSourceConfigApi.isDataSourceConfigured('libre');
+      if (!isLibreConfigured) {
+        throw new Error('LibreLinkUp not configured');
+      }
+
+      // Authenticate with LibreLinkUp using stored credentials
+      if (!libreApiService.isAuthenticated()) {
+        await libreApiService.authenticate();
+      }
+
+      // Get connections
+      const connections = await libreApiService.getConnections();
+      if (!connections || connections.length === 0) {
+        throw new Error('No LibreLinkUp connections available');
+      }
+
+      const configuredId = dataSourceConfigApi.getLibrePatientId();
+      const patientId = configuredId ?? connections[0].patientId;
+      const currentReading = await libreApiService.getRealTimeData(patientId);
+      
+      // Convert to NightscoutEntry format
+      const entry: NightscoutEntry = {
+        _id: `libre_current_${currentReading.timestamp.getTime()}`,
+        sgv: Math.round(currentReading.value * 18), // Convert mmol/L to mg/dL
+        date: currentReading.timestamp.getTime(),
+        dateString: currentReading.timestamp.toISOString(),
+        trend: currentReading.trend,
+        direction: currentReading.trendArrow,
+        device: 'LibreLinkUp',
+        type: 'sgv',
+        utcOffset: 0, // Will be set by frontend timezone logic
+        sysTime: currentReading.timestamp.toISOString()
+      };
+
+      return entry;
+    } catch (error) {
+      console.error('LibreLinkUp current glucose fetch failed:', error);
+      throw error;
+    }
   }
 }
 

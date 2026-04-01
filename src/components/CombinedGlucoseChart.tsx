@@ -32,6 +32,10 @@ interface ChartDataPoint {
   isPrediction?: boolean;
 }
 
+/** Min time between glucose value labels on the chart (reduces overlap when data is dense). */
+const GLUCOSE_LABEL_MIN_GAP_MS = 45 * 60 * 1000;
+const GLUCOSE_LABEL_MAX_COUNT = 24;
+
 const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({ 
   glucoseData, 
   iobData, 
@@ -45,6 +49,20 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     if (value < 13.9) return '#F59E0B';     // Orange for high
     return '#DC2626';                       // Dark red for critical
   };
+
+  // Check data freshness - consider data obsolete if latest reading is over 15 minutes old
+  const isDataObsolete = useMemo(() => {
+    if (!glucoseData || glucoseData.length === 0) return true;
+    
+    const latestReading = glucoseData[glucoseData.length - 1];
+    if (!latestReading || !latestReading.timestamp) return true;
+    
+    const now = new Date();
+    const latestTime = new Date(latestReading.timestamp);
+    const ageInMinutes = (now.getTime() - latestTime.getTime()) / (1000 * 60);
+    
+    return ageInMinutes > 15; // Data is obsolete if older than 15 minutes
+  }, [glucoseData]);
 
   // Combine and process data
   const chartData = useMemo(() => {
@@ -81,7 +99,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       .filter(item => item.prediction !== undefined)
       .map(item => ({
         time: item.time.getTime(),
-        glucose: item.prediction!,
+        // Keep actual glucose series separate from predicted series.
+        glucose: NaN,
         prediction: item.prediction,
         status: 'prediction',
         color: '#9CA3AF', // Gray for predictions
@@ -114,20 +133,47 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return extremes;
   };
 
-  const extremePoints = findLocalExtremes(chartData);
+  const rawExtremePoints = findLocalExtremes(chartData);
+
+  const extremePoints = useMemo(() => {
+    const sorted = [...rawExtremePoints].sort((a, b) => a.point.time - b.point.time);
+    const picked: typeof sorted = [];
+    let lastTime = -Infinity;
+    for (const ex of sorted) {
+      if (ex.point.time - lastTime >= GLUCOSE_LABEL_MIN_GAP_MS) {
+        picked.push(ex);
+        lastTime = ex.point.time;
+      }
+    }
+    if (picked.length <= GLUCOSE_LABEL_MAX_COUNT) return picked;
+    const step = Math.ceil(picked.length / GLUCOSE_LABEL_MAX_COUNT);
+    return picked.filter((_, i) => i % step === 0);
+  }, [rawExtremePoints]);
 
   const getValueColor = (value: number): string => {
     return getGlucoseColor(value);
   };
 
-  // Early return if no data
+  // Early return if no data or data is obsolete
   if (!chartData || chartData.length === 0) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <div className="text-center text-gray-500">
-          <div className="text-4xl mb-2">📊</div>
           <div className="text-lg font-medium">No data available</div>
           <div className="text-sm">Please check your data source</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning for obsolete data
+  if (isDataObsolete) {
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <div className="text-lg font-medium">Data is outdated</div>
+          <div className="text-sm">Latest reading is more than 15 minutes old</div>
+          <div className="text-xs mt-2 text-gray-400">Please refresh or check your data source</div>
         </div>
       </div>
     );
@@ -186,8 +232,9 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   };
 
   return (
-    <div className="h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-full w-full flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 w-full">
+        <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
           
@@ -303,10 +350,11 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             return null;
           })}
         </ComposedChart>
-      </ResponsiveContainer>
-      
+        </ResponsiveContainer>
+      </div>
+
       {/* Legend */}
-      <div className="flex justify-center space-x-4 mt-2 text-xs">
+      <div className="flex justify-center flex-wrap gap-x-4 gap-y-1 mt-2 text-xs shrink-0">
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
           <span>Glucose (mmol/L)</span>

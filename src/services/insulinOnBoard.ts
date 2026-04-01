@@ -1,3 +1,5 @@
+import { InsulinCalculator } from './insulinCalculator';
+
 export interface InsulinEntry {
   id: string;
   timestamp: Date;
@@ -27,9 +29,9 @@ export class InsulinOnBoardService {
   private constructor() {
     // Default insulin profile for rapid-acting insulin (e.g., Humalog, Novolog)
     this.insulinProfile = {
-      peakTime: 60,      // Peak at 1 hour
-      duration: 300,     // 5 hours total duration
-      decayRate: 0.8     // Exponential decay rate
+      peakTime: 55,      // OpenAPS ultra-rapid / Fiasp-class peak (minutes)
+      duration: 240,     // 4h DIA (minutes), matches backend IOB window
+      decayRate: 0.8     // Legacy field; IOB uses OpenAPS exponential curve
     };
   }
   
@@ -59,7 +61,6 @@ export class InsulinOnBoardService {
         continue;
       }
 
-      // Calculate IOB using exponential decay model
       const iob = this.calculateInsulinDecay(entry.units, timeDiffMinutes);
       totalIOB += iob;
     }
@@ -67,21 +68,11 @@ export class InsulinOnBoardService {
     return Math.max(0, totalIOB);
   }
 
-  // Calculate insulin decay using exponential model
+  /** IOB per dose; aligns with backend OpenAPS exponential curve. */
   private calculateInsulinDecay(units: number, timeDiffMinutes: number): number {
-    const { peakTime, duration, decayRate } = this.insulinProfile;
-    
-    // If before peak time, use linear rise
-    if (timeDiffMinutes <= peakTime) {
-      return units * (timeDiffMinutes / peakTime);
-    }
-    
-    // After peak time, use exponential decay
-    const peakValue = units;
-    const timeAfterPeak = timeDiffMinutes - peakTime;
-    const decayFactor = Math.exp(-decayRate * timeAfterPeak / (duration - peakTime));
-    
-    return peakValue * decayFactor;
+    const { peakTime, duration } = this.insulinProfile;
+    const diaHours = duration / 60;
+    return InsulinCalculator.iobOpenApsExponential(units, timeDiffMinutes, diaHours, peakTime);
   }
 
   // Generate IOB projection over time
@@ -124,7 +115,7 @@ export class InsulinOnBoardService {
     // Calculate COB at the target time (current time + timeHorizon)
     const targetTime = new Date(Date.now() + timeHorizonMinutes * 60 * 1000);
     const targetCOB = this.calculateCOBAtTime(notes || [], targetTime, carbHalfLife);
-    const targetIOB = this.calculateIOBAtTimeFromNotes(notes || [], targetTime, 42); // 42 min insulin half-life
+    const targetIOB = this.calculateIOBAtTimeFromNotes(notes || [], targetTime);
     
     // Convert trend from mg/dL per minute to mmol/L per minute
     const trendMmolL = glucoseTrend / 18;
@@ -135,7 +126,7 @@ export class InsulinOnBoardService {
     const trendEffect = trendMmolL * timeHorizonMinutes; // Glucose change from trend
     
     // Debug logging for all predictions
-    console.log('🔍 Prediction Debug:', {
+    console.log('[IOB] Prediction debug:', {
       currentGlucose,
       timeHorizonMinutes,
       targetCOB,
@@ -161,7 +152,7 @@ export class InsulinOnBoardService {
     const hasActiveCOB = Math.abs(targetCOB) >= 0.1; // 0.1g threshold
     const hasActiveIOB = Math.abs(targetIOB) >= 0.1; // 0.1u threshold
     
-    console.log('🔍 Flat Prediction Check:', {
+    console.log('[IOB] Flat prediction check:', {
       targetCOB,
       targetIOB,
       hasActiveCOB,
@@ -170,7 +161,7 @@ export class InsulinOnBoardService {
     });
     
     if (!hasActiveCOB && !hasActiveIOB) {
-      console.log('🎯 APPLYING FLAT PREDICTION - Returning current glucose:', currentGlucose);
+      console.log('[IOB] Applying flat prediction; returning current glucose:', currentGlucose);
       return currentGlucose;
     }
     
@@ -179,7 +170,7 @@ export class InsulinOnBoardService {
     
     // Alert for extreme predictions
     if (predictedGlucose > 20 || predictedGlucose < 2) {
-      console.error('🚨 EXTREME PREDICTION DETECTED:', {
+      console.error('[IOB] Extreme prediction detected:', {
         currentGlucose,
         predictedGlucose,
         trendEffect,
@@ -199,14 +190,14 @@ export class InsulinOnBoardService {
     carbHalfLifeMinutes: number
   ): number {
     if (!notes || notes.length === 0) {
-      console.log('🔍 COB Debug: No notes provided');
+      console.log('[IOB] COB debug: no notes provided');
       return 0;
     }
     
     let totalCOB = 0;
     const targetTimeMs = targetTime.getTime();
     
-    console.log('🔍 COB Debug: Calculating COB at time', {
+    console.log('[IOB] COB debug: calculating COB at time', {
       targetTime: targetTime.toISOString(),
       notesCount: notes.length,
       carbHalfLifeMinutes
@@ -218,7 +209,7 @@ export class InsulinOnBoardService {
       
       // Skip if note is in the future or carbs are 0
       if (timeDiffMinutes < 0 || note.carbs <= 0) {
-        console.log('🔍 COB Debug: Skipping note', {
+        console.log('[IOB] COB debug: skipping note', {
           noteTime: note.timestamp.toISOString(),
           carbs: note.carbs,
           timeDiffMinutes,
@@ -232,7 +223,7 @@ export class InsulinOnBoardService {
       const remainingCarbs = note.carbs * Math.pow(0.5, halfLives);
       totalCOB += Math.max(0, remainingCarbs);
       
-      console.log('🔍 COB Debug: Processing note', {
+      console.log('[IOB] COB debug: processing note', {
         noteTime: note.timestamp.toISOString(),
         carbs: note.carbs,
         timeDiffMinutes,
@@ -242,37 +233,38 @@ export class InsulinOnBoardService {
       });
     }
     
-    console.log('🔍 COB Debug: Final totalCOB =', totalCOB);
+    console.log('[IOB] COB debug: final totalCOB =', totalCOB);
     return totalCOB;
   }
 
-  // Calculate IOB at a specific time from notes data
+  // Calculate IOB at a specific time from notes data (OpenAPS exponential; matches backend)
   private calculateIOBAtTimeFromNotes(
     notes: Array<{ timestamp: Date; carbs: number; insulin: number }>,
-    targetTime: Date,
-    insulinHalfLifeMinutes: number = 42
+    targetTime: Date
   ): number {
     if (!notes || notes.length === 0) {
-      console.log('🔍 IOB Debug: No notes provided');
+      console.log('IOB Debug: No notes provided');
       return 0;
     }
-    
+
     let totalIOB = 0;
     const targetTimeMs = targetTime.getTime();
-    
-    console.log('🔍 IOB Debug: Calculating IOB at time', {
+    const diaHours = this.insulinProfile.duration / 60;
+    const peak = this.insulinProfile.peakTime;
+
+    console.log('IOB Debug: Calculating IOB at time', {
       targetTime: targetTime.toISOString(),
       notesCount: notes.length,
-      insulinHalfLifeMinutes
+      diaHours,
+      peakMinutes: peak
     });
-    
+
     for (const note of notes) {
       const noteTimeMs = note.timestamp.getTime();
       const timeDiffMinutes = (targetTimeMs - noteTimeMs) / (1000 * 60);
-      
-      // Skip if note is in the future or insulin is 0
+
       if (timeDiffMinutes < 0 || note.insulin <= 0) {
-        console.log('🔍 IOB Debug: Skipping note', {
+        console.log('IOB Debug: Skipping note', {
           noteTime: note.timestamp.toISOString(),
           insulin: note.insulin,
           timeDiffMinutes,
@@ -280,23 +272,25 @@ export class InsulinOnBoardService {
         });
         continue;
       }
-      
-      // Calculate remaining insulin using exponential decay
-      const halfLives = timeDiffMinutes / insulinHalfLifeMinutes;
-      const remainingInsulin = note.insulin * Math.pow(0.5, halfLives);
-      totalIOB += Math.max(0, remainingInsulin);
-      
-      console.log('🔍 IOB Debug: Processing note', {
+
+      const remainingInsulin = InsulinCalculator.iobOpenApsExponential(
+        note.insulin,
+        timeDiffMinutes,
+        diaHours,
+        peak
+      );
+      totalIOB += remainingInsulin;
+
+      console.log('IOB Debug: Processing note', {
         noteTime: note.timestamp.toISOString(),
         insulin: note.insulin,
         timeDiffMinutes,
-        halfLives,
         remainingInsulin,
         runningTotal: totalIOB
       });
     }
-    
-    console.log('🔍 IOB Debug: Final totalIOB =', totalIOB);
+
+    console.log('IOB Debug: Final totalIOB =', totalIOB);
     return totalIOB;
   }
 
