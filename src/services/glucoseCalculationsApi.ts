@@ -33,6 +33,9 @@ export interface GlucoseCalculationsResponse {
   predictionPath?: Array<{
     timestamp: string;
     predictedGlucose: number;
+    carbAbsorptionEffect?: number;
+    insulinActivityEffect?: number;
+    absorptionMode?: string;
   }>;
 }
 
@@ -41,6 +44,12 @@ export interface PredictionFactors {
   insulinContribution: number;  // mmol/L glucose drop from remaining insulin
   baselineContribution: number; // mmol/L from baseline trend
   trendContribution: number;    // mmol/L from glucose trend
+  preBolusTimingContribution?: number;
+  avgBolusToMealMinutes?: number;
+  estimatedMealGi?: number;
+  estimatedMealGl?: number;
+  absorptionSpeedClass?: string;
+  absorptionMode?: string;
 }
 
 const config = getEnvironmentConfig();

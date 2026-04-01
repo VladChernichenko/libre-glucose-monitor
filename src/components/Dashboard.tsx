@@ -200,11 +200,13 @@ const Dashboard: React.FC = () => {
       console.error('[Dashboard] Nightscout proxy fetch failed:', err);
       setError(`Failed to fetch from Nightscout via backend proxy: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
-      // Fallback to demo data if Nightscout fails
-      const demoData = generateDemoGlucoseData(24);
-      setGlucoseHistory(demoData);
-      if (demoData.length > 0) {
-        setCurrentReading(demoData[demoData.length - 1]);
+      // Only use demo fallback when explicitly enabled.
+      if (process.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
+        const demoData = generateDemoGlucoseData(24);
+        setGlucoseHistory(demoData);
+        if (demoData.length > 0) {
+          setCurrentReading(demoData[demoData.length - 1]);
+        }
       }
     }
   }, [selectedConnection, nightscoutProxy, calculateGlucoseStatus, isAuthenticated]);
@@ -284,11 +286,8 @@ const Dashboard: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(`Failed to fetch historical data from Nightscout via backend proxy: ${errorMessage}`);
       
-      // Only fallback to demo data if we're in development or if explicitly enabled
-      const isDemoMode = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      
-      if (isDemoMode || isDevelopment) {
+      // Only fallback to demo data when explicitly enabled.
+      if (process.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
         const demoData = generateDemoGlucoseData(24);
         setGlucoseHistory(demoData);
       } else {

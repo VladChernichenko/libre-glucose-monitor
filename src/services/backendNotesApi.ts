@@ -17,6 +17,8 @@ export interface BackendNote {
   glucoseValue?: number;
   detailedInput?: string;
   insulinDose?: any; // Will be serialized JSON
+  nutritionProfile?: string;
+  absorptionMode?: string;
   mockData?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -138,6 +140,8 @@ const convertBackendNoteToFrontend = (backendNote: BackendNote): GlucoseNote => 
     glucoseValue: backendNote.glucoseValue,
     detailedInput: backendNote.detailedInput,
     insulinDose: backendNote.insulinDose ? JSON.parse(backendNote.insulinDose) : undefined,
+    nutritionProfile: backendNote.nutritionProfile,
+    absorptionMode: backendNote.absorptionMode,
     mockData: backendNote.mockData ?? false,
   };
 };

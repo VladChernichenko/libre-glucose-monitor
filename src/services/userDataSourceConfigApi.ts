@@ -231,23 +231,44 @@ export const userDataSourceConfigApi = {
     nightscoutApiSecret?: string;
     nightscoutApiToken?: string;
   }): Promise<NightscoutTestResponse> {
+    const payload = {
+      nightscoutUrl: params.nightscoutUrl.trim(),
+      nightscoutApiSecret: params.nightscoutApiSecret?.trim() ?? '',
+      nightscoutApiToken: params.nightscoutApiToken?.trim() ?? '',
+    };
+
+    const normalize = (response: any): NightscoutTestResponse => ({
+      ok: !!response?.data?.ok,
+      message: response?.data?.message ?? 'Unknown response from server.',
+    });
+
     try {
-      const response = await apiClient.post<NightscoutTestResponse>('/test-nightscout', {
-        nightscoutUrl: params.nightscoutUrl.trim(),
-        nightscoutApiSecret: params.nightscoutApiSecret?.trim() ?? '',
-        nightscoutApiToken: params.nightscoutApiToken?.trim() ?? '',
+      // Prefer GET first because some deployments/proxies reject POST on this endpoint.
+      const getResponse = await apiClient.get<NightscoutTestResponse>('/test-nightscout', {
+        params: payload,
       });
-      return {
-        ok: !!response.data?.ok,
-        message: response.data?.message ?? 'Unknown response from server.',
-      };
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        'Nightscout connection test failed.';
-      return { ok: false, message };
+      const normalizedGet = normalize(getResponse);
+      if (
+        normalizedGet.message.toLowerCase().includes("request method 'post' is not supported")
+      ) {
+        throw new Error(normalizedGet.message);
+      }
+      return normalizedGet;
+    } catch (getError: any) {
+      try {
+        const postResponse = await apiClient.post<NightscoutTestResponse>('/test-nightscout', payload);
+        return normalize(postResponse);
+      } catch (postError: any) {
+        const message =
+          postError?.response?.data?.message ||
+          postError?.response?.data?.error ||
+          getError?.response?.data?.message ||
+          getError?.response?.data?.error ||
+          postError?.message ||
+          getError?.message ||
+          'Nightscout connection test failed.';
+        return { ok: false, message };
+      }
     }
   },
 

@@ -58,7 +58,11 @@ const AIInsightPanel: React.FC = () => {
     });
   };
 
-  const runAnalysis = async (question?: string, turns?: AiChatTurn[]) => {
+  const runAnalysis = async (
+    question?: string,
+    turns?: AiChatTurn[],
+    runtimeOverride?: { model?: string; numCtx?: number },
+  ) => {
     streamAbortRef.current?.abort();
     const controller = new AbortController();
     streamAbortRef.current = controller;
@@ -131,8 +135,8 @@ const AIInsightPanel: React.FC = () => {
           followUpQuestion: question,
           conversationTurns,
           runtime: {
-            model: modelName,
-            numCtx,
+            model: runtimeOverride?.model ?? modelName,
+            numCtx: runtimeOverride?.numCtx ?? numCtx,
           },
         },
         controller.signal,
@@ -187,6 +191,13 @@ const AIInsightPanel: React.FC = () => {
     localStorage.setItem('ai_runtime_num_ctx', String(numCtx));
   }, [numCtx]);
 
+  const rerunWithRuntime = (nextModel: string, nextNumCtx: number) => {
+    if (!isOpen) return;
+    setMessages([]);
+    setDraftQuestion('');
+    void runAnalysis(undefined, [], { model: nextModel, numCtx: nextNumCtx });
+  };
+
   useEffect(() => {
     return () => {
       streamAbortRef.current?.abort();
@@ -231,7 +242,11 @@ const AIInsightPanel: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
                 <select
                   value={modelName}
-                  onChange={(e) => setModelName(e.target.value)}
+                  onChange={(e) => {
+                    const nextModel = e.target.value;
+                    setModelName(nextModel);
+                    rerunWithRuntime(nextModel, numCtx);
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-1.5 text-xs"
                 >
                   {MODEL_OPTIONS.map((model) => (
@@ -242,7 +257,11 @@ const AIInsightPanel: React.FC = () => {
                 </select>
                 <select
                   value={numCtx}
-                  onChange={(e) => setNumCtx(Number(e.target.value))}
+                  onChange={(e) => {
+                    const nextNumCtx = Number(e.target.value);
+                    setNumCtx(nextNumCtx);
+                    rerunWithRuntime(modelName, nextNumCtx);
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-1.5 text-xs"
                 >
                   {MEMORY_OPTIONS.map((ctx) => (

@@ -17,7 +17,7 @@ import { GlucoseNote } from '../types/notes';
 
 interface CombinedGlucoseChartProps {
   glucoseData: GlucoseReading[];
-  iobData: Array<{ time: Date; iob: number; prediction?: number }>;
+  iobData: Array<{ time: Date; iob: number; prediction?: number; carbCurve?: number; insulinCurve?: number }>;
   notes?: GlucoseNote[];
   onNoteClick?: (note: GlucoseNote) => void;
 }
@@ -26,6 +26,8 @@ interface ChartDataPoint {
   time: number;
   glucose: number;
   prediction?: number;
+  carbCurve?: number;
+  insulinCurve?: number;
   status: string;
   color: string;
   isFirstPoint: boolean;
@@ -87,6 +89,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
         time,
         glucose: reading.value,
         prediction,
+        carbCurve: undefined,
+        insulinCurve: undefined,
         status: reading.status,
         color: getGlucoseColor(reading.value),
         isFirstPoint: index === 0,
@@ -102,6 +106,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
         // Keep actual glucose series separate from predicted series.
         glucose: NaN,
         prediction: item.prediction,
+        carbCurve: item.carbCurve,
+        insulinCurve: item.insulinCurve,
         status: 'prediction',
         color: '#9CA3AF', // Gray for predictions
         isFirstPoint: false,
@@ -220,6 +226,22 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
                 </span>
               </div>
             )}
+            {data.carbCurve !== undefined && (
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                <span className="text-sm">
+                  Carb curve: <span className="font-medium">{data.carbCurve.toFixed(2)} mmol/L</span>
+                </span>
+              </div>
+            )}
+            {data.insulinCurve !== undefined && (
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                <span className="text-sm">
+                  Insulin curve: <span className="font-medium">{data.insulinCurve.toFixed(2)} mmol/L</span>
+                </span>
+              </div>
+            )}
             
             {data.isPrediction && (
               <div className="text-xs text-gray-500 italic">Predicted</div>
@@ -283,6 +305,26 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             stroke="#9CA3AF"
             strokeWidth={2}
             strokeDasharray="5 5"
+            dot={false}
+            isAnimationActive={false}
+            connectNulls={false}
+          />
+          <Line
+            yAxisId="glucose"
+            type="monotone"
+            dataKey="carbCurve"
+            stroke="#F59E0B"
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+            connectNulls={false}
+          />
+          <Line
+            yAxisId="glucose"
+            type="monotone"
+            dataKey="insulinCurve"
+            stroke="#8B5CF6"
+            strokeWidth={2}
             dot={false}
             isAnimationActive={false}
             connectNulls={false}
@@ -366,6 +408,14 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 rounded-full bg-gray-400"></div>
           <span>Prediction</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+          <span>Carb absorption</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+          <span>Insulin activity</span>
         </div>
       </div>
     </div>

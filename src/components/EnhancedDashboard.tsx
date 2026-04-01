@@ -18,6 +18,7 @@ import { GlucoseNote } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services/glucoseCalculationsApi';
+import { insulinOnBoardService } from '../services/insulinOnBoard';
 // Removed nightscoutConfigApi import - using global configuration now
 import { dataSourceConfigApi } from '../services/dataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
@@ -41,10 +42,12 @@ const EnhancedDashboard: React.FC = () => {
   // Enhanced Nightscout service
   const [nightscoutService] = useState(() => {
     const config = getEnvironmentConfig();
+    const demoFallbackEnabled = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
     return new EnhancedNightscoutService({
       backendUrl: config.backendUrl,
       enableFallbacks: true,
-      enableDemoData: true,
+      // Avoid masking real Nightscout issues with synthetic chart data unless explicitly enabled.
+      enableDemoData: demoFallbackEnabled,
       retryAttempts: 3,
       retryDelay: 1000,
       timeout: 10000
@@ -538,9 +541,39 @@ const EnhancedDashboard: React.FC = () => {
         time: new Date(p.timestamp),
         iob: 0,
         prediction: p.predictedGlucose,
+        carbCurve: p.carbAbsorptionEffect !== undefined && currentReading
+          ? currentReading.value + p.carbAbsorptionEffect
+          : undefined,
+        insulinCurve: p.insulinActivityEffect !== undefined && currentReading
+          ? currentReading.value + p.insulinActivityEffect
+          : undefined,
       }))
       .filter((p) => !Number.isNaN(p.time.getTime()));
-  }, [glucoseCalculations?.predictionPath]);
+  }, [glucoseCalculations?.predictionPath, currentReading]);
+
+  const activeInsulinDisplayValue = useMemo(() => {
+    const backendIob = glucoseCalculations?.activeInsulinOnBoard;
+    if (backendIob !== undefined && backendIob !== null && backendIob > 0) {
+      return backendIob;
+    }
+
+    const insulinNotes = notes
+      .map((note) => ({
+        timestamp: note.timestamp instanceof Date ? note.timestamp : new Date(note.timestamp as any),
+        insulin: note.insulin,
+        comment: note.comment,
+      }))
+      .filter((note) => !Number.isNaN(note.timestamp.getTime()))
+      .filter((note) => (note.insulin ?? 0) > 0);
+
+    if (insulinNotes.length === 0) {
+      return backendIob ?? null;
+    }
+
+    // Fallback IOB so recent pre-bolus doses are reflected immediately in the UI.
+    const insulinEntries = insulinOnBoardService.extractInsulinFromNotes(insulinNotes);
+    return insulinOnBoardService.getCurrentIOB(insulinEntries);
+  }, [glucoseCalculations?.activeInsulinOnBoard, notes]);
 
   const recentNotesLast12Hours = useMemo(() => {
     const normalizedNotes = notes
@@ -659,6 +692,9 @@ const EnhancedDashboard: React.FC = () => {
                         '--';
                     })()}
                   </div>
+                  <div className="text-[10px] text-orange-500 mt-1">
+                    GI/GL: {glucoseCalculations?.factors?.estimatedMealGi ?? '--'}/{glucoseCalculations?.factors?.estimatedMealGl ?? '--'}
+                  </div>
                 </div>
 
                 {/* Active Insulin */}
@@ -666,7 +702,7 @@ const EnhancedDashboard: React.FC = () => {
                   <div className="text-xs text-purple-600 mb-1">Active Insulin</div>
                   <div className="font-bold text-lg text-purple-800">
                     {(() => {
-                      const insulinValue = glucoseCalculations?.activeInsulinOnBoard;
+                      const insulinValue = activeInsulinDisplayValue;
                       return insulinValue !== undefined && insulinValue !== null ? 
                         `${insulinValue.toFixed(2)}u` : 
                         '--';
@@ -684,6 +720,11 @@ const EnhancedDashboard: React.FC = () => {
                         `${predictionValue.toFixed(1)} ${currentReading?.unit || 'mmol/L'}` : 
                         '--';
                     })()}
+                  </div>
+                  <div className="text-[10px] text-indigo-500 mt-1">
+                    {glucoseCalculations?.factors?.absorptionMode === 'DEFAULT_DECAY'
+                      ? 'Default curve'
+                      : (glucoseCalculations?.factors?.absorptionSpeedClass || '--')}
                   </div>
                 </div>
 
