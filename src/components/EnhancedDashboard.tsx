@@ -484,7 +484,7 @@ const EnhancedDashboard: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
-  const preBolusTimerLabel = useMemo(() => {
+  const preBolusState = useMemo(() => {
     const sortedNotes = [...notes]
       .map((note) => ({
         ...note,
@@ -498,7 +498,10 @@ const EnhancedDashboard: React.FC = () => {
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     if (preBolusNotes.length === 0) {
-      return '--';
+      return {
+        visible: false,
+        label: '--',
+      };
     }
 
     const latest = preBolusNotes[0];
@@ -511,11 +514,21 @@ const EnhancedDashboard: React.FC = () => {
       return mealType !== 'correction' && mealType !== 'pre-bolus' && mealType !== 'prebolus';
     });
 
-    const stopAt = mealAfterPreBolus ? mealAfterPreBolus.timestamp.getTime() : nowTick;
-    const elapsedSec = Math.max(0, Math.floor((stopAt - latest.timestamp.getTime()) / 1000));
+    if (mealAfterPreBolus) {
+      // A meal has been logged after latest pre-bolus, so timer section should reset/hide.
+      return {
+        visible: false,
+        label: '--',
+      };
+    }
+
+    const elapsedSec = Math.max(0, Math.floor((nowTick - latest.timestamp.getTime()) / 1000));
     const minutes = Math.floor(elapsedSec / 60);
     const seconds = elapsedSec % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return {
+      visible: true,
+      label: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+    };
   }, [notes, nowTick]);
 
   const predictionTrackData = useMemo(() => {
@@ -623,7 +636,7 @@ const EnhancedDashboard: React.FC = () => {
           {/* Compact Metrics Bar */}
           <div className="mb-2 shrink-0">
             <div className="bg-white rounded-lg shadow-sm p-3">
-              <div className="grid grid-cols-5 gap-4">
+              <div className={`grid ${preBolusState.visible ? 'grid-cols-5' : 'grid-cols-4'} gap-4`}>
                 {/* Current Glucose */}
                 <div className="text-center">
                   <div className="text-xs text-blue-600 mb-1">Current Glucose</div>
@@ -675,11 +688,13 @@ const EnhancedDashboard: React.FC = () => {
                 </div>
 
                 {/* Time after Pre-bolus */}
-                <div className="text-center">
-                  <div className="text-xs text-emerald-600 mb-1">After Pre-bolus</div>
-                  <div className="font-bold text-lg text-emerald-800">{preBolusTimerLabel}</div>
-                  <div className="text-xs text-emerald-600">mm:ss</div>
-                </div>
+                {preBolusState.visible && (
+                  <div className="text-center">
+                    <div className="text-xs text-emerald-600 mb-1">After Pre-bolus</div>
+                    <div className="font-bold text-lg text-emerald-800">{preBolusState.label}</div>
+                    <div className="text-xs text-emerald-600">mm:ss</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

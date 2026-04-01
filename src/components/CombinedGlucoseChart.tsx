@@ -99,7 +99,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
       .filter(item => item.prediction !== undefined)
       .map(item => ({
         time: item.time.getTime(),
-        glucose: item.prediction!,
+        // Keep actual glucose series separate from predicted series.
+        glucose: NaN,
         prediction: item.prediction,
         status: 'prediction',
         color: '#9CA3AF', // Gray for predictions

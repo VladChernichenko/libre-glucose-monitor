@@ -43,6 +43,16 @@ export interface AiAnalysisResponse {
   generatedAt: string;
 }
 
+export interface AiChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AiRuntimeOptions {
+  model?: string;
+  numCtx?: number;
+}
+
 export type AiStreamEvent =
   | { type: 'token'; token: string }
   | { type: 'result'; result: AiAnalysisResponse }
@@ -81,6 +91,11 @@ export const aiInsightsApi = {
   async analyzeRetrospectiveStream(
     windowHours: number,
     onEvent: (event: AiStreamEvent) => void,
+    options?: {
+      followUpQuestion?: string;
+      conversationTurns?: AiChatTurn[];
+      runtime?: AiRuntimeOptions;
+    },
     signal?: AbortSignal,
   ): Promise<void> {
     if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
@@ -94,7 +109,13 @@ export const aiInsightsApi = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ windowHours }),
+      body: JSON.stringify({
+        windowHours,
+        followUpQuestion: options?.followUpQuestion,
+        conversationTurns: options?.conversationTurns,
+        model: options?.runtime?.model,
+        numCtx: options?.runtime?.numCtx,
+      }),
       signal,
     });
 
