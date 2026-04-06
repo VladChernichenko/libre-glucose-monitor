@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { 
   XAxis, 
   YAxis, 
@@ -20,6 +20,8 @@ interface CombinedGlucoseChartProps {
   iobData: Array<{ time: Date; iob: number; prediction?: number; carbCurve?: number; insulinCurve?: number }>;
   notes?: GlucoseNote[];
   onNoteClick?: (note: GlucoseNote) => void;
+  /** Click chart (time axis) to add a note at that time; glucose is set when the point is a real SGV, not prediction-only. */
+  onChartTimestampClick?: (timestamp: Date, glucoseMmolL?: number) => void;
 }
 
 interface ChartDataPoint {
@@ -42,7 +44,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   glucoseData, 
   iobData, 
   notes = [], 
-  onNoteClick 
+  onNoteClick,
+  onChartTimestampClick,
 }) => {
   // Helper function for glucose color coding
   const getGlucoseColor = (value: number): string => {
@@ -156,6 +159,49 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return picked.filter((_, i) => i % step === 0);
   }, [rawExtremePoints]);
 
+  const handleChartClick = useCallback(
+    (state: any) => {
+      if (!onChartTimestampClick || chartData.length === 0) return;
+
+      let idx: number | undefined;
+      const raw = state?.activeTooltipIndex as number | string | null | undefined;
+      if (typeof raw === 'number' && Number.isFinite(raw)) {
+        idx = raw;
+      } else if (raw != null && `${raw}`.length > 0) {
+        const n = Number(raw);
+        if (Number.isFinite(n)) idx = n;
+      }
+
+      if (idx == null || idx < 0 || idx >= chartData.length) {
+        const label = state?.activeLabel as string | undefined;
+        if (label != null && `${label}`.length > 0) {
+          const t = Number(label);
+          if (!Number.isNaN(t)) {
+            let best = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < chartData.length; i++) {
+              const d = Math.abs(chartData[i].time - t);
+              if (d < bestDist) {
+                bestDist = d;
+                best = i;
+              }
+            }
+            idx = best;
+          }
+        }
+      }
+
+      if (idx == null || idx < 0 || idx >= chartData.length) return;
+
+      const point = chartData[idx];
+      const ts = new Date(point.time);
+      const glucose =
+        !point.isPrediction && Number.isFinite(point.glucose) ? point.glucose : undefined;
+      onChartTimestampClick(ts, glucose);
+    },
+    [chartData, onChartTimestampClick]
+  );
+
   const getValueColor = (value: number): string => {
     return getGlucoseColor(value);
   };
@@ -254,10 +300,17 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   };
 
   return (
-    <div className="h-full w-full flex flex-col min-h-0">
+    <div
+      className={`h-full w-full flex flex-col min-h-0${onChartTimestampClick ? ' cursor-crosshair' : ''}`}
+      title={onChartTimestampClick ? 'Click chart to add a note at that time' : undefined}
+    >
       <div className="flex-1 min-h-0 w-full">
         <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <ComposedChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          onClick={handleChartClick}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
           
           <XAxis
@@ -384,7 +437,10 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
                   fill="#F59E0B"
                   stroke="#D97706"
                   strokeWidth={2}
-                  onClick={() => onNoteClick?.(note)}
+                  onClick={(_dotProps, e) => {
+                    e.stopPropagation();
+                    onNoteClick?.(note);
+                  }}
                   style={{ cursor: 'pointer' }}
                 />
               );
@@ -417,6 +473,11 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
           <div className="w-3 h-3 rounded-full bg-purple-400"></div>
           <span>Insulin activity</span>
         </div>
+        {onChartTimestampClick && (
+          <div className="flex items-center space-x-1 text-gray-600">
+            <span>Click chart to add note at that time</span>
+          </div>
+        )}
       </div>
     </div>
   );

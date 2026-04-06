@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 import CombinedGlucoseChart from './CombinedGlucoseChart';
-import NoteInputModal from './NoteInputModal';
+import NoteInputModal, { AddNoteChartContext } from './NoteInputModal';
 import COBSettings from './COBSettings';
 import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
@@ -36,6 +36,7 @@ const Dashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  const [addNoteContext, setAddNoteContext] = useState<AddNoteChartContext | null>(null);
   const [notesBackendStatus, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
 
   // Backend calculations only - no local COB state needed
@@ -462,6 +463,7 @@ const Dashboard: React.FC = () => {
   }, [loadNotes]);
 
   const handleEditNote = (note: GlucoseNote) => {
+    setAddNoteContext(null);
     setEditingNote(note);
     setIsNoteModalOpen(true);
   };
@@ -469,6 +471,7 @@ const Dashboard: React.FC = () => {
   const handleNoteModalClose = () => {
     setIsNoteModalOpen(false);
     setEditingNote(null);
+    setAddNoteContext(null);
   };
 
   // Nightscout configuration handlers
@@ -491,7 +494,16 @@ const Dashboard: React.FC = () => {
   };
 
   const handleNoteClick = (note: GlucoseNote) => {
+    setAddNoteContext(null);
     setEditingNote(note);
+    setIsNoteModalOpen(true);
+  };
+
+  const handleChartAddNoteAtTime = (timestamp: Date, glucoseMmolL?: number) => {
+    setEditingNote(null);
+    setAddNoteContext(
+      glucoseMmolL !== undefined ? { timestamp, glucoseMmol: glucoseMmolL } : { timestamp }
+    );
     setIsNoteModalOpen(true);
   };
 
@@ -637,7 +649,7 @@ const Dashboard: React.FC = () => {
                 title="Rapid and long-acting insulin types"
               >
                 <span className="text-sm sm:text-base" aria-hidden>
-                  рџ’‰
+                  Ins
                 </span>
                 <span className="hidden sm:inline">Insulin</span>
                 <span className="sm:hidden">Ins</span>
@@ -693,7 +705,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-center space-x-6 text-sm">
                     {/* Current Glucose */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-blue-600 font-medium">рџ“Љ</span>
+                      <span className="text-blue-600 font-medium">BG</span>
                       <div className="text-center">
                         <div className="font-bold text-blue-800">
                           {currentReading ? `${currentReading.value} ${currentReading.unit}` : '--'}
@@ -712,7 +724,7 @@ const Dashboard: React.FC = () => {
 
                     {/* Active Carbs */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-orange-600 font-medium" aria-hidden>рџЌћ</span>
+                      <span className="text-orange-600 font-medium" aria-hidden>COB</span>
                       <div className="text-center">
                         <div className="font-bold text-orange-800">
                           {(() => {
@@ -733,7 +745,7 @@ const Dashboard: React.FC = () => {
 
                     {/* Active Insulin */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-purple-600 font-medium" aria-hidden>рџ’‰</span>
+                      <span className="text-purple-600 font-medium" aria-hidden>IOB</span>
                       <div className="text-center">
                         <div className="font-bold text-purple-800">
                           {(() => {
@@ -754,7 +766,7 @@ const Dashboard: React.FC = () => {
 
                     {/* 2-Hour Prediction */}
                     <div className="flex items-center space-x-2">
-                      <span className="text-green-600 font-medium" aria-hidden>рџ“€</span>
+                      <span className="text-green-600 font-medium" aria-hidden>2h</span>
                       <div className="text-center">
                         {(() => {
                           if (!currentReading?.value) {
@@ -814,6 +826,7 @@ const Dashboard: React.FC = () => {
                   iobData={[]} // No frontend IOB data - backend handles predictions
                   notes={notes}
                   onNoteClick={handleNoteClick}
+                  onChartTimestampClick={handleChartAddNoteAtTime}
                 />
               </div>
             </div>
@@ -843,7 +856,11 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setIsNoteModalOpen(true)}
+                  onClick={() => {
+                    setEditingNote(null);
+                    setAddNoteContext(null);
+                    setIsNoteModalOpen(true);
+                  }}
                   className="btn-primary text-xs px-2 py-1"
                 >
                   + Add
@@ -912,7 +929,7 @@ const Dashboard: React.FC = () => {
                   if (filteredNotes.length === 0) {
                     return (
                       <div className="text-center py-1">
-                        <div className="text-gray-400 text-sm mb-1" aria-hidden>рџ“ќ</div>
+                        <div className="text-gray-400 text-sm mb-1" aria-hidden>…</div>
                         <p className="text-gray-500 text-xs">No notes in 12h range</p>
                       </div>
                     );
@@ -940,6 +957,7 @@ const Dashboard: React.FC = () => {
           onSave={editingNote ? handleNoteUpdate : handleNoteSave}
           initialData={editingNote || undefined}
           currentGlucose={currentReading?.value}
+          addNoteContext={editingNote ? null : addNoteContext}
           mode={editingNote ? 'edit' : 'add'}
         />
 

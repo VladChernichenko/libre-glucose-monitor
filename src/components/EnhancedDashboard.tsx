@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 import CombinedGlucoseChart from './CombinedGlucoseChart';
-import NoteInputModal from './NoteInputModal';
+import NoteInputModal, { AddNoteChartContext } from './NoteInputModal';
 import COBSettings from './COBSettings';
 import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
@@ -66,6 +66,7 @@ const EnhancedDashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  const [addNoteContext, setAddNoteContext] = useState<AddNoteChartContext | null>(null);
   const [, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
 
   // Settings and modals
@@ -478,7 +479,16 @@ const EnhancedDashboard: React.FC = () => {
   }, [currentReading, isAuthenticated]);
 
   const openNoteForEdit = useCallback((note: GlucoseNote) => {
+    setAddNoteContext(null);
     setEditingNote(note);
+    setIsNoteModalOpen(true);
+  }, []);
+
+  const openAddNoteAtChartTime = useCallback((timestamp: Date, glucoseMmolL?: number) => {
+    setEditingNote(null);
+    setAddNoteContext(
+      glucoseMmolL !== undefined ? { timestamp, glucoseMmol: glucoseMmolL } : { timestamp }
+    );
     setIsNoteModalOpen(true);
   }, []);
 
@@ -584,18 +594,12 @@ const EnhancedDashboard: React.FC = () => {
       .filter((note) => !Number.isNaN(note.timestamp.getTime()));
     const now = Date.now();
     const startTime = now - (12 * 60 * 60 * 1000);
-    const inLast12Hours = normalizedNotes
+    return normalizedNotes
       .filter((note) => {
         const noteTime = note.timestamp.getTime();
         return noteTime >= startTime && noteTime <= now;
       })
-      // Chat-like flow: oldest at top, newest at bottom.
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    if (inLast12Hours.length > 0) {
-      return inLast12Hours;
-    }
-    // Fallback: show latest notes even if 12h window misses due timezone/legacy timestamps.
-    return normalizedNotes.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [notes]);
 
   // Only show fallback UI for critical errors, not for normal initialization
@@ -779,6 +783,7 @@ const EnhancedDashboard: React.FC = () => {
                   iobData={predictionTrackData}
                   notes={notes}
                   onNoteClick={openNoteForEdit}
+                  onChartTimestampClick={openAddNoteAtChartTime}
                 />
               </div>
             </div>
@@ -790,7 +795,11 @@ const EnhancedDashboard: React.FC = () => {
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <h3 className="text-sm font-medium text-gray-900">Recent Notes</h3>
                   <button
-                    onClick={() => setIsNoteModalOpen(true)}
+                    onClick={() => {
+                      setEditingNote(null);
+                      setAddNoteContext(null);
+                      setIsNoteModalOpen(true);
+                    }}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
                     + Add
@@ -895,6 +904,7 @@ const EnhancedDashboard: React.FC = () => {
             onClose={() => {
               setIsNoteModalOpen(false);
               setEditingNote(null);
+              setAddNoteContext(null);
             }}
             onSave={async () => {
               // NoteInputModal already persisted via hybridNotesApi; only refresh local list.
@@ -904,12 +914,14 @@ const EnhancedDashboard: React.FC = () => {
                 await refreshGlucoseCalculations();
                 setIsNoteModalOpen(false);
                 setEditingNote(null);
+                setAddNoteContext(null);
               } catch (error) {
                 console.error('Failed to refresh notes after save:', error);
               }
             }}
             initialData={editingNote || undefined}
             currentGlucose={currentReading?.value}
+            addNoteContext={editingNote ? null : addNoteContext}
             mode={editingNote ? 'edit' : 'add'}
           />
 
