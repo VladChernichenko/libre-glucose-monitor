@@ -206,6 +206,11 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
     return getGlucoseColor(value);
   };
 
+  const formatGlucoseAxisTick = (value: number): string => {
+    if (!Number.isFinite(value)) return '';
+    return (Math.round(value * 10) / 10).toFixed(1);
+  };
+
   // Early return if no data or data is obsolete
   if (!chartData || chartData.length === 0) {
     return (
@@ -234,8 +239,8 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
   // Calculate domains
   const glucoseValues = chartData.map(d => d.glucose).filter(v => !isNaN(v));
   
-  const glucoseMin = Math.min(...glucoseValues);
-  const glucoseMax = Math.max(...glucoseValues);
+  const glucoseMin = glucoseValues.length > 0 ? Math.min(...glucoseValues) : 0;
+  const glucoseMax = glucoseValues.length > 0 ? Math.max(...glucoseValues) : 10;
 
   // Current time for reference line
   const currentTime = new Date().getTime();
@@ -329,7 +334,7 @@ const CombinedGlucoseChart: React.FC<CombinedGlucoseChartProps> = ({
             orientation="left"
             stroke="#3B82F6"
             domain={[Math.max(0, glucoseMin - 2), glucoseMax + 3]}
-            tickFormatter={(value) => `${value}`}
+            tickFormatter={formatGlucoseAxisTick}
             fontSize={10}
           />
           
