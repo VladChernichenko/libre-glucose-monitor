@@ -9,6 +9,8 @@ export interface GlucoseNote {
   glucoseValue?: number;
   detailedInput?: string; // Detailed input text (e.g., "50g soup 20g bread 7u")
   insulinDose?: InsulinDose; // Insulin dose information for tracking
+  nutritionProfile?: string;
+  absorptionMode?: string;
   mockData?: boolean; // Mark note as synthetic test data
   createdAt?: Date; // Backend timestamp
   updatedAt?: Date; // Backend timestamp

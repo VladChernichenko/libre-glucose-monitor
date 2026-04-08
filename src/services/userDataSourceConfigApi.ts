@@ -6,7 +6,7 @@ const config = getEnvironmentConfig();
 
 // Create axios instance with default config
 const baseURL = `${config.backendUrl}/api/user/data-source-config`;
-console.log('СЂСџвЂќВ§ userDataSourceConfigApi: Creating API client with baseURL:', baseURL);
+console.log('userDataSourceConfigApi: Creating API client with baseURL:', baseURL);
 
 const apiClient = axios.create({
   baseURL: baseURL,
@@ -19,12 +19,12 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   // Check if user is still authenticated or logout is in progress
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
-    console.log('СЂСџС™В« Blocking User Data Source Config API request - user not authenticated or logout in progress');
+    console.log('Blocking User Data Source Config API request - user not authenticated or logout in progress');
     return Promise.reject(new Error('User not authenticated or logout in progress'));
   }
   
   const token = localStorage.getItem('accessToken');
-  console.log('СЂСџвЂќРЊ User Data Source Config API Request:', {
+  console.log('User Data Source Config API Request:', {
     url: (config.baseURL || '') + (config.url || ''),
     method: config.method,
     hasToken: !!token,
@@ -39,7 +39,7 @@ apiClient.interceptors.request.use((config) => {
 // Add response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('РІСљвЂ¦ User Data Source Config API Success:', {
+    console.log('User Data Source Config API Success:', {
       status: response.status,
       url: response.config.url,
       data: response.data
@@ -47,7 +47,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('РІСњРЉ User Data Source Config API Error:', {
+    console.error('User Data Source Config API Error:', {
       status: error.response?.status,
       url: error.config?.url,
       message: error.message,
@@ -56,7 +56,7 @@ apiClient.interceptors.response.use(
     
     // Handle authentication errors
     if (error.response?.status === 401) {
-      console.log('СЂСџвЂќС’ Authentication error - redirecting to login');
+      console.log('Authentication error - redirecting to login');
       authService.logout();
     }
     
@@ -122,15 +122,15 @@ export const userDataSourceConfigApi = {
    * Save or update a data source configuration
    */
   async saveConfig(config: DataSourceConfigRequest): Promise<UserDataSourceConfig> {
-    console.log('СЂСџвЂќВ§ userDataSourceConfigApi: saveConfig called with:', config);
+    console.log('userDataSourceConfigApi: saveConfig called with:', config);
     try {
-      console.log('СЂСџвЂќВ§ userDataSourceConfigApi: Making POST request to base URL:', apiClient.defaults.baseURL);
+      console.log('userDataSourceConfigApi: Making POST request to base URL:', apiClient.defaults.baseURL);
       const response = await apiClient.post('', config);
-      console.log('СЂСџвЂќВ§ userDataSourceConfigApi: Response received:', response.data);
+      console.log('userDataSourceConfigApi: Response received:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('СЂСџвЂќВ§ userDataSourceConfigApi: Error saving configuration:', error);
-      console.error('СЂСџвЂќВ§ userDataSourceConfigApi: Error details:', {
+      console.error('userDataSourceConfigApi: Error saving configuration:', error);
+      console.error('userDataSourceConfigApi: Error details:', {
         message: error.message,
         status: error.response?.status,
         statusText: error.response?.statusText,
@@ -231,23 +231,44 @@ export const userDataSourceConfigApi = {
     nightscoutApiSecret?: string;
     nightscoutApiToken?: string;
   }): Promise<NightscoutTestResponse> {
+    const payload = {
+      nightscoutUrl: params.nightscoutUrl.trim(),
+      nightscoutApiSecret: params.nightscoutApiSecret?.trim() ?? '',
+      nightscoutApiToken: params.nightscoutApiToken?.trim() ?? '',
+    };
+
+    const normalize = (response: any): NightscoutTestResponse => ({
+      ok: !!response?.data?.ok,
+      message: response?.data?.message ?? 'Unknown response from server.',
+    });
+
     try {
-      const response = await apiClient.post<NightscoutTestResponse>('/test-nightscout', {
-        nightscoutUrl: params.nightscoutUrl.trim(),
-        nightscoutApiSecret: params.nightscoutApiSecret?.trim() ?? '',
-        nightscoutApiToken: params.nightscoutApiToken?.trim() ?? '',
+      // Prefer GET first because some deployments/proxies reject POST on this endpoint.
+      const getResponse = await apiClient.get<NightscoutTestResponse>('/test-nightscout', {
+        params: payload,
       });
-      return {
-        ok: !!response.data?.ok,
-        message: response.data?.message ?? 'Unknown response from server.',
-      };
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        'Nightscout connection test failed.';
-      return { ok: false, message };
+      const normalizedGet = normalize(getResponse);
+      if (
+        normalizedGet.message.toLowerCase().includes("request method 'post' is not supported")
+      ) {
+        throw new Error(normalizedGet.message);
+      }
+      return normalizedGet;
+    } catch (getError: any) {
+      try {
+        const postResponse = await apiClient.post<NightscoutTestResponse>('/test-nightscout', payload);
+        return normalize(postResponse);
+      } catch (postError: any) {
+        const message =
+          postError?.response?.data?.message ||
+          postError?.response?.data?.error ||
+          getError?.response?.data?.message ||
+          getError?.response?.data?.error ||
+          postError?.message ||
+          getError?.message ||
+          'Nightscout connection test failed.';
+        return { ok: false, message };
+      }
     }
   },
 

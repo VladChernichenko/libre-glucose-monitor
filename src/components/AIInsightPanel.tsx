@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 
 const STREAM_STUCK_TIMEOUT_MS = 20000;
 const LONG_DECIMAL_PATTERN = /\b\d+\.\d{2,}\b/g;
-const MODEL_OPTIONS = ['llama3.1:8b', 'llama3.2:3b', 'llama3.2:1b', 'qwen2.5:7b', 'mistral:7b'];
+const MODEL_OPTIONS = ['glm-5:cloud', 'llama3.1:8b', 'llama3.2:3b', 'llama3.2:1b', 'qwen2.5:7b', 'mistral:7b'];
 const MEMORY_OPTIONS = [2048, 4096, 8192, 16384];
 type ChatMessage = {
   id: string;
@@ -28,8 +28,8 @@ const AIInsightPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [canRetry, setCanRetry] = useState(false);
   const [modelName, setModelName] = useState(() => {
-    const raw = localStorage.getItem('ai_runtime_model') || 'llama3.1:8b';
-    return MODEL_OPTIONS.includes(raw) ? raw : 'llama3.1:8b';
+    const raw = localStorage.getItem('ai_runtime_model') || 'glm-5:cloud';
+    return MODEL_OPTIONS.includes(raw) ? raw : 'glm-5:cloud';
   });
   const [numCtx, setNumCtx] = useState<number>(() => {
     const raw = localStorage.getItem('ai_runtime_num_ctx');
@@ -58,7 +58,11 @@ const AIInsightPanel: React.FC = () => {
     });
   };
 
-  const runAnalysis = async (question?: string, turns?: AiChatTurn[]) => {
+  const runAnalysis = async (
+    question?: string,
+    turns?: AiChatTurn[],
+    runtimeOverride?: { model?: string; numCtx?: number },
+  ) => {
     streamAbortRef.current?.abort();
     const controller = new AbortController();
     streamAbortRef.current = controller;
@@ -131,8 +135,8 @@ const AIInsightPanel: React.FC = () => {
           followUpQuestion: question,
           conversationTurns,
           runtime: {
-            model: modelName,
-            numCtx,
+            model: runtimeOverride?.model ?? modelName,
+            numCtx: runtimeOverride?.numCtx ?? numCtx,
           },
         },
         controller.signal,
@@ -187,6 +191,13 @@ const AIInsightPanel: React.FC = () => {
     localStorage.setItem('ai_runtime_num_ctx', String(numCtx));
   }, [numCtx]);
 
+  const rerunWithRuntime = (nextModel: string, nextNumCtx: number) => {
+    if (!isOpen) return;
+    setMessages([]);
+    setDraftQuestion('');
+    void runAnalysis(undefined, [], { model: nextModel, numCtx: nextNumCtx });
+  };
+
   useEffect(() => {
     return () => {
       streamAbortRef.current?.abort();
@@ -231,7 +242,11 @@ const AIInsightPanel: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
                 <select
                   value={modelName}
-                  onChange={(e) => setModelName(e.target.value)}
+                  onChange={(e) => {
+                    const nextModel = e.target.value;
+                    setModelName(nextModel);
+                    rerunWithRuntime(nextModel, numCtx);
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-1.5 text-xs"
                 >
                   {MODEL_OPTIONS.map((model) => (
@@ -242,7 +257,11 @@ const AIInsightPanel: React.FC = () => {
                 </select>
                 <select
                   value={numCtx}
-                  onChange={(e) => setNumCtx(Number(e.target.value))}
+                  onChange={(e) => {
+                    const nextNumCtx = Number(e.target.value);
+                    setNumCtx(nextNumCtx);
+                    rerunWithRuntime(modelName, nextNumCtx);
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-1.5 text-xs"
                 >
                   {MEMORY_OPTIONS.map((ctx) => (

@@ -8,7 +8,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: REACT_APP_ENVIRONMENT
+        value: production
       - key: REACT_APP_BACKEND_URL
+        value: https://libre-glucose-monitor-be.onrender.com
+      - key: REACT_APP_COB_API_URL
         value: https://libre-glucose-monitor-be.onrender.com
       - key: REACT_APP_NIGHTSCOUT_URL
         value: ""

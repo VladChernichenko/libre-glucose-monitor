@@ -83,6 +83,22 @@ class HybridNotesApiService implements NotesApiService {
     if (this.initializationPromise) {
       await this.initializationPromise;
     }
+
+    // If service initialized before auth token existed, switch to backend on first
+    // authenticated access so notes load on initial dashboard render.
+    if (!this.useBackend && authService.isAuthenticated() && !authService.getIsLoggingOut()) {
+      try {
+        const isBackendAvailable = await backendNotesApi.testConnection();
+        if (isBackendAvailable) {
+          this.useBackend = true;
+          if (!this.migrationCompleted) {
+            await this.migrateFromLocalStorage();
+          }
+        }
+      } catch (_error) {
+        // Keep local mode when backend is unavailable.
+      }
+    }
   }
 
   // Method to force re-initialization (useful for testing)

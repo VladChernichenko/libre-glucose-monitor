@@ -6,6 +6,7 @@ import {
   LibreConnection,
   GlucoseReading
 } from '../types/libre';
+import { getEnvironmentConfig } from '../config/environments';
 import { dataSourceConfigApi } from './dataSourceConfigApi';
 import { authService } from './authService';
 
@@ -16,7 +17,7 @@ class LibreApiService {
 
   constructor() {
     // Use backend URL instead of direct LibreLinkUp API
-    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+    this.backendUrl = getEnvironmentConfig().backendUrl || 'http://localhost:8080';
     this.api = axios.create({
       baseURL: this.backendUrl,
       headers: {

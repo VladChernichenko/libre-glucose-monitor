@@ -4,12 +4,19 @@ import { GlucoseNote, NoteInputData, MEAL_CATEGORIES } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { getCurrentLocalTime } from '../utils/timezone';
 
+export type AddNoteChartContext = {
+  timestamp: Date;
+  glucoseMmol?: number;
+};
+
 interface NoteInputModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (note: GlucoseNote) => void;
   initialData?: GlucoseNote;
   currentGlucose?: number;
+  /** Pre-fill add form from a chart click (time and optional point glucose). */
+  addNoteContext?: AddNoteChartContext | null;
   mode: 'add' | 'edit';
 }
 
@@ -19,6 +26,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
   onSave,
   initialData,
   currentGlucose,
+  addNoteContext = null,
   mode
 }) => {
   const [formData, setFormData] = useState<NoteInputData>({
@@ -93,15 +101,15 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         });
         setManualMealSelection(true);
       } else {
-        // For add mode, start completely fresh with time-based meal type
-        const currentTime = new Date();
+        // For add mode: optional time/glucose from chart click, else "now"
+        const baseTime = addNoteContext?.timestamp ?? new Date();
         setFormData({
-          timestamp: currentTime,
+          timestamp: baseTime,
           carbs: 0,
           insulin: 0,
-          meal: getMealTypeByTime(currentTime),
+          meal: getMealTypeByTime(baseTime),
           comment: '',
-          glucoseValue: currentGlucose,
+          glucoseValue: addNoteContext?.glucoseMmol ?? currentGlucose,
           detailedInput: '',
           mockData: false
         });
@@ -113,7 +121,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       }
       setErrors([]);
     }
-  }, [isOpen, initialData, currentGlucose, mode]);
+  }, [isOpen, initialData, currentGlucose, mode, addNoteContext]);
 
   // Clean up form data when modal closes
   useEffect(() => {
@@ -297,7 +305,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">
-            {mode === 'add' ? '🍽️ Add Meal Note' : '✏️ Edit Meal Note'}
+            {mode === 'add' ? 'Add Meal Note' : 'Edit Meal Note'}
           </h2>
           <button
             onClick={onClose}
@@ -317,7 +325,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="timestamp" className="block text-xs font-medium text-gray-700 mb-1">
-                📅 When
+                When
               </label>
               <input
                 id="timestamp"
@@ -331,7 +339,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             </div>
             <div>
               <label htmlFor="meal" className="block text-sm font-medium text-gray-700 mb-2">
-                🍽️ Meal Type
+                Meal Type
               </label>
               <select
                 id="meal"
@@ -355,7 +363,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           {/* Combined Carbs and Insulin Input */}
           <div>
             <label htmlFor="carbsInsulin" className="block text-xs font-medium text-gray-700 mb-1">
-              🍽️ Carbs & Insulin <span className="text-gray-500 text-xs">(optional)</span>
+              Carbs & Insulin <span className="text-gray-500 text-xs">(optional)</span>
             </label>
                           <input
                 id="carbsInsulin"
@@ -378,7 +386,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           {currentGlucose && (
             <div>
               <label htmlFor="glucose" className="block text-xs font-medium text-gray-700 mb-1">
-                📊 Current Glucose (mmol/L) <span className="text-gray-500 text-xs">(read-only)</span>
+                Current Glucose (mmol/L) <span className="text-gray-500 text-xs">(read-only)</span>
               </label>
               <input
                 id="glucose"
@@ -395,7 +403,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
           {/* Comment */}
           <div>
             <label htmlFor="comment" className="block text-xs font-medium text-gray-700 mb-1">
-              💬 Comment (optional)
+              Comment (optional)
             </label>
             <textarea
               id="comment"
@@ -427,7 +435,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <div className="text-sm text-red-700">
                 {errors.map((error, index) => (
-                  <div key={index}>• {error}</div>
+                  <div key={index}>{error}</div>
                 ))}
               </div>
             </div>
@@ -447,7 +455,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
               type="submit"
               disabled={isSubmitting}
               className="flex-1 px-3 py-2 text-sm text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Save note (⌘+Return)"
+              title="Save note (Cmd/Ctrl+Return)"
             >
               {isSubmitting ? 'Saving...' : 'Save Note'}
             </button>

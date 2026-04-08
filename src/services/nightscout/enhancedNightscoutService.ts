@@ -34,7 +34,8 @@ export class EnhancedNightscoutService {
       retryDelay: config.retryDelay || 1000,
       timeout: config.timeout || 10000,
       enableFallbacks: config.enableFallbacks !== false,
-      enableDemoData: config.enableDemoData !== false,
+      // Default to real data only; demo data must be explicitly enabled.
+      enableDemoData: config.enableDemoData === true,
       ...config
     };
 

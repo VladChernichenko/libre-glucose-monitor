@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 import CombinedGlucoseChart from './CombinedGlucoseChart';
-import NoteInputModal from './NoteInputModal';
+import NoteInputModal, { AddNoteChartContext } from './NoteInputModal';
 import COBSettings from './COBSettings';
 import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
 import AIInsightPanel from './AIInsightPanel';
+import NutritionAnalyzerModal from './NutritionAnalyzerModal';
 // Removed NightscoutConfigModal import - using global configuration now
 import NightscoutErrorBoundary from './NightscoutErrorBoundary';
 import NightscoutFallbackUI from './NightscoutFallbackUI';
@@ -18,6 +19,7 @@ import { GlucoseNote } from '../types/notes';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { cobSettingsApi, COBSettingsData } from '../services/cobSettingsApi';
 import { glucoseCalculationsApi, GlucoseCalculationsResponse } from '../services/glucoseCalculationsApi';
+import { insulinOnBoardService } from '../services/insulinOnBoard';
 // Removed nightscoutConfigApi import - using global configuration now
 import { dataSourceConfigApi } from '../services/dataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
@@ -41,10 +43,12 @@ const EnhancedDashboard: React.FC = () => {
   // Enhanced Nightscout service
   const [nightscoutService] = useState(() => {
     const config = getEnvironmentConfig();
+    const demoFallbackEnabled = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
     return new EnhancedNightscoutService({
       backendUrl: config.backendUrl,
       enableFallbacks: true,
-      enableDemoData: true,
+      // Avoid masking real Nightscout issues with synthetic chart data unless explicitly enabled.
+      enableDemoData: demoFallbackEnabled,
       retryAttempts: 3,
       retryDelay: 1000,
       timeout: 10000
@@ -63,12 +67,14 @@ const EnhancedDashboard: React.FC = () => {
   const [notes, setNotes] = useState<GlucoseNote[]>([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GlucoseNote | null>(null);
+  const [addNoteContext, setAddNoteContext] = useState<AddNoteChartContext | null>(null);
   const [, setNotesBackendStatus] = useState<'checking' | 'backend' | 'local' | 'error'>('checking');
 
   // Settings and modals
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isInsulinSettingsOpen, setIsInsulinSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
+  const [isNutritionAnalyzerOpen, setIsNutritionAnalyzerOpen] = useState(false);
   const [isDataSourceConfigOpen, setIsDataSourceConfigOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
@@ -475,7 +481,16 @@ const EnhancedDashboard: React.FC = () => {
   }, [currentReading, isAuthenticated]);
 
   const openNoteForEdit = useCallback((note: GlucoseNote) => {
+    setAddNoteContext(null);
     setEditingNote(note);
+    setIsNoteModalOpen(true);
+  }, []);
+
+  const openAddNoteAtChartTime = useCallback((timestamp: Date, glucoseMmolL?: number) => {
+    setEditingNote(null);
+    setAddNoteContext(
+      glucoseMmolL !== undefined ? { timestamp, glucoseMmol: glucoseMmolL } : { timestamp }
+    );
     setIsNoteModalOpen(true);
   }, []);
 
@@ -538,9 +553,39 @@ const EnhancedDashboard: React.FC = () => {
         time: new Date(p.timestamp),
         iob: 0,
         prediction: p.predictedGlucose,
+        carbCurve: p.carbAbsorptionEffect !== undefined && currentReading
+          ? currentReading.value + p.carbAbsorptionEffect
+          : undefined,
+        insulinCurve: p.insulinActivityEffect !== undefined && currentReading
+          ? currentReading.value + p.insulinActivityEffect
+          : undefined,
       }))
       .filter((p) => !Number.isNaN(p.time.getTime()));
-  }, [glucoseCalculations?.predictionPath]);
+  }, [glucoseCalculations?.predictionPath, currentReading]);
+
+  const activeInsulinDisplayValue = useMemo(() => {
+    const backendIob = glucoseCalculations?.activeInsulinOnBoard;
+    if (backendIob !== undefined && backendIob !== null && backendIob > 0) {
+      return backendIob;
+    }
+
+    const insulinNotes = notes
+      .map((note) => ({
+        timestamp: note.timestamp instanceof Date ? note.timestamp : new Date(note.timestamp as any),
+        insulin: note.insulin,
+        comment: note.comment,
+      }))
+      .filter((note) => !Number.isNaN(note.timestamp.getTime()))
+      .filter((note) => (note.insulin ?? 0) > 0);
+
+    if (insulinNotes.length === 0) {
+      return backendIob ?? null;
+    }
+
+    // Fallback IOB so recent pre-bolus doses are reflected immediately in the UI.
+    const insulinEntries = insulinOnBoardService.extractInsulinFromNotes(insulinNotes);
+    return insulinOnBoardService.getCurrentIOB(insulinEntries);
+  }, [glucoseCalculations?.activeInsulinOnBoard, notes]);
 
   const recentNotesLast12Hours = useMemo(() => {
     const normalizedNotes = notes
@@ -551,18 +596,12 @@ const EnhancedDashboard: React.FC = () => {
       .filter((note) => !Number.isNaN(note.timestamp.getTime()));
     const now = Date.now();
     const startTime = now - (12 * 60 * 60 * 1000);
-    const inLast12Hours = normalizedNotes
+    return normalizedNotes
       .filter((note) => {
         const noteTime = note.timestamp.getTime();
         return noteTime >= startTime && noteTime <= now;
       })
-      // Chat-like flow: oldest at top, newest at bottom.
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    if (inLast12Hours.length > 0) {
-      return inLast12Hours;
-    }
-    // Fallback: show latest notes even if 12h window misses due timezone/legacy timestamps.
-    return normalizedNotes.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [notes]);
 
   // Only show fallback UI for critical errors, not for normal initialization
@@ -659,6 +698,9 @@ const EnhancedDashboard: React.FC = () => {
                         '--';
                     })()}
                   </div>
+                  <div className="text-[10px] text-orange-500 mt-1">
+                    GI/GL: {glucoseCalculations?.factors?.estimatedMealGi ?? '--'}/{glucoseCalculations?.factors?.estimatedMealGl ?? '--'}
+                  </div>
                 </div>
 
                 {/* Active Insulin */}
@@ -666,7 +708,7 @@ const EnhancedDashboard: React.FC = () => {
                   <div className="text-xs text-purple-600 mb-1">Active Insulin</div>
                   <div className="font-bold text-lg text-purple-800">
                     {(() => {
-                      const insulinValue = glucoseCalculations?.activeInsulinOnBoard;
+                      const insulinValue = activeInsulinDisplayValue;
                       return insulinValue !== undefined && insulinValue !== null ? 
                         `${insulinValue.toFixed(2)}u` : 
                         '--';
@@ -684,6 +726,11 @@ const EnhancedDashboard: React.FC = () => {
                         `${predictionValue.toFixed(1)} ${currentReading?.unit || 'mmol/L'}` : 
                         '--';
                     })()}
+                  </div>
+                  <div className="text-[10px] text-indigo-500 mt-1">
+                    {glucoseCalculations?.factors?.absorptionMode === 'DEFAULT_DECAY'
+                      ? 'Default curve'
+                      : (glucoseCalculations?.factors?.absorptionSpeedClass || '--')}
                   </div>
                 </div>
 
@@ -738,6 +785,7 @@ const EnhancedDashboard: React.FC = () => {
                   iobData={predictionTrackData}
                   notes={notes}
                   onNoteClick={openNoteForEdit}
+                  onChartTimestampClick={openAddNoteAtChartTime}
                 />
               </div>
             </div>
@@ -749,7 +797,11 @@ const EnhancedDashboard: React.FC = () => {
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <h3 className="text-sm font-medium text-gray-900">Recent Notes</h3>
                   <button
-                    onClick={() => setIsNoteModalOpen(true)}
+                    onClick={() => {
+                      setEditingNote(null);
+                      setAddNoteContext(null);
+                      setIsNoteModalOpen(true);
+                    }}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                   >
                     + Add
@@ -843,6 +895,12 @@ const EnhancedDashboard: React.FC = () => {
                   >
                     Nightscout Config
                   </button>
+                  <button
+                    onClick={() => setIsNutritionAnalyzerOpen(true)}
+                    className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
+                  >
+                    Nutrition GI/GL
+                  </button>
                 </div>
               </div>
             </div>
@@ -854,6 +912,7 @@ const EnhancedDashboard: React.FC = () => {
             onClose={() => {
               setIsNoteModalOpen(false);
               setEditingNote(null);
+              setAddNoteContext(null);
             }}
             onSave={async () => {
               // NoteInputModal already persisted via hybridNotesApi; only refresh local list.
@@ -863,12 +922,14 @@ const EnhancedDashboard: React.FC = () => {
                 await refreshGlucoseCalculations();
                 setIsNoteModalOpen(false);
                 setEditingNote(null);
+                setAddNoteContext(null);
               } catch (error) {
                 console.error('Failed to refresh notes after save:', error);
               }
             }}
             initialData={editingNote || undefined}
             currentGlucose={currentReading?.value}
+            addNoteContext={editingNote ? null : addNoteContext}
             mode={editingNote ? 'edit' : 'add'}
           />
 
@@ -922,6 +983,11 @@ const EnhancedDashboard: React.FC = () => {
           <VersionInfo
             isOpen={isVersionInfoOpen}
             onClose={() => setIsVersionInfoOpen(false)}
+          />
+
+          <NutritionAnalyzerModal
+            isOpen={isNutritionAnalyzerOpen}
+            onClose={() => setIsNutritionAnalyzerOpen(false)}
           />
 
           <DataSourceConfigModal
