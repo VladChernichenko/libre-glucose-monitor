@@ -7,6 +7,7 @@ import COBSettings from './COBSettings';
 import InsulinPreferencesSettings from './InsulinPreferencesSettings';
 import VersionInfo from './VersionInfo';
 import AIInsightPanel from './AIInsightPanel';
+import NutritionAnalyzerModal from './NutritionAnalyzerModal';
 // Removed NightscoutConfigModal import - using global configuration now
 import NightscoutErrorBoundary from './NightscoutErrorBoundary';
 import NightscoutFallbackUI from './NightscoutFallbackUI';
@@ -73,6 +74,7 @@ const EnhancedDashboard: React.FC = () => {
   const [isCOBSettingsOpen, setIsCOBSettingsOpen] = useState(false);
   const [isInsulinSettingsOpen, setIsInsulinSettingsOpen] = useState(false);
   const [isVersionInfoOpen, setIsVersionInfoOpen] = useState(false);
+  const [isNutritionAnalyzerOpen, setIsNutritionAnalyzerOpen] = useState(false);
   const [isDataSourceConfigOpen, setIsDataSourceConfigOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [cobSettings, setCobSettings] = useState<COBSettingsData | null>(null);
@@ -893,6 +895,12 @@ const EnhancedDashboard: React.FC = () => {
                   >
                     Nightscout Config
                   </button>
+                  <button
+                    onClick={() => setIsNutritionAnalyzerOpen(true)}
+                    className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 rounded"
+                  >
+                    Nutrition GI/GL
+                  </button>
                 </div>
               </div>
             </div>
@@ -975,6 +983,11 @@ const EnhancedDashboard: React.FC = () => {
           <VersionInfo
             isOpen={isVersionInfoOpen}
             onClose={() => setIsVersionInfoOpen(false)}
+          />
+
+          <NutritionAnalyzerModal
+            isOpen={isNutritionAnalyzerOpen}
+            onClose={() => setIsNutritionAnalyzerOpen(false)}
           />
 
           <DataSourceConfigModal

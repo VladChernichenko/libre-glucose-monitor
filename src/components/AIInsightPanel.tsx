@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 
 const STREAM_STUCK_TIMEOUT_MS = 20000;
 const LONG_DECIMAL_PATTERN = /\b\d+\.\d{2,}\b/g;
-const MODEL_OPTIONS = ['llama3.1:8b', 'llama3.2:3b', 'llama3.2:1b', 'qwen2.5:7b', 'mistral:7b'];
+const MODEL_OPTIONS = ['glm-5:cloud', 'llama3.1:8b', 'llama3.2:3b', 'llama3.2:1b', 'qwen2.5:7b', 'mistral:7b'];
 const MEMORY_OPTIONS = [2048, 4096, 8192, 16384];
 type ChatMessage = {
   id: string;
@@ -28,8 +28,8 @@ const AIInsightPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [canRetry, setCanRetry] = useState(false);
   const [modelName, setModelName] = useState(() => {
-    const raw = localStorage.getItem('ai_runtime_model') || 'llama3.1:8b';
-    return MODEL_OPTIONS.includes(raw) ? raw : 'llama3.1:8b';
+    const raw = localStorage.getItem('ai_runtime_model') || 'glm-5:cloud';
+    return MODEL_OPTIONS.includes(raw) ? raw : 'glm-5:cloud';
   });
   const [numCtx, setNumCtx] = useState<number>(() => {
     const raw = localStorage.getItem('ai_runtime_num_ctx');
