@@ -86,32 +86,39 @@ export function getEnvironmentConfig(): EnvironmentConfig {
   if (!detectedEnv) {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
-      console.log('🔧 Environment detection:', { hostname, env });
-      
+      console.log('Environment detection:', { hostname, env });
+
       if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
         detectedEnv = 'production';
-        console.log('🌐 Detected production environment from hostname');
+        console.log('Detected production from hostname (Render)');
       } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
         detectedEnv = 'local';
-        console.log('🏠 Detected local environment from hostname');
+        console.log('Detected local from hostname');
       } else {
-        detectedEnv = 'production'; // Default to production for unknown hosts
-        console.log('🌐 Defaulting to production environment for unknown host');
+        detectedEnv = 'production';
+        console.log('Unknown hostname; defaulting to production');
       }
     } else {
-      detectedEnv = 'local'; // Server-side rendering fallback
-      console.log('🖥️ Server-side rendering fallback to local');
+      detectedEnv = 'local';
+      console.log('No window; SSR fallback to local');
     }
   } else {
-    console.log('🔧 Using explicit environment:', env);
+    console.log('Using explicit REACT_APP_ENVIRONMENT:', env);
   }
   
-  // Return environment-specific config or fallback to production
-  const finalConfig = environments[detectedEnv as keyof typeof environments] || environments.production;
-  console.log('🔧 Final environment config:', {
+  const base = environments[detectedEnv as keyof typeof environments] || environments.production;
+  const backendOverride = process.env.REACT_APP_BACKEND_URL?.trim();
+  const cobOverride = process.env.REACT_APP_COB_API_URL?.trim();
+  const finalConfig: EnvironmentConfig = {
+    ...base,
+    backendUrl: backendOverride || base.backendUrl,
+    cobApiUrl: cobOverride || base.cobApiUrl,
+  };
+
+  console.log('Environment config:', {
     environment: detectedEnv,
-    backendUrl: finalConfig.backendUrl,
-    cobApiUrl: finalConfig.cobApiUrl
+    backendUrl: finalConfig.backendUrl || '(empty - local proxy)',
+    cobApiUrl: finalConfig.cobApiUrl || '(empty - local proxy)',
   });
   return finalConfig;
 }

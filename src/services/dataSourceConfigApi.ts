@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { getEnvironmentConfig } from '../config/environments';
 import { authService } from './authService';
 import { userDataSourceConfigApi } from './userDataSourceConfigApi';
 
@@ -26,8 +27,9 @@ class DataSourceConfigApi {
   private api: AxiosInstance;
 
   constructor() {
+    const backendUrl = getEnvironmentConfig().backendUrl || 'http://localhost:8080';
     this.api = axios.create({
-      baseURL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080',
+      baseURL: backendUrl,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
