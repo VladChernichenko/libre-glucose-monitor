@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 import { GlucoseNote, NoteInputData } from '../types/notes';
 import { formatDateForBackend } from '../utils/timezone';
@@ -60,6 +61,7 @@ const notesApiClient = axios.create({
 
 // Add request interceptor to include auth token and check authentication
 notesApiClient.interceptors.request.use((config) => {
+  applyClientContextHeaders(config);
   // Check if user is still authenticated or logout is in progress
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
     return Promise.reject(new Error('User not authenticated or logout in progress'));

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 
 const config = getEnvironmentConfig();
@@ -17,6 +18,7 @@ const apiClient = axios.create({
 
 // Add request interceptor to include auth token and check authentication
 apiClient.interceptors.request.use((config) => {
+  applyClientContextHeaders(config);
   // Check if user is still authenticated or logout is in progress
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
     console.log('Blocking User Data Source Config API request - user not authenticated or logout in progress');

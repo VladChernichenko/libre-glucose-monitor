@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 import { userDataSourceConfigApi } from './userDataSourceConfigApi';
 
@@ -38,6 +39,7 @@ class DataSourceConfigApi {
 
     // Add request interceptor for authentication
     this.api.interceptors.request.use((config) => {
+      applyClientContextHeaders(config);
       const token = authService.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;

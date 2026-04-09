@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 
 export interface InsulinCatalogEntry {
@@ -28,6 +29,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((req) => {
+  applyClientContextHeaders(req);
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
     return Promise.reject(new Error('User not authenticated or logout in progress'));
   }

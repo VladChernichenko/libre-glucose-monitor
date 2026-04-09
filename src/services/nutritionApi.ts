@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 
 export interface NutritionSnapshot {
@@ -26,6 +27,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((requestConfig) => {
+  applyClientContextHeaders(requestConfig);
   const token = authService.getAccessToken();
   if (token) {
     requestConfig.headers.Authorization = `Bearer ${token}`;

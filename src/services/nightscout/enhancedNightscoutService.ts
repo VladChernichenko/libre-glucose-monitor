@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { NightscoutEntry, NightscoutDeviceStatus } from './types';
 import { authService } from '../authService';
+import { applyClientContextHeaders } from '../clientContextHeaders';
 import { getClientTimeInfo } from '../../utils/timezone';
 import { libreApiService } from '../libreApi';
 import { dataSourceConfigApi } from '../dataSourceConfigApi';
@@ -55,10 +56,7 @@ export class EnhancedNightscoutService {
         config.headers.Authorization = `Bearer ${token}`;
       }
       
-      // Add timezone information to all requests
-      const timeInfo = getClientTimeInfo();
-      config.headers['X-Timezone-Offset'] = timeInfo.timezoneOffset.toString();
-      config.headers['X-Timezone'] = timeInfo.timezone;
+      applyClientContextHeaders(config);
       
       return config;
     });
