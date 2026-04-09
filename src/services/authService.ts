@@ -25,7 +25,9 @@ class AuthService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      withCredentials: true, // Enabled for production backend with proper CORS
+      // JWT is sent via Authorization header/localStorage; cookies are not used.
+      // Keeping credentials disabled avoids CORS credential negotiation issues on Render.
+      withCredentials: false,
     });
 
     // Add request interceptor to include auth token
