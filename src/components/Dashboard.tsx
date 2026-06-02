@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const [currentReading, setCurrentReading] = useState<GlucoseReading | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
-  const [selectedConnection, setSelectedConnection] = useState<string>('');
+  const [selectedConnection, setSelectedConnection] = useState<string>('nightscout-connection');
   const [error, setError] = useState<string | null>(null);
 
   // Notes management
@@ -306,24 +306,22 @@ const Dashboard: React.FC = () => {
         console.log('[Dashboard] Skipping initial data fetch - user not authenticated');
         return;
       }
-      
-      // Log timezone information for debugging
+
       logTimezoneInfo();
       console.log('[Dashboard] User timezone:', getTimezoneDisplayName());
       console.log('[Dashboard] Current local time:', getCurrentLocalTime().toLocaleString());
-      
+
       fetchPatientInfo();
       fetchConnections();
-      fetchCOBSettings(); // Load COB settings from database
-      const config = await loadNightscoutConfig(); // Load Nightscout configuration
-      
-      // Only try to fetch real data if Nightscout credentials are configured
-      if (config) {
-        fetchHistoricalData();
-        fetchCurrentGlucose();
-      }
+
+      // Load all independent data sources in parallel
+      await Promise.all([
+        fetchCOBSettings(),
+        fetchHistoricalData(),
+        fetchCurrentGlucose(),
+      ]);
     };
-    
+
     initializeData();
   }, [fetchPatientInfo, fetchConnections, fetchCOBSettings, fetchHistoricalData, fetchCurrentGlucose, isAuthenticated]);
 
