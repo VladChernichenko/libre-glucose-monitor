@@ -927,7 +927,7 @@ const Dashboard: React.FC = () => {
                   if (filteredNotes.length === 0) {
                     return (
                       <div className="text-center py-1">
-                        <div className="text-gray-400 text-sm mb-1" aria-hidden>…</div>
+                        <div className="text-gray-400 text-sm mb-1" aria-hidden>...</div>
                         <p className="text-gray-500 text-xs">No notes in 12h range</p>
                       </div>
                     );

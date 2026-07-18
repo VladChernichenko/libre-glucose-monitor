@@ -212,4 +212,3 @@ const NightscoutDataStatus: React.FC<NightscoutDataStatusProps> = ({
 };
 
 export default NightscoutDataStatus;
-

@@ -26,14 +26,14 @@ class GlucoseWidget {
       'DoubleUp': '↗↗',
       'SingleUp': '↗',
       'FortyFiveUp': '↗',
-      'Flat': '→',
+      'Flat': '->',
       'FortyFiveDown': '↘',
       'SingleDown': '↘',
       'DoubleDown': '↘↘',
-      'NOT COMPUTABLE': '→',
-      'RATE OUT OF RANGE': '→',
+      'NOT COMPUTABLE': '->',
+      'RATE OUT OF RANGE': '->',
     };
-    return trendMap[direction] || '→';
+    return trendMap[direction] || '->';
   }
 
   // Calculate glucose status

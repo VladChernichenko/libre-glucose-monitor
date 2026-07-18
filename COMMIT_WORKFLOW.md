@@ -63,8 +63,8 @@ git add .
 ### **Step 2: Quick Assessment**
 **Ask yourself: "Did I make code changes that could break compilation?"**
 
-- **If YES** → Run pre-commit checks
-- **If NO** → Skip to Step 4
+- **If YES** -> Run pre-commit checks
+- **If NO** -> Skip to Step 4
 
 ### **Step 3: Pre-Commit Check (Only if needed)**
 ```bash
@@ -130,9 +130,9 @@ git commit -m "📚 Update documentation"
 
 **The goal is to maintain a stable, working main branch while being efficient:**
 
-- ✅ **Code changes** → Run pre-commit checks
-- ✅ **No code changes** → Skip unnecessary checks
-- ❌ **Broken code** → Never commit (always fix first)
+- ✅ **Code changes** -> Run pre-commit checks
+- ✅ **No code changes** -> Skip unnecessary checks
+- ❌ **Broken code** -> Never commit (always fix first)
 - 🚫 **Never commit broken code** regardless of workflow
 
 ---

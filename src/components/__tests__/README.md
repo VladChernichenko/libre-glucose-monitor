@@ -94,11 +94,11 @@ The tests cover:
 
 ## Key Test Scenarios
 
-1. **Happy Path**: Fill form → Click Save → API call → Success → Modal closes
-2. **Validation**: Invalid URL → Error message → No API call
-3. **Network Error**: Valid form → API fails → Error message → Modal stays open
-4. **Authentication**: Missing token → Request blocked → Error handling
-5. **Existing Config**: Edit existing → Save → Update API call → Success
+1. **Happy Path**: Fill form -> Click Save -> API call -> Success -> Modal closes
+2. **Validation**: Invalid URL -> Error message -> No API call
+3. **Network Error**: Valid form -> API fails -> Error message -> Modal stays open
+4. **Authentication**: Missing token -> Request blocked -> Error handling
+5. **Existing Config**: Edit existing -> Save -> Update API call -> Success
 
 ## Mocking Strategy
 
@@ -126,4 +126,3 @@ const invalidUrls = [
 ```
 
 These tests ensure the Save button works correctly and calls `POST /api/nightscout/config` as expected.
-

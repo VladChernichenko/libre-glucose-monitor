@@ -33,14 +33,14 @@ docker-compose up --build
 ## 📁 **File Structure**
 
 ```
-├── docker-compose.yml          # Production setup with Nginx
-├── docker-compose.dev.yml      # Development setup
-├── Dockerfile                  # Production frontend build
-├── Dockerfile.dev              # Development frontend
-├── nginx/
-│   └── nginx.conf             # Nginx reverse proxy config
-└── ../IdeaProjects/glucose-monitor-be/
-    └── Dockerfile             # Backend Spring Boot
+├-- docker-compose.yml          # Production setup with Nginx
+├-- docker-compose.dev.yml      # Development setup
+├-- Dockerfile                  # Production frontend build
+├-- Dockerfile.dev              # Development frontend
+├-- nginx/
+│   └-- nginx.conf             # Nginx reverse proxy config
+└-- ../IdeaProjects/glucose-monitor-be/
+    └-- Dockerfile             # Backend Spring Boot
 ```
 
 ## 🔧 **Configuration**
@@ -75,29 +75,29 @@ spring:
 
 ### **Development Setup**
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+┌-----------------┐    ┌-----------------┐    ┌-----------------┐
 │   Frontend      │    │    Backend      │    │   PostgreSQL    │
 │   (Port 3000)   │    │   (Port 8080)   │    │   (Port 5432)   │
 │                 │    │                 │    │                 │
 │ React Dev Server│    │ Spring Boot     │    │ Database        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+└-----------------┘    └-----------------┘    └-----------------┘
 ```
 
 ### **Production Setup**
 ```
-┌─────────────────┐
+┌-----------------┐
 │   Nginx         │
 │   (Port 80)     │
 │                 │
 │ Reverse Proxy   │
-└─────────┬───────┘
+└---------┬-------┘
           │
-    ┌─────┴─────┐
+    ┌-----┴-----┐
     │           │
-┌───▼───┐   ┌───▼───┐
+┌---▼---┐   ┌---▼---┐
 │Frontend│   │Backend│
 │(Built) │   │(JAR)  │
-└───────┘   └───────┘
+└-------┘   └-------┘
 ```
 
 ## 🚀 **Usage Commands**
