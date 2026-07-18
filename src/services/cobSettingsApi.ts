@@ -17,7 +17,7 @@ const config = getEnvironmentConfig();
 
 // Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: `${config.cobApiUrl}/api/cob-settings`,
+  baseURL: `${config.cobApiUrl}/api/user-settings`,
   headers: {
     'Content-Type': 'application/json',
   },
