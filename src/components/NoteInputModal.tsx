@@ -9,6 +9,51 @@ export type AddNoteChartContext = {
   glucoseMmol?: number;
 };
 
+/** At or above this glucose an insulin-only entry is a correction, not a pre-bolus. */
+const CORRECTION_GLUCOSE_THRESHOLD_MMOL = 10;
+
+/**
+ * Meal windows: Breakfast 05:00-11:00, Lunch 11:00-16:00, Dinner 16:00-05:00.
+ * Dinner covers the night so every carb entry lands on a named meal.
+ */
+const getMealTypeByTime = (timestamp: Date): string => {
+  const hour = timestamp.getHours();
+
+  if (hour >= 5 && hour < 11) {
+    return 'Breakfast';
+  } else if (hour >= 11 && hour < 16) {
+    return 'Lunch';
+  } else {
+    return 'Dinner';
+  }
+};
+
+/**
+ * Smart meal type selection based on inputs and time. Insulin with no carbs is a
+ * pre-bolus below the correction threshold and a correction at or above it;
+ * anything else falls back to the time-of-day window.
+ */
+const getSmartMealType = (
+  carbs: number,
+  insulin: number,
+  timestamp: Date,
+  glucoseValue?: number
+): string => {
+  if (carbs === 0 && insulin > 0) {
+    return (glucoseValue ?? 0) >= CORRECTION_GLUCOSE_THRESHOLD_MMOL ? 'Correction' : 'Pre-bolus';
+  }
+  return getMealTypeByTime(timestamp);
+};
+
+/**
+ * Selectable types: the current set, plus the note's own type when it is a
+ * retired category (e.g. "Snack") so editing an old note never retags it.
+ */
+const getMealOptions = (currentMeal: string): string[] =>
+  (MEAL_CATEGORIES as readonly string[]).includes(currentMeal)
+    ? [...MEAL_CATEGORIES]
+    : [...MEAL_CATEGORIES, currentMeal];
+
 interface NoteInputModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,7 +78,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     timestamp: getCurrentLocalTime(),
     carbs: 0,
     insulin: 0,
-    meal: 'Breakfast',
+    meal: getMealTypeByTime(getCurrentLocalTime()),
     comment: '',
     glucoseValue: currentGlucose,
     mockData: false
@@ -204,7 +249,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
       
       // Auto-update meal type only until user manually chooses a type.
       if (!manualMealSelection) {
-        const smartMealType = getSmartMealType(carbs, insulin, formData.timestamp);
+        const smartMealType = getSmartMealType(carbs, insulin, formData.timestamp, formData.glucoseValue);
         if (smartMealType !== formData.meal) {
           setFormData(prev => ({ ...prev, meal: smartMealType }));
         }
@@ -220,39 +265,6 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
     // Clear errors when user starts typing
     if (errors.length > 0) {
       setErrors([]);
-    }
-  };
-
-  // Get meal type based on time of day
-  const getMealTypeByTime = (timestamp: Date): string => {
-    const hour = timestamp.getHours();
-    
-    if (hour >= 6 && hour < 12) {
-      return 'Breakfast';
-    } else if (hour >= 12 && hour < 16) {
-      return 'Lunch';
-    } else if (hour >= 16 && hour < 21) {
-      return 'Dinner';
-    } else {
-      // Outside meal hours (9pm - 6am) - default to Snack
-      return 'Snack';
-    }
-  };
-
-  // Smart meal type selection based on inputs and time
-  const getSmartMealType = (carbs: number, insulin: number, timestamp: Date): string => {
-    if (carbs > 0 && insulin > 0) {
-      // Both filled - use time-based meal type
-      return getMealTypeByTime(timestamp);
-    } else if (carbs > 0 && insulin === 0) {
-      // Only carbs filled - likely a meal, use time-based selection
-      return getMealTypeByTime(timestamp);
-    } else if (carbs === 0 && insulin > 0) {
-      // Only insulin filled - default to pre-bolus (user can manually select correction).
-      return 'Pre-bolus';
-    } else {
-      // Neither filled - use time-based meal type
-      return getMealTypeByTime(timestamp);
     }
   };
 
@@ -351,7 +363,7 @@ const NoteInputModal: React.FC<NoteInputModalProps> = ({
                 className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
-                {MEAL_CATEGORIES.map(category => (
+                {getMealOptions(formData.meal).map(category => (
                   <option key={category} value={category}>
                     {category}
                   </option>
