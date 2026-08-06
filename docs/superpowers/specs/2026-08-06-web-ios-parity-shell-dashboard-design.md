@@ -72,17 +72,34 @@ iOS, leaves the 1035-line component intact, and findings would not transfer).
 
 ### 5.1 Shell
 
+The iOS app does **not** use stock iOS chrome. Its design language is *floating capsules
+and cards on a grey field*, and the shell must reproduce that, not UIKit defaults.
+
 ```
 AppShell
-├── NavBar          per-screen title + actions
-├── <Outlet/>       active tab screen, scrollable, pull-to-refresh
-├── TabBar          4 tabs, safe-area-inset-bottom
-└── SheetOutlet     sheet routes presented over the active tab
+├── CapsuleToolbar   floating, top-right, per-screen actions
+├── LargeTitle       per-screen; absent on Dashboard
+├── <Outlet/>        active tab screen, scrolls *under* the tab bar
+├── CapsuleTabBar    floating, inset from all edges
+└── SheetOutlet      sheet routes presented over the active tab
 ```
 
+- **Capsule toolbar** — white, fully rounded, detached from the screen edge, dropped over
+  the content with a soft shadow. Top-right. Holds only icon actions. It is *not* a nav
+  bar: no full-width background, no bottom hairline, no title inside it.
+- **Large title** — approx. 34 px, weight 800, tight tracking, left-aligned black, in the
+  content flow above the first card. Present on Notes, Experiments and Settings; the
+  Dashboard has **no title** and starts directly with the glucose card.
+- **Capsule tab bar** — white, fully rounded, inset roughly 14 px from left, right and
+  bottom, floating with a shadow. Content scrolls underneath and remains partly visible
+  behind it, so every scroll container carries bottom padding equal to the tab bar height
+  plus its inset. The selected tab sits in a light grey rounded-rect pill with icon and
+  label in system blue; unselected labels are **black**, not grey.
+
 `viewport-fit=cover` in the viewport meta tag; `env(safe-area-inset-*)` for the notch and
-home indicator. On viewports wider than the phone breakpoint the shell is centered at
-phone width on a neutral field — desktop is supported, not designed for.
+home indicator, added to the tab bar's own inset. On viewports wider than the phone
+breakpoint the shell is centered at phone width on a neutral field — desktop is supported,
+not designed for.
 
 ### 5.2 Routing
 
@@ -141,15 +158,34 @@ tested alone.
 
 ## 6. Design system
 
-Tokens carry iOS's real values rather than approximations.
+**Source of truth: screenshots of the running iOS app**, not the platform's defaults and
+not inference from `ContentView.swift`. The first pass at this design assumed stock iOS
+chrome and was wrong in several ways — bordered nav bar instead of a floating capsule,
+stacked COB/IOB tiles instead of a nested right-hand panel, a 60-minute prediction instead
+of the 2-hour one. Where this spec and the platform's conventions disagree, the app wins.
+
+Tokens below are the values read off those screenshots.
+
+**Action for the implementation plan:** the four reference screenshots (Dashboard, Notes,
+Experiments, Settings) should be committed to
+`docs/superpowers/specs/reference/2026-08-06-ios/` so implementers and reviewers compare
+against a fixed artifact rather than a chat attachment. The values in this section are
+approximations read by eye; where a measurement disagrees with the image, the image wins.
+Only these four screens are covered — sheets, the scan flow, bedside mode and the lower
+half of the dashboard have no reference capture yet, and the plan should flag that the
+components built for them are unverified against the real app.
 
 - **System colors:** blue `#007AFF`, green `#34C759`, orange `#FF9500`, red `#FF3B30`,
   purple `#AF52DE`, indigo `#5856D6`.
 - **Backgrounds:** grouped `#F2F2F7`, elevated `#FFFFFF`; separator `#C6C6C8`.
 - **Labels:** primary `#000000`, secondary 60% opacity, tertiary 30%.
-- **Type scale:** 17 px body, 15 px subheadline, 13 px caption, 12 px footnote, 11 px
-  label; large numerics at 38 px with tightened tracking.
-- **Radii:** 10 px controls, 14 px cards, 20 px sheets.
+- **Type scale:** 34 px/800 large title, 22 px/700 card title, 17 px body, 15 px
+  subheadline, 13 px caption, 11 px label; hero glucose numerics ~56 px/700 with tracking
+  around −1.5 px.
+- **Radii:** 20 px cards, 14 px nested panels, 28 px capsules (toolbar, tab bar), fully
+  rounded status and metric pills.
+- **Elevation:** cards carry a near-flat shadow; the floating capsules carry a visibly
+  deeper one, since they must read as hovering above scrolling content.
 - **Font stack:** `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
   system-ui, sans-serif`. On iOS Safari this resolves to actual SF Pro, so testers read
   the same typeface as the native app at no cost.
@@ -164,15 +200,53 @@ Card order mirrors `DashboardView.swift`, top to bottom:
 1. **ISF suggestion banner** — conditional. Server `show` flag AND local time in
    05:00–11:00 AND non-empty proposal lines. Apply / Not now actions.
 2. **Active experiment card** — conditional on an active experiment; opens the run sheet.
-3. **Compact glucose card** — current value, trend arrow, 60-minute prediction, stacked
-   COB and IOB tiles.
-4. **Glucose chart card** — history plus prediction, with carb and insulin note markers.
-5. **Recent notes** — 12-hour window.
+3. **Glucose card** — two-column. Left: the labels `Now` and `2h forecast` side by side
+   over a single baseline row of *current value → trend arrow → forecast value → unit*,
+   all three numerics tinted by glucose state; beneath them a filled status pill
+   (`Normal`) and a grey relative-time line (`Updated 10 min, 44 secs ago`). Right: a
+   **nested grey rounded panel** holding COB and IOB as icon + coloured label + bold black
+   value — orange for COB, indigo for IOB. Not stacked tiles, not full width.
+4. **Forecast chart card** — titled `Forecast (4h)`. A shaded green target band; solid blue
+   history continuing into a dashed blue prediction from "now"; filled orange point
+   markers with their value printed alongside; solid green vertical lines at note times
+   with a black dashed line at the current time; yellow rounded carb pills (`25g`) along
+   the top edge; pale blue rounded insulin bars along the bottom with unit counts above
+   them; y-axis 0–20 and a time x-axis.
+5. **Recent notes (12 h)** — header row carries the title plus a scan-frame icon and a
+   filled blue circular add button. Each row: green status dot, bold title, blue `Del`
+   action right-aligned, absolute timestamp (`6 Aug at 2:24 PM`), then a tinted quantity
+   pill (orange for carbs, indigo for insulin), a droplet glyph, and the glucose value at
+   entry. Hairline separators between rows, inset past the dot.
 6. **Sensor & alarms bar** — only when `dataSource === "libre"`.
 7. **Quick actions** — add note, scan, AI, activity.
 8. **Global error footnote**, when set.
 
-Nav bar actions: refresh, bedside mode, add note. Pull-to-refresh on the scroll view.
+Capsule toolbar actions: refresh, bedside mode, add note. Pull-to-refresh on the scroll
+view.
+
+Card 3's forecast horizon (2 h) and card 4's window (4 h) are different numbers and both
+are deliberate — they are read from the app, not a transcription slip.
+
+### 7.1 Other tabs — visual contracts for later slices
+
+Recorded now while the screenshots are in hand, so slices C–E inherit the design rather
+than re-deriving it:
+
+- **Notes (slice C)** — large title; toolbar capsule holds activity, scan and add. A
+  *single* card contains every row, rather than one card per note. Row: bold title left,
+  relative age right (`4 min, 19 secs`), then a type glyph with quantity and a droplet with
+  the glucose value, and an optional grey detail line (`sesame cookies | GI 60`).
+- **Experiments (slice E)** — large title; toolbar capsule holds refresh only. An intro
+  card, then a `Available Experiments` section heading, then one card per experiment.
+  Available cards are white with a blue border and a green check, and end in a blue
+  `Start →`. **Locked cards are fully greyed out** with a lock glyph and an orange
+  prerequisite line (`Complete a successful Basal Rate Check first`). The gating chain is
+  part of the design, not a runtime detail.
+- **Settings (slice D)** — large title; separate floating cards per group rather than one
+  grouped list. Single-row cards (`Backend → Remote`, `Data Source → LibreLinkUp`) lead
+  with a coloured rounded-square icon. A grey sentence-case `User Settings` label
+  introduces a multi-row card where each row is a name, an optional grey unit/range
+  subtitle (`mmol/L per unit * 05:00 - 11:00`), and a right-aligned value.
 
 ## 8. State and data flow
 
@@ -382,21 +456,26 @@ shipping a hole.
    specifically, data-source, COB, and insulin-preference configuration all still open and
    save.
 4. The dashboard shows all seven cards in iOS order, with correct conditional visibility
-   for the ISF banner, active-experiment card and sensor bar.
+   for the ISF banner, active-experiment card and sensor bar, and each card's internal
+   anatomy matches §7.
 5. The dashboard scrolls; pull-to-refresh works; safe areas are respected on a notched
    device.
-6. All nine sheet routes and `/bedside` open, close, and respond correctly to the browser
+6. The chrome is the floating-capsule language of §5.1 — detached toolbar and tab bar with
+   content visibly scrolling beneath the latter, large titles on Notes / Experiments /
+   Settings and none on Dashboard.
+7. All nine sheet routes and `/bedside` open, close, and respond correctly to the browser
    Back button.
-7. Only `CompactGlucoseCard` re-renders on the 1 Hz tick.
-8. Logging out with a refresh in flight does not repopulate the dashboard.
-9. A cached reading past the stale threshold renders visibly stale, never as current.
-10. Client errors reach the backend endpoint carrying no glucose values, note text, or
+8. Only `CompactGlucose` re-renders on the 1 Hz tick.
+9. Logging out with a refresh in flight does not repopulate the dashboard.
+10. A cached reading past the stale threshold renders visibly stale, never as current.
+11. Client errors reach the backend endpoint carrying no glucose values, note text, or
     usernames.
-11. `npm run build` produces `build/`, and the existing Docker and Render deploy paths work
+12. `npm run build` produces `build/`, and the existing Docker and Render deploy paths work
     unchanged.
-12. Every new file is under 500 lines; the 2,844 dead lines are gone.
-13. Side-by-side on a real iPhone, the web dashboard is recognizably the same design as the
-    native one.
+13. Every new file is under 500 lines; the 2,844 dead lines are gone.
+14. Side-by-side on a real iPhone against the reference screenshots, the web dashboard is
+    the same design — chrome, card anatomy, type scale and colour, not merely a similar
+    arrangement.
 
 ## 16. Out of scope
 
