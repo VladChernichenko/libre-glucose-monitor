@@ -13,6 +13,7 @@ import { glucoseCalculationsApi } from '../services/glucoseCalculationsApi';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
 import { userDataSourceConfigApi } from '../services/userDataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
+import type { NoteInputData } from '../types/notes';
 import { glucoseReducer, initialGlucoseState, type GlucoseState } from './glucoseReducer';
 import { toGlucoseReading, type NightscoutSgvEntry } from './toGlucoseReading';
 
@@ -24,6 +25,9 @@ interface GlucoseContextValue extends GlucoseState {
   refreshAll: () => Promise<void>;
   refreshGlucoseOnly: (opts?: { silent?: boolean; forceServerSync?: boolean }) => Promise<void>;
   fetchNotes: () => Promise<void>;
+  createNote: (input: NoteInputData) => Promise<void>;
+  updateNote: (id: string, updates: Partial<NoteInputData>) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
 }
 
 const GlucoseContext = createContext<GlucoseContextValue | null>(null);
@@ -115,6 +119,30 @@ export const GlucoseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  const createNote = useCallback(
+    async (input: NoteInputData) => {
+      await hybridNotesApiService.addNote(input);
+      await fetchNotes();
+    },
+    [fetchNotes]
+  );
+
+  const updateNote = useCallback(
+    async (id: string, updates: Partial<NoteInputData>) => {
+      await hybridNotesApiService.updateNote(id, updates);
+      await fetchNotes();
+    },
+    [fetchNotes]
+  );
+
+  const deleteNote = useCallback(
+    async (id: string) => {
+      await hybridNotesApiService.deleteNote(id);
+      await fetchNotes();
+    },
+    [fetchNotes]
+  );
+
   // Delegates the glucose half to refreshGlucoseOnly so both share one
   // in-flight slot — otherwise mounting at /dashboard fires two identical
   // fetches, one from here and one from the location effect below.
@@ -184,8 +212,16 @@ export const GlucoseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [location.pathname, refreshGlucoseOnly]);
 
   const value = useMemo(
-    () => ({ ...state, refreshAll, refreshGlucoseOnly, fetchNotes }),
-    [state, refreshAll, refreshGlucoseOnly, fetchNotes]
+    () => ({
+      ...state,
+      refreshAll,
+      refreshGlucoseOnly,
+      fetchNotes,
+      createNote,
+      updateNote,
+      deleteNote,
+    }),
+    [state, refreshAll, refreshGlucoseOnly, fetchNotes, createNote, updateNote, deleteNote]
   );
 
   return <GlucoseContext.Provider value={value}>{children}</GlucoseContext.Provider>;
