@@ -12,6 +12,8 @@ import { VersionSheet } from '../features/dashboard/sheets/VersionSheet';
 import { ActivitySheet } from '../features/dashboard/sheets/ActivitySheet';
 import { LongActingSheet } from '../features/dashboard/sheets/LongActingSheet';
 import { ForecastSheet } from '../features/dashboard/sheets/ForecastSheet';
+import { ScanSheet } from '../features/dashboard/sheets/ScanSheet';
+import { BedsideScreen } from '../features/bedside/BedsideScreen';
 
 export const AppRoutes: React.FC = () => (
   <Routes>
@@ -25,11 +27,14 @@ export const AppRoutes: React.FC = () => (
         <Route path="activity" element={<ActivitySheet />} />
         <Route path="long-acting" element={<LongActingSheet />} />
         <Route path="forecast" element={<ForecastSheet />} />
+        <Route path="scan" element={<ScanSheet />} />
       </Route>
       <Route path="/notes" element={<NotesStub />} />
       <Route path="/experiments" element={<ExperimentsStub />} />
       <Route path="/settings" element={<SettingsHost />} />
     </Route>
+    {/* Outside AppShell: full screen, no tab bar. */}
+    <Route path="/bedside" element={<BedsideScreen />} />
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );
