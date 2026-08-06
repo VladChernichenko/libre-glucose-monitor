@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Every new file stays under 500 lines** (`CLAUDE.md`). If a file approaches it, split by responsibility.
-- **`src/services/` is not modified.** New API calls go in new files under `src/services/`, but existing files stay as they are. Exception: Task 21 adds one new service file.
+- **Existing files in `src/services/` are not modified.** Adding *new* files there is expected and allowed — Task 13 adds `isfSuggestionApi.ts` and Task 21 adds `clientErrorApi.ts`. The constraint protects the working API layer from edits, it does not freeze the directory.
 - **Build output directory must remain `build/`.** `Dockerfile` copies `/app/build`; `render.yaml` runs `serve -s build`. Neither may be edited.
 - **Environment variables keep the `REACT_APP_` prefix.** `render.yaml` and the Render dashboard are not to be touched.
 - **Stale threshold is 15 minutes.** A glucose reading whose timestamp is older than 15 minutes renders with explicit stale treatment and never as current. CGM updates every ~5 min, so this is three missed readings. This value lives in exactly one constant, `STALE_THRESHOLD_MS`, in `src/state/glucoseStaleness.ts`.
@@ -47,8 +47,10 @@ src/
   features/
     dashboard/
       DashboardScreen.tsx
-      cards/  IsfSuggestionCard · ActiveExperimentCard · CompactGlucoseCard ·
-              ForecastChartCard · RecentNotesCard · SensorAlarmsCard · QuickActions
+      cards/  IsfSuggestionCard · CompactGlucoseCard · ForecastChartCard ·
+              RecentNotesCard · SensorAlarmsCard · QuickActions
+  domain/
+    mealType.ts                      meal-type inference, rescued from NoteInputModal
       sheets/ NoteEditorSheet · AiSheet · NutritionSheet · VersionSheet ·
               ActivitySheet · LongActingSheet · ForecastSheet · ScanSheet
     notes/NotesStub.tsx
@@ -1896,10 +1898,9 @@ describe('ForecastChartCard', () => {
     expect(screen.getByText('Forecast (4h)')).toBeInTheDocument();
   });
 
-  it('renders an empty state when there is no history', () => {
-    vi.resetModules();
-    render(<ForecastChartCard />);
-    expect(screen.getByText('Forecast (4h)')).toBeInTheDocument();
+  it('renders a chart surface when history exists', () => {
+    const { container } = render(<ForecastChartCard />);
+    expect(container.querySelector('svg')).toBeInTheDocument();
   });
 });
 ```
@@ -2030,7 +2031,65 @@ export const ForecastChartCard: React.FC = () => {
 };
 ```
 
-The yellow carb pill is rendered via the `ReferenceLine` label above. Insulin bars along the bottom axis and the orange value-labelled point markers are not expressible as Recharts primitives without a custom shape — add them as a custom `Customized` layer only if the side-by-side comparison in Task 23 shows the difference matters. Record whichever choice you make in the commit message.
+The yellow carb pill comes from the `ReferenceLine` label above. The remaining two marker
+types from spec §7 item 4 — orange value-labelled point markers and pale blue insulin bars
+along the bottom — are added now, not deferred.
+
+**Orange point markers.** Add a `Scatter` series over the note timestamps, with a label
+printing the glucose value at that point. Insert inside `<ComposedChart>`, after the
+`Line` elements so markers draw on top:
+
+```tsx
+<Scatter
+  data={recentNotes
+    .filter((n) => n.glucoseValue !== undefined)
+    .map((n) => ({ t: n.timestamp.getTime(), marker: n.glucoseValue as number }))}
+  dataKey="marker"
+  fill="var(--gm-orange)"
+  shape="circle"
+  isAnimationActive={false}
+>
+  <LabelList
+    dataKey="marker"
+    position="top"
+    fontSize={9}
+    fill="var(--gm-orange)"
+    fontWeight={600}
+  />
+</Scatter>
+```
+
+**Insulin bars.** Add a second Y axis pinned to the bottom of the plot so the bars occupy
+the lower strip without rescaling the glucose axis:
+
+```tsx
+<YAxis yAxisId="insulin" hide domain={[0, 40]} />
+<Bar
+  yAxisId="insulin"
+  data={recentNotes
+    .filter((n) => n.insulin > 0)
+    .map((n) => ({ t: n.timestamp.getTime(), units: n.insulin }))}
+  dataKey="units"
+  barSize={8}
+  radius={4}
+  fill="#9ecdfa"
+  isAnimationActive={false}
+>
+  <LabelList dataKey="units" position="top" fontSize={9} fontWeight={700} />
+</Bar>
+```
+
+The glucose `YAxis` needs a matching `yAxisId="glucose"` and both `Line` series need
+`yAxisId="glucose"`, otherwise Recharts assigns them to the insulin axis and the curve
+flattens. Extend the imports:
+
+```tsx
+import { Bar, LabelList, Scatter } from 'recharts';
+```
+
+The insulin domain of `[0, 40]` places a typical 1–10 u dose in the bottom quarter of the
+plot. If a real dose renders taller than the target band, widen the domain rather than
+clamping the value — a clipped bar misrepresents the dose.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -2041,7 +2100,10 @@ Expected: PASS, 2 tests.
 
 ```bash
 git add src/features/dashboard/cards
-git commit -m "feat(dashboard): add ForecastChartCard with target band and prediction"
+git commit -m "feat(dashboard): add ForecastChartCard
+
+Target band, solid-into-dashed prediction, carb pills, orange point
+markers and insulin bars — the full marker set from spec section 7."
 ```
 
 ---
@@ -2429,17 +2491,22 @@ git commit -m "feat(dashboard): add morning ISF suggestion card"
 
 ---
 
-### Task 14: ActiveExperimentCard, SensorAlarmsCard and QuickActions
+### Task 14: SensorAlarmsCard and QuickActions
 
 **Files:**
-- Create: `src/features/dashboard/cards/ActiveExperimentCard.tsx`, `src/features/dashboard/cards/SensorAlarmsCard.tsx`, `src/features/dashboard/cards/QuickActions.tsx`
+- Create: `src/features/dashboard/cards/SensorAlarmsCard.tsx`, `src/features/dashboard/cards/QuickActions.tsx`
+- Modify: `src/state/glucoseReducer.ts`, `src/state/GlucoseStore.tsx`
 - Test: `src/features/dashboard/cards/__tests__/secondaryCards.test.tsx`
 
 **Interfaces:**
-- Consumes: `Card`, `useGlucose()`, `Link`.
-- Produces: `<ActiveExperimentCard />`, `<SensorAlarmsCard />`, `<QuickActions />`.
+- Consumes: `Card`, `useGlucose()`, `Link`, `userDataSourceConfigApi`.
+- Produces: `<SensorAlarmsCard />`, `<QuickActions />`; `dataSource` on `GlucoseState`.
 
-`ActiveExperimentCard` renders nothing in this slice — experiments arrive in slice E — but the component and its slot exist so Task 15's composition is final. `SensorAlarmsCard` renders only when the data source is `libre`.
+There is **no** `ActiveExperimentCard` in this slice. An always-null component with a test
+asserting an empty DOM is dead code wearing a test's clothes — it would be flagged, and
+rightly. Spec §7 item 2 lands with the Experiments work in slice E, which is also when
+there is an experiments API to make it non-empty. Task 15's composition simply omits the
+slot; adding it later is a one-line change.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2447,7 +2514,10 @@ git commit -m "feat(dashboard): add morning ISF suggestion card"
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QuickActions } from '../QuickActions';
-import { ActiveExperimentCard } from '../ActiveExperimentCard';
+import { SensorAlarmsCard } from '../SensorAlarmsCard';
+
+const mockState = { dataSource: 'NIGHTSCOUT' as 'NIGHTSCOUT' | 'LIBRE_LINK_UP' };
+vi.mock('../../../../state/GlucoseStore', () => ({ useGlucose: () => mockState }));
 
 describe('secondary dashboard cards', () => {
   it('QuickActions links to the four sheet routes', () => {
@@ -2458,8 +2528,15 @@ describe('secondary dashboard cards', () => {
     expect(screen.getByRole('link', { name: 'Log activity' })).toHaveAttribute('href', '/dashboard/activity');
   });
 
-  it('ActiveExperimentCard renders nothing while experiments are unavailable', () => {
-    const { container } = render(<MemoryRouter><ActiveExperimentCard /></MemoryRouter>);
+  it('SensorAlarmsCard shows for LibreLinkUp', () => {
+    mockState.dataSource = 'LIBRE_LINK_UP';
+    render(<MemoryRouter><SensorAlarmsCard /></MemoryRouter>);
+    expect(screen.getByText('Sensor connected')).toBeInTheDocument();
+  });
+
+  it('SensorAlarmsCard stays hidden for Nightscout, which has no sensor metadata', () => {
+    mockState.dataSource = 'NIGHTSCOUT';
+    const { container } = render(<MemoryRouter><SensorAlarmsCard /></MemoryRouter>);
     expect(container).toBeEmptyDOMElement();
   });
 });
@@ -2500,19 +2577,6 @@ export const QuickActions: React.FC = () => (
     ))}
   </div>
 );
-```
-
-`ActiveExperimentCard.tsx`:
-
-```tsx
-import React from 'react';
-
-/**
- * Slot for the active-experiment banner. Experiments land in slice E; until the
- * experiments API is wired there is never an active experiment, so this renders
- * nothing. The component exists so the dashboard composition is final.
- */
-export const ActiveExperimentCard: React.FC = () => null;
 ```
 
 `SensorAlarmsCard` gates on the real data source, so `GlucoseStore` must track it first.
@@ -2585,13 +2649,16 @@ export const SensorAlarmsCard: React.FC = () => {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/features/dashboard/cards/__tests__/secondaryCards.test.tsx`
-Expected: PASS, 2 tests.
+Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/features/dashboard/cards src/state
-git commit -m "feat(dashboard): add quick actions, sensor bar and experiment slot"
+git commit -m "feat(dashboard): add quick actions and sensor bar
+
+Adds dataSource to GlucoseState so the sensor bar gates on the active
+configuration rather than guessing from the reading."
 ```
 
 ---
@@ -2608,7 +2675,7 @@ git commit -m "feat(dashboard): add quick actions, sensor bar and experiment slo
 - Consumes: every card from Tasks 10–14, `CapsuleToolbar` (Task 5), `useGlucose()` (Task 9).
 - Produces: `<DashboardScreen />` mounted at `/dashboard`.
 
-Card order per spec §7: ISF banner → active experiment → glucose → forecast chart → recent notes → sensor bar → quick actions → error footnote. No large title on this tab.
+Card order per spec §7: ISF banner → glucose → forecast chart → recent notes → sensor bar → quick actions → error footnote. No large title on this tab. The active-experiment slot (spec §7 item 2) is deliberately absent until slice E — see Task 14.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2680,7 +2747,6 @@ import { useNavigate } from 'react-router-dom';
 import { CapsuleToolbar } from '../../app/shell/CapsuleToolbar';
 import { useGlucose } from '../../state/GlucoseStore';
 import { IsfSuggestionCard } from './cards/IsfSuggestionCard';
-import { ActiveExperimentCard } from './cards/ActiveExperimentCard';
 import { CompactGlucoseCard } from './cards/CompactGlucoseCard';
 import { ForecastChartCard } from './cards/ForecastChartCard';
 import { RecentNotesCard } from './cards/RecentNotesCard';
@@ -2702,7 +2768,6 @@ export const DashboardScreen: React.FC = () => {
       />
       <div className="flex flex-col gap-3.5 px-3.5 pt-[72px]">
         <IsfSuggestionCard />
-        <ActiveExperimentCard />
         <CompactGlucoseCard />
         <ForecastChartCard />
         <RecentNotesCard />
@@ -2760,8 +2825,16 @@ Ports the mainpage load assertion from the deleted CRA test."
 - Test: `src/features/dashboard/sheets/__tests__/noteEditorSheet.test.tsx`
 
 **Interfaces:**
-- Consumes: `Sheet` (Task 7), `hybridNotesApiService.addNote/updateNote/deleteNote`, `NoteInputData` from `src/types/notes`.
-- Produces: `<NoteEditorSheet />` at `/dashboard/note/new` and `/dashboard/note/:id`; `createNote`, `updateNote`, `deleteNote` added to the `useGlucose()` value.
+- Consumes: `Sheet` (Task 7), `hybridNotesApiService.addNote/updateNote/deleteNote`, `NoteInputData` and `MEAL_CATEGORIES` from `src/types/notes`.
+- Produces: `<NoteEditorSheet />` at `/dashboard/note/new` and `/dashboard/note/:id`; `createNote`, `updateNote`, `deleteNote` added to the `useGlucose()` value; `src/domain/mealType.ts` exporting `getMealTypeByTime`, `getSmartMealType`, `getMealOptions`, `CORRECTION_GLUCOSE_THRESHOLD_MMOL`.
+
+**Carried-forward behavior — do not drop this.** `NoteInputModal.tsx` (deleted in Task 23)
+contains meal-type inference added in commit `b647429f`: an insulin-only entry is a
+`Correction` at or above 10 mmol/L and a `Pre-bolus` below it; anything else takes the
+time-of-day window (Breakfast 05:00–11:00, Lunch 11:00–16:00, Dinner otherwise). It also
+keeps a note's retired category (e.g. `Snack`) in the options list when editing, so an old
+note is never silently retagged. Step 3 below extracts that logic to `src/domain/mealType.ts`
+so deleting the modal cannot lose it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2822,7 +2895,100 @@ describe('NoteEditorSheet', () => {
 Run: `npx vitest run src/features/dashboard/sheets/__tests__/noteEditorSheet.test.tsx`
 Expected: FAIL — cannot resolve `../NoteEditorSheet`.
 
-- [ ] **Step 3: Add the note mutations to `GlucoseStore`**
+- [ ] **Step 3: Extract the meal-type logic to `src/domain/mealType.ts`**
+
+Move these verbatim out of `src/components/NoteInputModal.tsx:20-55` — do not retype them
+from the description, and do not change the thresholds:
+
+```ts
+import { MEAL_CATEGORIES } from '../types/notes';
+
+/** At or above this glucose an insulin-only entry is a correction, not a pre-bolus. */
+export const CORRECTION_GLUCOSE_THRESHOLD_MMOL = 10;
+
+/**
+ * Meal windows: Breakfast 05:00-11:00, Lunch 11:00-16:00, Dinner 16:00-05:00.
+ * Dinner covers the night so every carb entry lands on a named meal.
+ */
+export const getMealTypeByTime = (timestamp: Date): string => {
+  const hour = timestamp.getHours();
+  if (hour >= 5 && hour < 11) return 'Breakfast';
+  if (hour >= 11 && hour < 16) return 'Lunch';
+  return 'Dinner';
+};
+
+/**
+ * Smart meal type selection based on inputs and time. Insulin with no carbs is a
+ * pre-bolus below the correction threshold and a correction at or above it;
+ * anything else falls back to the time-of-day window.
+ */
+export const getSmartMealType = (
+  carbs: number,
+  insulin: number,
+  timestamp: Date,
+  glucoseValue?: number
+): string => {
+  if (carbs === 0 && insulin > 0) {
+    return (glucoseValue ?? 0) >= CORRECTION_GLUCOSE_THRESHOLD_MMOL ? 'Correction' : 'Pre-bolus';
+  }
+  return getMealTypeByTime(timestamp);
+};
+
+/**
+ * Selectable types: the current set, plus the note's own type when it is a
+ * retired category (e.g. "Snack") so editing an old note never retags it.
+ */
+export const getMealOptions = (currentMeal: string): string[] =>
+  (MEAL_CATEGORIES as readonly string[]).includes(currentMeal)
+    ? [...MEAL_CATEGORIES]
+    : [...MEAL_CATEGORIES, currentMeal];
+```
+
+Update `NoteInputModal.tsx` to import from this module rather than keeping its own copies —
+it must not diverge during the tasks where both exist.
+
+Add `src/domain/__tests__/mealType.test.ts`:
+
+```ts
+import {
+  getMealTypeByTime, getSmartMealType, getMealOptions,
+  CORRECTION_GLUCOSE_THRESHOLD_MMOL,
+} from '../mealType';
+
+const at = (hour: number) => new Date(2026, 7, 6, hour, 0, 0);
+
+describe('meal type inference', () => {
+  it('maps the time-of-day windows', () => {
+    expect(getMealTypeByTime(at(7))).toBe('Breakfast');
+    expect(getMealTypeByTime(at(13))).toBe('Lunch');
+    expect(getMealTypeByTime(at(19))).toBe('Dinner');
+    expect(getMealTypeByTime(at(2))).toBe('Dinner');
+  });
+
+  it('treats insulin-only at or above the threshold as a correction', () => {
+    expect(getSmartMealType(0, 4, at(13), CORRECTION_GLUCOSE_THRESHOLD_MMOL)).toBe('Correction');
+    expect(getSmartMealType(0, 4, at(13), 12)).toBe('Correction');
+  });
+
+  it('treats insulin-only below the threshold as a pre-bolus', () => {
+    expect(getSmartMealType(0, 4, at(13), 8)).toBe('Pre-bolus');
+  });
+
+  it('falls back to the time window when carbs are present', () => {
+    expect(getSmartMealType(30, 4, at(7), 12)).toBe('Breakfast');
+  });
+
+  it('keeps a retired category selectable when editing an old note', () => {
+    expect(getMealOptions('Snack')).toContain('Snack');
+    expect(getMealOptions('Lunch')).not.toContain('Snack');
+  });
+});
+```
+
+Run: `npx vitest run src/domain/__tests__/mealType.test.ts`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 4: Add the note mutations to `GlucoseStore`**
 
 ```tsx
 const createNote = useCallback(
@@ -2852,24 +3018,47 @@ const deleteNote = useCallback(
 
 Add all three to the context value and to `GlucoseContextValue`.
 
-- [ ] **Step 4: Implement `NoteEditorSheet`**
+- [ ] **Step 5: Implement `NoteEditorSheet`**
+
+`meal` is not a plain default: for a new note it starts from `getSmartMealType`, and the
+options list comes from `getMealOptions` so editing a `Snack` note keeps that option. The
+user may still override the inferred value from the dropdown — inference sets the initial
+value, it does not lock it.
 
 ```tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Sheet } from '../../../ui/Sheet';
 import { useGlucose } from '../../../state/GlucoseStore';
-import { MEAL_CATEGORIES } from '../../../types/notes';
+import { getMealOptions, getSmartMealType } from '../../../domain/mealType';
 
 export const NoteEditorSheet: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { notes, createNote, updateNote, deleteNote } = useGlucose();
+  const { notes, createNote, updateNote, deleteNote, currentReading } = useGlucose();
   const existing = id ? notes.find((n) => n.id === id) : undefined;
 
   const [carbs, setCarbs] = useState(existing ? String(existing.carbs) : '');
   const [insulin, setInsulin] = useState(existing ? String(existing.insulin) : '');
-  const [meal, setMeal] = useState(existing?.meal ?? 'Other');
+  const [mealTouched, setMealTouched] = useState(false);
+  const [mealOverride, setMealOverride] = useState(existing?.meal ?? '');
+
+  // Inference tracks the inputs until the user picks a category themselves.
+  const inferredMeal = useMemo(
+    () =>
+      getSmartMealType(
+        Number(carbs) || 0,
+        Number(insulin) || 0,
+        existing?.timestamp ?? new Date(),
+        existing?.glucoseValue ?? currentReading?.value
+      ),
+    [carbs, insulin, existing, currentReading]
+  );
+  const meal = mealTouched || existing ? mealOverride || inferredMeal : inferredMeal;
+  const setMeal = (value: string) => {
+    setMealTouched(true);
+    setMealOverride(value);
+  };
   const [comment, setComment] = useState(existing?.comment ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -2923,7 +3112,7 @@ export const NoteEditorSheet: React.FC = () => {
             value={meal} onChange={(e) => setMeal(e.target.value)}
             className="mt-1 w-full rounded-nested bg-surface-nested px-3 py-2 text-gm-body text-label"
           >
-            {MEAL_CATEGORIES.map((m) => <option key={m} value={m}>{m}</option>)}
+            {getMealOptions(meal).map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </label>
         <label className="text-gm-caption text-label-secondary">
@@ -2962,7 +3151,7 @@ export const NoteEditorSheet: React.FC = () => {
 };
 ```
 
-- [ ] **Step 5: Register the routes**
+- [ ] **Step 6: Register the routes**
 
 In `src/app/routes.tsx`, nest under `/dashboard`:
 
@@ -2971,20 +3160,26 @@ In `src/app/routes.tsx`, nest under `/dashboard`:
 <Route path="note/:id" element={<NoteEditorSheet />} />
 ```
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [ ] **Step 7: Run the tests to verify they pass**
 
-Run: `npx vitest run src/features/dashboard/sheets/__tests__/noteEditorSheet.test.tsx`
-Expected: PASS, 3 tests.
+Run: `npx vitest run src/features/dashboard/sheets/__tests__/noteEditorSheet.test.tsx src/domain/__tests__/mealType.test.ts`
+Expected: PASS, 8 tests.
 
-- [ ] **Step 7: Verify Back closes the sheet**
+Note the Step 1 test types `25` into carbs and expects `meal: 'Lunch'` from an explicit
+`selectOptions` call — that still holds, because an explicit selection overrides inference.
+
+- [ ] **Step 8: Verify Back closes the sheet**
 
 Run `npm run dev`, open `/dashboard`, tap ⊕, then press the browser Back button. Expected: the sheet closes and the dashboard remains — the tab is not exited. This is the behavior the sheet-as-route decision exists for.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A
-git commit -m "feat(dashboard): add note editor sheet at note/new and note/:id"
+git commit -m "feat(dashboard): add note editor sheet at note/new and note/:id
+
+Meal-type inference moves from NoteInputModal to src/domain/mealType.ts
+so deleting the modal in a later task cannot lose it."
 ```
 
 ---
@@ -3820,7 +4015,13 @@ POST /api/client-errors exists in glucose-monitor-be."
   banner rather than mirrored into `GlucoseState` — nothing else needs to branch on it,
   and duplicating browser state into a reducer invites the two drifting apart.
 
-This closes acceptance criterion 10. `CompactGlucoseCard` already switches to stale treatment (Task 10); this task proves it under a cache-restored reading and adds the offline signal.
+This closes acceptance criterion 10.
+
+**These tests are regression pins, not red-green TDD.** `CompactGlucoseCard` already
+implements stale treatment (Task 10), so they are expected to pass on first run. That is
+the point: the 15-minute stale rule is a safety property, and a property with no named test
+guarding it is one careless refactor away from disappearing. Do not delete them for passing
+immediately, and do not weaken `CompactGlucoseCard` to manufacture a red phase.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3857,10 +4058,11 @@ describe('stale data safety', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails or passes**
+- [ ] **Step 2: Run the test**
 
 Run: `npx vitest run src/features/dashboard/__tests__/staleness.test.tsx`
-Expected: PASS if Task 10 was implemented correctly. **If it passes immediately, do not skip the task** — the test is the deliverable, because it pins a safety property that must not silently regress. If it fails, fix `CompactGlucoseCard`.
+Expected: PASS, from Task 10's implementation. A failure means `CompactGlucoseCard` does not
+actually honour the threshold — fix the card, not the test.
 
 - [ ] **Step 3: Implement `OfflineBanner`**
 
@@ -3939,7 +4141,7 @@ Expected: no results. If `routes.tsx` still references it, Task 15 Step 4 was sk
 git rm src/components/EnhancedDashboard.tsx
 ```
 
-`CombinedGlucoseChart.tsx` and `NoteInputModal.tsx` become unreferenced at this point — their replacements are `ForecastChartCard` and `NoteEditorSheet`. Re-run the Task 2 Step 1 reachability check over both and delete any that are now dead. Do **not** delete `AIInsightPanel`, `NutritionAnalyzerModal`, `VersionInfo`, `DataSourceConfigModal`, `COBSettings`, `InsulinPreferencesSettings`, `LibreLinkUpTest`, `JwtLoginForm`, `NightscoutErrorBoundary` or `NightscoutFallbackUI` — all are still mounted.
+`CombinedGlucoseChart.tsx` and `NoteInputModal.tsx` become unreferenced at this point — their replacements are `ForecastChartCard` and `NoteEditorSheet`. Re-run the Task 2 Step 1 reachability check over both and delete any that are now dead. **Before deleting `NoteInputModal.tsx`, confirm `src/domain/mealType.ts` exists and `src/domain/__tests__/mealType.test.ts` passes** — that module is where its meal-type inference now lives, and deleting the modal without it loses behavior added in commit `b647429f`. Do **not** delete `AIInsightPanel`, `NutritionAnalyzerModal`, `VersionInfo`, `DataSourceConfigModal`, `COBSettings`, `InsulinPreferencesSettings`, `LibreLinkUpTest`, `JwtLoginForm`, `NightscoutErrorBoundary` or `NightscoutFallbackUI` — all are still mounted.
 
 - [ ] **Step 3: Run the full suite**
 
@@ -3995,7 +4197,7 @@ Recorded so they are not mistaken for oversights:
 - **`POST /api/client-errors`** in `glucose-monitor-be` — a separate repo. Until it exists, `REACT_APP_ENABLE_ERROR_REPORTING` stays unset and no error POST is made.
 - **Camera capture** (`/dashboard/scan`) — slice F, using the existing `POST /api/nutrition/analyze-image`. There is no browser equivalent of the iOS LiDAR volume estimation, so portion size will be entered manually.
 - **Sheet drag-to-dismiss** — Escape, Done and Back all close sheets, which covers every real path.
-- **Orange point markers and insulin bars on the chart** — added in Task 11 only if the Task 23 comparison shows the gap matters.
+- **The active-experiment card** (spec §7 item 2) — slice E, alongside the experiments API that would make it non-empty.
 - **Notes, Experiments and Settings rebuilds** — slices C, D and E. Their visual contracts are already recorded in spec §7.1.
 - **Web Push and background refresh** — slice G. iOS Safari has no Periodic Background Sync, so alarms must be server-pushed.
 - **Reference screenshots** for sheets, scan, bedside and the lower dashboard — not captured. Components built for those screens are unverified against the real app.
