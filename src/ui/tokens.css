@@ -1,0 +1,61 @@
+:root {
+  /* System colours */
+  --gm-blue: #007aff;
+  --gm-green: #34c759;
+  --gm-orange: #ff9500;
+  --gm-red: #ff3b30;
+  --gm-purple: #af52de;
+  --gm-indigo: #5856d6;
+
+  /* Surfaces */
+  --gm-bg-grouped: #f2f2f7;
+  --gm-surface: #ffffff;
+  --gm-surface-nested: #f2f2f7;
+  --gm-separator: #e5e5ea;
+  --gm-tab-selected-bg: #ececed;
+
+  /* Labels */
+  --gm-label: #000000;
+  --gm-label-secondary: #8e8e93;
+  --gm-label-tertiary: #aeaeb2;
+
+  /* Tints for quantity pills */
+  --gm-carb-pill-bg: #ffeddb;
+  --gm-insulin-pill-bg: #ece9ff;
+  --gm-status-normal-bg: #d8f5e3;
+  --gm-status-normal-fg: #248a4e;
+
+  /* Radii */
+  --gm-radius-card: 20px;
+  --gm-radius-nested: 14px;
+  --gm-radius-capsule: 28px;
+
+  /* Elevation: cards near-flat, floating capsules visibly above content */
+  --gm-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --gm-shadow-capsule: 0 3px 14px rgba(0, 0, 0, 0.15);
+
+  /* Layout */
+  --gm-capsule-inset: 14px;
+  --gm-tabbar-height: 58px;
+  --gm-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --gm-safe-top: env(safe-area-inset-top, 0px);
+
+  /* Scroll containers must clear the floating tab bar */
+  --gm-scroll-bottom-pad: calc(
+    var(--gm-tabbar-height) + var(--gm-capsule-inset) * 2 + var(--gm-safe-bottom)
+  );
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--gm-bg-grouped);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI',
+    system-ui, sans-serif;
+  color: var(--gm-label);
+  -webkit-font-smoothing: antialiased;
+}
