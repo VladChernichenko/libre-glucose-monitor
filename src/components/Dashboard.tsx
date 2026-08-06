@@ -202,7 +202,7 @@ const Dashboard: React.FC = () => {
       setError(`Failed to fetch from Nightscout via backend proxy: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       // Only use demo fallback when explicitly enabled.
-      if (process.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
+      if (import.meta.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
         const demoData = generateDemoGlucoseData(24);
         setGlucoseHistory(demoData);
         if (demoData.length > 0) {
@@ -288,7 +288,7 @@ const Dashboard: React.FC = () => {
       setError(`Failed to fetch historical data from Nightscout via backend proxy: ${errorMessage}`);
       
       // Only fallback to demo data when explicitly enabled.
-      if (process.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
+      if (import.meta.env.REACT_APP_ENABLE_DEMO_MODE === 'true') {
         const demoData = generateDemoGlucoseData(24);
         setGlucoseHistory(demoData);
       } else {

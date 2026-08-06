@@ -1,86 +1,89 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import EnhancedDashboard from '../EnhancedDashboard';
 
-jest.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: { username: 'vlad' },
     isAuthenticated: true,
-    logout: jest.fn(),
+    logout: vi.fn(),
   }),
 }));
 
-jest.mock('../CombinedGlucoseChart', () => {
-  return function MockCombinedGlucoseChart() {
+vi.mock('../CombinedGlucoseChart', () => ({
+  default: function MockCombinedGlucoseChart() {
     return <div>Combined Glucose Chart</div>;
-  };
-});
-
-jest.mock('../AIInsightPanel', () => {
-  return function MockAIInsightPanel() {
-    return <div>AI Analyzer</div>;
-  };
-});
-
-jest.mock('../NoteInputModal', () => {
-  return function MockNoteInputModal() {
-    return null;
-  };
-});
-
-jest.mock('../COBSettings', () => {
-  return function MockCOBSettings() {
-    return null;
-  };
-});
-
-jest.mock('../InsulinPreferencesSettings', () => {
-  return function MockInsulinPreferencesSettings() {
-    return null;
-  };
-});
-
-jest.mock('../VersionInfo', () => {
-  return function MockVersionInfo() {
-    return null;
-  };
-});
-
-jest.mock('../NightscoutErrorBoundary', () => {
-  return function MockNightscoutErrorBoundary({ children }: { children: React.ReactNode }) {
-    return <>{children}</>;
-  };
-});
-
-jest.mock('../NightscoutFallbackUI', () => {
-  return function MockNightscoutFallbackUI() {
-    return <div>Nightscout Fallback</div>;
-  };
-});
-
-jest.mock('../DataSourceConfigModal', () => {
-  return function MockDataSourceConfigModal() {
-    return null;
-  };
-});
-
-var mockGetCurrentGlucose = jest.fn();
-var mockGetGlucoseEntries = jest.fn();
-var mockGetGlucoseEntriesByDate = jest.fn();
-
-jest.mock('../../services/nightscout/enhancedNightscoutService', () => ({
-  EnhancedNightscoutService: jest.fn().mockImplementation(() => ({
-    getCurrentGlucose: mockGetCurrentGlucose,
-    getGlucoseEntries: mockGetGlucoseEntries,
-    getGlucoseEntriesByDate: mockGetGlucoseEntriesByDate,
-  })),
+  },
 }));
 
-var mockGetNotes = jest.fn();
-var mockIsBackendAvailable = jest.fn();
-var mockDeleteNote = jest.fn();
-jest.mock('../../services/hybridNotesApi', () => ({
+vi.mock('../AIInsightPanel', () => ({
+  default: function MockAIInsightPanel() {
+    return <div>AI Analyzer</div>;
+  },
+}));
+
+vi.mock('../NoteInputModal', () => ({
+  default: function MockNoteInputModal() {
+    return null;
+  },
+}));
+
+vi.mock('../COBSettings', () => ({
+  default: function MockCOBSettings() {
+    return null;
+  },
+}));
+
+vi.mock('../InsulinPreferencesSettings', () => ({
+  default: function MockInsulinPreferencesSettings() {
+    return null;
+  },
+}));
+
+vi.mock('../VersionInfo', () => ({
+  default: function MockVersionInfo() {
+    return null;
+  },
+}));
+
+vi.mock('../NightscoutErrorBoundary', () => ({
+  default: function MockNightscoutErrorBoundary({ children }: { children: React.ReactNode }) {
+    return <>{children}</>;
+  },
+}));
+
+vi.mock('../NightscoutFallbackUI', () => ({
+  default: function MockNightscoutFallbackUI() {
+    return <div>Nightscout Fallback</div>;
+  },
+}));
+
+vi.mock('../DataSourceConfigModal', () => ({
+  default: function MockDataSourceConfigModal() {
+    return null;
+  },
+}));
+
+var mockGetCurrentGlucose = vi.fn();
+var mockGetGlucoseEntries = vi.fn();
+var mockGetGlucoseEntriesByDate = vi.fn();
+
+// Vitest constructs mocks with Reflect.construct, so the implementation has to be
+// newable — an arrow factory is not.
+vi.mock('../../services/nightscout/enhancedNightscoutService', () => ({
+  EnhancedNightscoutService: class {
+    getCurrentGlucose = mockGetCurrentGlucose;
+    getGlucoseEntries = mockGetGlucoseEntries;
+    getGlucoseEntriesByDate = mockGetGlucoseEntriesByDate;
+  },
+}));
+
+var mockGetNotes = vi.fn();
+var mockIsBackendAvailable = vi.fn();
+var mockDeleteNote = vi.fn();
+vi.mock('../../services/hybridNotesApi', () => ({
   hybridNotesApiService: {
     getNotes: mockGetNotes,
     isBackendAvailable: mockIsBackendAvailable,
@@ -88,37 +91,37 @@ jest.mock('../../services/hybridNotesApi', () => ({
   },
 }));
 
-var mockGetCOBSettings = jest.fn();
-var mockSaveCOBSettings = jest.fn();
-jest.mock('../../services/cobSettingsApi', () => ({
+var mockGetCOBSettings = vi.fn();
+var mockSaveCOBSettings = vi.fn();
+vi.mock('../../services/cobSettingsApi', () => ({
   cobSettingsApi: {
     getCOBSettings: mockGetCOBSettings,
     saveCOBSettings: mockSaveCOBSettings,
   },
 }));
 
-var mockGetGlucoseCalculations = jest.fn();
-jest.mock('../../services/glucoseCalculationsApi', () => ({
+var mockGetGlucoseCalculations = vi.fn();
+vi.mock('../../services/glucoseCalculationsApi', () => ({
   glucoseCalculationsApi: {
     getGlucoseCalculations: mockGetGlucoseCalculations,
   },
 }));
 
-jest.mock('../../config/environments', () => ({
+vi.mock('../../config/environments', () => ({
   getEnvironmentConfig: () => ({
     backendUrl: 'http://localhost:8080',
   }),
 }));
 
-jest.mock('../../services/dataSourceConfigApi', () => ({
+vi.mock('../../services/dataSourceConfigApi', () => ({
   dataSourceConfigApi: {
-    saveLibreConfig: jest.fn(),
+    saveLibreConfig: vi.fn(),
   },
 }));
 
 describe('EnhancedDashboard main page load', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const now = Date.now();
 

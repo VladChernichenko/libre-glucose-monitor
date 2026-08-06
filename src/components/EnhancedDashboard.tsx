@@ -43,7 +43,7 @@ const EnhancedDashboard: React.FC = () => {
   // Enhanced Nightscout service
   const [nightscoutService] = useState(() => {
     const config = getEnvironmentConfig();
-    const demoFallbackEnabled = process.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
+    const demoFallbackEnabled = import.meta.env.REACT_APP_ENABLE_DEMO_MODE === 'true';
     return new EnhancedNightscoutService({
       backendUrl: config.backendUrl,
       enableFallbacks: true,

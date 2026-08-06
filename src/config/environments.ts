@@ -16,8 +16,8 @@ export const environments = {
     cobApiUrl: '',
     libreApiUrl: 'https://api.libreview.com',
     nightscoutUrl: '',
-    nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
+    nightscoutSecret: import.meta.env.REACT_APP_NIGHTSCOUT_SECRET,
+    nightscoutToken: import.meta.env.REACT_APP_NIGHTSCOUT_TOKEN,
     corsProxyUrl: 'https://cors-anywhere.herokuapp.com',
     isDocker: false,
     environment: 'local'
@@ -28,8 +28,8 @@ export const environments = {
     cobApiUrl: 'https://libre-glucose-monitor-be-dev.onrender.com',
     libreApiUrl: 'https://api.libreview.com',
     nightscoutUrl: '',
-    nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
+    nightscoutSecret: import.meta.env.REACT_APP_NIGHTSCOUT_SECRET,
+    nightscoutToken: import.meta.env.REACT_APP_NIGHTSCOUT_TOKEN,
     corsProxyUrl: 'https://cors-anywhere.herokuapp.com',
     isDocker: false,
     environment: 'development'
@@ -40,8 +40,8 @@ export const environments = {
     cobApiUrl: 'https://libre-glucose-monitor-be-staging.onrender.com',
     libreApiUrl: 'https://api.libreview.com',
     nightscoutUrl: '',
-    nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
+    nightscoutSecret: import.meta.env.REACT_APP_NIGHTSCOUT_SECRET,
+    nightscoutToken: import.meta.env.REACT_APP_NIGHTSCOUT_TOKEN,
     corsProxyUrl: 'https://cors-anywhere.herokuapp.com',
     isDocker: false,
     environment: 'staging'
@@ -52,8 +52,8 @@ export const environments = {
     cobApiUrl: 'https://libre-glucose-monitor-be.onrender.com',
     libreApiUrl: 'https://api.libreview.com',
     nightscoutUrl: '',
-    nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
+    nightscoutSecret: import.meta.env.REACT_APP_NIGHTSCOUT_SECRET,
+    nightscoutToken: import.meta.env.REACT_APP_NIGHTSCOUT_TOKEN,
     corsProxyUrl: 'https://cors-anywhere.herokuapp.com',
     isDocker: false,
     environment: 'production'
@@ -64,8 +64,8 @@ export const environments = {
     cobApiUrl: '/api',
     libreApiUrl: 'https://api.libreview.com',
     nightscoutUrl: '',
-    nightscoutSecret: process.env.REACT_APP_NIGHTSCOUT_SECRET,
-    nightscoutToken: process.env.REACT_APP_NIGHTSCOUT_TOKEN,
+    nightscoutSecret: import.meta.env.REACT_APP_NIGHTSCOUT_SECRET,
+    nightscoutToken: import.meta.env.REACT_APP_NIGHTSCOUT_TOKEN,
     corsProxyUrl: 'https://cors-anywhere.herokuapp.com',
     isDocker: true,
     environment: 'docker'
@@ -73,8 +73,8 @@ export const environments = {
 };
 
 export function getEnvironmentConfig(): EnvironmentConfig {
-  const env = process.env.REACT_APP_ENVIRONMENT;
-  const dockerMode = process.env.REACT_APP_DOCKER === 'true';
+  const env = import.meta.env.REACT_APP_ENVIRONMENT;
+  const dockerMode = import.meta.env.REACT_APP_DOCKER === 'true';
   
   // Override with Docker config if in Docker mode
   if (dockerMode) {
@@ -107,8 +107,8 @@ export function getEnvironmentConfig(): EnvironmentConfig {
   }
   
   const base = environments[detectedEnv as keyof typeof environments] || environments.production;
-  const backendOverride = process.env.REACT_APP_BACKEND_URL?.trim();
-  const cobOverride = process.env.REACT_APP_COB_API_URL?.trim();
+  const backendOverride = import.meta.env.REACT_APP_BACKEND_URL?.trim();
+  const cobOverride = import.meta.env.REACT_APP_COB_API_URL?.trim();
   const finalConfig: EnvironmentConfig = {
     ...base,
     backendUrl: backendOverride || base.backendUrl,
