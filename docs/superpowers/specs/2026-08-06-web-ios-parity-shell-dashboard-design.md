@@ -398,8 +398,11 @@ Deliberately boring, because it is the riskiest non-UI part.
 - Only two live files read `process.env` — `config/environments.ts` and
   `config/version.ts`. The other two references are in `Dashboard.tsx` and
   `EnhancedDashboard.tsx`, which are deleted and replaced respectively.
-- `scripts/set-version.sh` and `scripts/render-build.sh` are updated to match, keeping the
-  existing version-stamping behavior.
+- `scripts/set-version.sh` and `scripts/render-build.sh` need **no changes**.
+  `set-version.sh` writes `REACT_APP_*` variables into `.env.local`, which Vite reads
+  natively and exposes under the configured `envPrefix`; `render-build.sh` shells out to
+  `npm run build`. Version stamping keeps working untouched — this is a consequence of
+  keeping the `REACT_APP_` prefix rather than a coincidence.
 
 ## 14. Dead code removal
 
