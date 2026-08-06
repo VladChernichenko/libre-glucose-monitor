@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CapsuleToolbar } from '../../app/shell/CapsuleToolbar';
 import { SheetOutlet } from '../../app/shell/SheetOutlet';
+import { OfflineBanner } from '../../ui/OfflineBanner';
 import { useGlucose } from '../../state/GlucoseStore';
 import { IsfSuggestionCard } from './cards/IsfSuggestionCard';
 import { CompactGlucoseCard } from './cards/CompactGlucoseCard';
@@ -40,6 +41,7 @@ export const DashboardScreen: React.FC = () => {
         ]}
       />
       <div className="flex flex-col gap-3.5 px-3.5 pt-[72px]">
+        <OfflineBanner />
         <IsfSuggestionCard />
         <CompactGlucoseCard />
         <ForecastChartCard />
