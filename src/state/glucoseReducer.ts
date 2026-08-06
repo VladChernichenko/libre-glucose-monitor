@@ -10,6 +10,8 @@ export interface GlucoseState {
   isLoading: boolean;
   errorMessage: string | null;
   lastGlucoseRefresh: number | null;
+  /** The configured source; only LibreLinkUp carries sensor metadata. */
+  dataSource: 'NIGHTSCOUT' | 'LIBRE_LINK_UP';
   /** Bumped on every auth transition; responses from an older generation are discarded. */
   authGeneration: number;
 }
@@ -22,6 +24,11 @@ export type GlucoseAction =
   | { type: 'historyReceived'; generation: number; history: GlucoseReading[] }
   | { type: 'calculationsReceived'; generation: number; calculations: GlucoseCalculationsResponse }
   | { type: 'notesReceived'; generation: number; notes: GlucoseNote[] }
+  | {
+      type: 'dataSourceReceived';
+      generation: number;
+      dataSource: GlucoseState['dataSource'];
+    }
   | { type: 'errorRaised'; generation: number; message: string };
 
 export const initialGlucoseState: GlucoseState = {
@@ -32,6 +39,7 @@ export const initialGlucoseState: GlucoseState = {
   isLoading: false,
   errorMessage: null,
   lastGlucoseRefresh: null,
+  dataSource: 'NIGHTSCOUT',
   authGeneration: 0,
 };
 
@@ -59,6 +67,8 @@ export function glucoseReducer(state: GlucoseState, action: GlucoseAction): Gluc
       return { ...state, calculations: action.calculations, errorMessage: null };
     case 'notesReceived':
       return { ...state, notes: action.notes };
+    case 'dataSourceReceived':
+      return { ...state, dataSource: action.dataSource };
     case 'errorRaised':
       return { ...state, isLoading: false, errorMessage: action.message };
     default:

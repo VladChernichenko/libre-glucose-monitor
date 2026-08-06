@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { EnhancedNightscoutService } from '../services/nightscout/enhancedNightscoutService';
 import { glucoseCalculationsApi } from '../services/glucoseCalculationsApi';
 import { hybridNotesApiService } from '../services/hybridNotesApi';
+import { userDataSourceConfigApi } from '../services/userDataSourceConfigApi';
 import { getEnvironmentConfig } from '../config/environments';
 import { glucoseReducer, initialGlucoseState, type GlucoseState } from './glucoseReducer';
 import { toGlucoseReading, type NightscoutSgvEntry } from './toGlucoseReading';
@@ -133,6 +134,24 @@ export const GlucoseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  // Which source is configured, read once. DataSourceConfigStatus has no
+  // activeDataSource field — the source lives on the most recently used
+  // config, falling back to whichever kind of config exists.
+  useEffect(() => {
+    const gen = generation.current;
+    userDataSourceConfigApi
+      .getConfigStatus()
+      .then((status) => {
+        const dataSource =
+          status.mostRecentlyUsedConfig?.dataSource ??
+          (status.hasLibreConfig && !status.hasNightscoutConfig ? 'LIBRE_LINK_UP' : 'NIGHTSCOUT');
+        dispatch({ type: 'dataSourceReceived', generation: gen, dataSource });
+      })
+      .catch(() => {
+        // Defaulting to Nightscout only hides the sensor bar; nothing else breaks.
+      });
+  }, []);
 
   // 5-minute auto refresh, paused while hidden
   useEffect(() => {
