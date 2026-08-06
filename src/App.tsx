@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import JwtLoginForm from './components/JwtLoginForm';
 import { AppRoutes } from './app/routes';
+import { GlucoseProvider } from './state/GlucoseStore';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -13,7 +14,16 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-  return isAuthenticated ? <AppRoutes /> : <JwtLoginForm />;
+  // The provider sits inside the authenticated branch so the login screen
+  // never fires glucose requests. It is still inside BrowserRouter, which
+  // useLocation requires.
+  return isAuthenticated ? (
+    <GlucoseProvider>
+      <AppRoutes />
+    </GlucoseProvider>
+  ) : (
+    <JwtLoginForm />
+  );
 };
 
 const App: React.FC = () => (
