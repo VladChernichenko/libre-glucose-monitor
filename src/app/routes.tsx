@@ -9,6 +9,9 @@ import { NoteEditorSheet } from '../features/dashboard/sheets/NoteEditorSheet';
 import { AiSheet } from '../features/dashboard/sheets/AiSheet';
 import { NutritionSheet } from '../features/dashboard/sheets/NutritionSheet';
 import { VersionSheet } from '../features/dashboard/sheets/VersionSheet';
+import { ActivitySheet } from '../features/dashboard/sheets/ActivitySheet';
+import { LongActingSheet } from '../features/dashboard/sheets/LongActingSheet';
+import { ForecastSheet } from '../features/dashboard/sheets/ForecastSheet';
 
 export const AppRoutes: React.FC = () => (
   <Routes>
@@ -19,6 +22,9 @@ export const AppRoutes: React.FC = () => (
         <Route path="ai" element={<AiSheet />} />
         <Route path="nutrition" element={<NutritionSheet />} />
         <Route path="version" element={<VersionSheet />} />
+        <Route path="activity" element={<ActivitySheet />} />
+        <Route path="long-acting" element={<LongActingSheet />} />
+        <Route path="forecast" element={<ForecastSheet />} />
       </Route>
       <Route path="/notes" element={<NotesStub />} />
       <Route path="/experiments" element={<ExperimentsStub />} />
