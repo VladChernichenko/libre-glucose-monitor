@@ -4,14 +4,12 @@ import { AppShell } from './shell/AppShell';
 import { NotesStub } from '../features/notes/NotesStub';
 import { ExperimentsStub } from '../features/experiments/ExperimentsStub';
 import { SettingsHost } from '../features/settings/SettingsHost';
-import EnhancedDashboard from '../components/EnhancedDashboard';
+import { DashboardScreen } from '../features/dashboard/DashboardScreen';
 
-// EnhancedDashboard is a placeholder occupant of /dashboard until Task 15
-// replaces it, so the app stays usable at every commit.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route element={<AppShell />}>
-      <Route path="/dashboard" element={<EnhancedDashboard />} />
+      <Route path="/dashboard" element={<DashboardScreen />} />
       <Route path="/notes" element={<NotesStub />} />
       <Route path="/experiments" element={<ExperimentsStub />} />
       <Route path="/settings" element={<SettingsHost />} />

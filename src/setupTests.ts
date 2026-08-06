@@ -33,6 +33,14 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Recharts' ResponsiveContainer constructs one on mount.
+class MockResizeObserver {
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+}
+globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+
 class MockIntersectionObserver {
   disconnect() {}
   observe() {}
