@@ -172,26 +172,6 @@ export class CarbsOnBoardService {
     return projection;
   }
 
-  // Calculate recommended insulin dose for a meal
-  calculateRecommendedInsulin(carbs: number, currentGlucose?: number, targetGlucose: number = 7.0): number {
-    // Calculate glucose rise from carbs: (carbs / 10) * carbRatio
-    const glucoseRiseFromCarbs = (carbs / 10) * this.config.carbRatio;
-    
-    // Calculate insulin needed to cover carbs: glucoseRise / ISF
-    let recommendedInsulin = glucoseRiseFromCarbs / this.config.isf;
-    
-    // Add correction dose if glucose is above target
-    if (currentGlucose && currentGlucose > targetGlucose) {
-      const correctionDose = (currentGlucose - targetGlucose) / this.config.isf;
-      recommendedInsulin += correctionDose;
-    }
-    
-    // Subtract any active insulin on board
-    // Note: This would need to be calculated separately with actual entries
-    
-    return Math.max(0, Math.round(recommendedInsulin * 100) / 100);
-  }
-
   // Get COB summary for display
   getCOBSummary(entries: COBEntry[]): {
     totalCarbsToday: number;
