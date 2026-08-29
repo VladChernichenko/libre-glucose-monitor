@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { authService } from './authService';
 import { showErrorToast } from '../utils/toast';
 
@@ -16,7 +17,7 @@ const config = getEnvironmentConfig();
 
 // Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: `${config.cobApiUrl}/api/cob-settings`,
+  baseURL: `${config.cobApiUrl}/api/user-settings`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,6 +25,7 @@ const apiClient = axios.create({
 
 // Add request interceptor to include auth token and check authentication
 apiClient.interceptors.request.use((config) => {
+  applyClientContextHeaders(config);
   // Check if user is still authenticated or logout is in progress
   if (!authService.isAuthenticated() || authService.getIsLoggingOut()) {
     console.log('🚫 Blocking COB API request - user not authenticated or logout in progress');

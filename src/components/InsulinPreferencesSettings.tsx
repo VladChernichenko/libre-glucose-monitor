@@ -11,12 +11,12 @@ interface InsulinPreferencesSettingsProps {
 }
 
 function formatMinutes(m: number | null | undefined): string {
-  if (m == null) return '—';
+  if (m == null) return '-';
   return `${m} min`;
 }
 
 function formatHours(h: number | null | undefined): string {
-  if (h == null) return '—';
+  if (h == null) return '-';
   if (h >= 24 && h % 24 === 0) return `${h / 24} d (${h} h)`;
   return `${h} h`;
 }
@@ -139,7 +139,7 @@ const InsulinPreferencesSettings: React.FC<InsulinPreferencesSettingsProps> = ({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Insulin types</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Rapid insulin shapes bolus IOB; basal is stored for your profile. Enter · save · Esc
+              Rapid insulin shapes bolus IOB; basal is stored for your profile. Enter * save * Esc
             </p>
           </div>
           <button
@@ -158,7 +158,7 @@ const InsulinPreferencesSettings: React.FC<InsulinPreferencesSettingsProps> = ({
           {isLoading && (
             <div className="flex items-center justify-center py-6 text-gray-600">
               <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600" />
-              <span className="ml-2">Loading…</span>
+              <span className="ml-2">Loading...</span>
             </div>
           )}
 
@@ -228,7 +228,7 @@ const InsulinPreferencesSettings: React.FC<InsulinPreferencesSettingsProps> = ({
                 : 'cursor-not-allowed bg-gray-300 text-gray-500'
             }`}
           >
-            {isSaving ? 'Saving…' : 'Save'}
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>

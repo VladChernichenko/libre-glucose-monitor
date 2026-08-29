@@ -1,48 +1,64 @@
-// jest-dom adds custom jest matchers for asserting on DOM nodes.
-// allows you to do things like:
+// jest-dom adds custom matchers for asserting on DOM nodes, e.g.
 // expect(element).toHaveTextContent(/react/i)
-// learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
+import { vi, beforeAll, afterAll } from 'vitest';
 
-// Mock localStorage
+// jsdom ships localStorage, but tests assert on calls, so keep it a spy.
 const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
 };
-global.localStorage = localStorageMock;
+Object.defineProperty(globalThis, 'localStorage', {
+  writable: true,
+  value: localStorageMock,
+});
 
 // Mock fetch
-global.fetch = jest.fn();
+globalThis.fetch = vi.fn();
 
-// Mock window.matchMedia (used by some UI libraries)
+// jsdom implements neither of the next two.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   })),
 });
 
-// Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
+// Recharts' ResponsiveContainer constructs one on mount.
+class MockResizeObserver {
   disconnect() {}
   observe() {}
   unobserve() {}
-};
+}
+globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
-// Suppress console warnings during tests
+class MockIntersectionObserver {
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+  takeRecords() {
+    return [];
+  }
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds: readonly number[] = [];
+}
+globalThis.IntersectionObserver =
+  MockIntersectionObserver as unknown as typeof IntersectionObserver;
+
+// Suppress a single noisy React warning during tests
 const originalError = console.error;
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (
       typeof args[0] === 'string' &&
       args[0].includes('Warning: ReactDOM.render is deprecated')
@@ -56,4 +72,3 @@ beforeAll(() => {
 afterAll(() => {
   console.error = originalError;
 });
-

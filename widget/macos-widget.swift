@@ -108,11 +108,11 @@ class GlucoseService: ObservableObject {
         case "DoubleUp": return "↗↗"
         case "SingleUp": return "↗"
         case "FortyFiveUp": return "↗"
-        case "Flat": return "→"
+        case "Flat": return "->"
         case "FortyFiveDown": return "↘"
         case "SingleDown": return "↘"
         case "DoubleDown": return "↘↘"
-        default: return "→"
+        default: return "->"
         }
     }
     
@@ -232,17 +232,17 @@ struct GlucoseWidget: Widget {
 
 struct GlucoseProvider: TimelineProvider {
     func placeholder(in context: Context) -> GlucoseEntry {
-        GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "→", status: .normal, timestamp: Date()))
+        GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "->", status: .normal, timestamp: Date()))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (GlucoseEntry) -> ()) {
-        let entry = GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "→", status: .normal, timestamp: Date()))
+        let entry = GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "->", status: .normal, timestamp: Date()))
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         // Fetch real data here
-        let entry = GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "→", status: .normal, timestamp: Date()))
+        let entry = GlucoseEntry(date: Date(), reading: GlucoseReading(value: 5.8, trend: "->", status: .normal, timestamp: Date()))
         let timeline = Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(60)))
         completion(timeline)
     }

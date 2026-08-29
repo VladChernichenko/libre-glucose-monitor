@@ -7,6 +7,7 @@ import {
   GlucoseReading
 } from '../types/libre';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { dataSourceConfigApi } from './dataSourceConfigApi';
 import { authService } from './authService';
 
@@ -28,6 +29,7 @@ class LibreApiService {
 
     // Add request interceptor for authentication
     this.api.interceptors.request.use((config) => {
+      applyClientContextHeaders(config);
       const token = authService.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;

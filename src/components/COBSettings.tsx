@@ -7,20 +7,16 @@ interface COBSettingsProps {
   onClose: () => void;
 }
 
-// Local config type that allows empty values during editing
+// Local config type that allows empty values during editing (half-life / max COB stay on server defaults via `config`.)
 type LocalCOBConfig = {
   carbRatio: number | '';
   isf: number | '';
-  carbHalfLife: number | '';
-  maxCOBDuration: number | '';
 };
 
 const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClose }) => {
   const [localConfig, setLocalConfig] = useState<LocalCOBConfig>({
     carbRatio: config.carbRatio,
     isf: config.isf,
-    carbHalfLife: config.carbHalfLife,
-    maxCOBDuration: config.maxCOBDuration
   });
   const [isDirty, setIsDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,12 +27,10 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
     setLocalConfig({
       carbRatio: config.carbRatio,
       isf: config.isf,
-      carbHalfLife: config.carbHalfLife,
-      maxCOBDuration: config.maxCOBDuration,
     });
     setIsDirty(false);
     setError(null);
-  }, [config.carbHalfLife, config.carbRatio, config.isf, config.maxCOBDuration]);
+  }, [config.carbRatio, config.isf]);
 
   const handleInputChange = (field: keyof LocalCOBConfig, value: string) => {
     const numericValue = value === '' ? '' : parseFloat(value);
@@ -54,18 +48,16 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
       setIsLoading(true);
       setError(null);
       
-      // Validate that all fields have valid values
-      if (localConfig.carbRatio === '' || localConfig.isf === '' || localConfig.carbHalfLife === '' || localConfig.maxCOBDuration === '') {
-        setError('All fields must have valid values');
+      if (localConfig.carbRatio === '' || localConfig.isf === '') {
+        setError('Carb ratio and ISF must have valid values');
         return;
       }
-      
-      // Convert local config to proper COBConfig format
+
       const validConfig: COBConfig = {
         carbRatio: localConfig.carbRatio as number,
         isf: localConfig.isf as number,
-        carbHalfLife: localConfig.carbHalfLife as number,
-        maxCOBDuration: localConfig.maxCOBDuration as number
+        carbHalfLife: config.carbHalfLife,
+        maxCOBDuration: config.maxCOBDuration,
       };
       
       // Persist via parent callback to keep a single save path.
@@ -78,7 +70,7 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
     } finally {
       setIsLoading(false);
     }
-  }, [localConfig, onConfigChange, onClose]);
+  }, [config.carbHalfLife, config.maxCOBDuration, localConfig, onConfigChange, onClose]);
 
   // Add keyboard handlers for modal
   useEffect(() => {
@@ -107,8 +99,6 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
     setLocalConfig({
       carbRatio: config.carbRatio,
       isf: config.isf,
-      carbHalfLife: config.carbHalfLife,
-      maxCOBDuration: config.maxCOBDuration
     });
     setIsDirty(false);
     onClose();
@@ -118,8 +108,6 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
     const defaultConfig: LocalCOBConfig = {
       carbRatio: 2.0,
       isf: 1.0,
-      carbHalfLife: 45,
-      maxCOBDuration: 240
     };
     setLocalConfig(defaultConfig);
     setIsDirty(true);
@@ -212,59 +200,6 @@ const COBSettings: React.FC<COBSettingsProps> = ({ config, onConfigChange, onClo
             </div>
             <p className="mt-1 text-xs text-gray-500">
               How much 1 unit of insulin lowers your glucose
-            </p>
-          </div>
-
-          {/* Carb Half-Life */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Carb Half-Life (minutes)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="5"
-                min="15"
-                max="240"
-                value={localConfig.carbHalfLife || ''}
-                onChange={(e) => handleInputChange('carbHalfLife', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="45"
-              />
-              <div className="absolute right-3 top-2 text-sm text-gray-500">min</div>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              <span className="font-medium">15-30:</span> Fast (sugar) • <span className="font-medium">45-90:</span> Medium (pasta) • <span className="font-medium">120-240:</span> Slow (fiber)
-            </p>
-          </div>
-
-          {/* Max COB Duration */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Max COB Tracking Duration (hours)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                step="0.5"
-                min="1"
-                max="8"
-                value={localConfig.maxCOBDuration ? localConfig.maxCOBDuration / 60 : ''}
-                onChange={(e) => {
-                  const hours = e.target.value === '' ? '' : parseFloat(e.target.value);
-                  if (hours !== '' && !isNaN(hours)) {
-                    handleInputChange('maxCOBDuration', (hours * 60).toString());
-                  } else if (e.target.value === '') {
-                    handleInputChange('maxCOBDuration', '');
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="4"
-              />
-              <div className="absolute right-3 top-2 text-sm text-gray-500">hours</div>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              How long to track carbs on board (affects performance)
             </p>
           </div>
 

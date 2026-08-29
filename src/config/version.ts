@@ -17,10 +17,10 @@ export interface VersionInfo {
 
 export const VERSION_CONFIG: VersionInfo = {
   version: "1.0.0",
-  buildNumber: process.env.REACT_APP_BUILD_NUMBER || "dev-build",
-  gitCommit: process.env.REACT_APP_GIT_COMMIT || "unknown",
-  buildTime: process.env.REACT_APP_BUILD_TIME || new Date().toISOString(),
-  environment: process.env.REACT_APP_ENVIRONMENT || "production",
+  buildNumber: import.meta.env.REACT_APP_BUILD_NUMBER || "dev-build",
+  gitCommit: import.meta.env.REACT_APP_GIT_COMMIT || "unknown",
+  buildTime: import.meta.env.REACT_APP_BUILD_TIME || new Date().toISOString(),
+  environment: import.meta.env.REACT_APP_ENVIRONMENT || "production",
   
   // Backend compatibility requirements
   minBackendVersion: "1.0.0",
@@ -53,5 +53,5 @@ function getCurrentEnvironment(): string {
       return 'local';
     }
   }
-  return process.env.REACT_APP_ENVIRONMENT || 'production';
+  return import.meta.env.REACT_APP_ENVIRONMENT || 'production';
 }
