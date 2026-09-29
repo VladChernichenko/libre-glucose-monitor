@@ -4,3 +4,6 @@ build/
 .DS_Store
 .superpowers/
 .claude-flow/
+
+# Claude Code git worktrees (full checkouts of other branches)
+.claude/worktrees/
