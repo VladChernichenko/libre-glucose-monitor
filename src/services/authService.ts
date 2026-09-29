@@ -12,14 +12,35 @@ import { showErrorToast } from '../utils/toast';
 
 class AuthService {
   private api: AxiosInstance;
+  // Bare client used *only* for the refresh call. It deliberately carries no
+  // interceptors: routing the refresh through `this.api` means a 401 on the
+  // refresh itself re-enters the 401 handler, which calls refresh again on a
+  // fresh config (so `_retry` never trips) — unbounded recursion that floods
+  // the backend with /api/auth/refresh until the server is killed.
+  private refreshClient: AxiosInstance;
   private baseUrl: string;
   private isLoggingOut: boolean = false;
+  // Concurrent 401s (the dashboard fires several requests at once) must share
+  // one refresh, not start one each.
+  private refreshInFlight: Promise<string | null> | null = null;
+  // The session can only expire once; redirecting per failed request would
+  // stack up navigations.
+  private sessionExpiredHandled: boolean = false;
 
   constructor() {
     // Get environment-specific configuration
     const config = getEnvironmentConfig();
     this.baseUrl = config.backendUrl;
-    
+
+    this.refreshClient = axios.create({
+      baseURL: this.baseUrl,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      withCredentials: false,
+    });
+
     this.api = axios.create({
       baseURL: this.baseUrl,
       headers: {
@@ -57,23 +78,28 @@ class AuthService {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        // /api/auth/* is never worth refreshing for: a 401 from login,
+        // refresh, or logout means the credentials themselves are dead.
+        const isAuthEndpoint = (originalRequest?.url ?? '').includes('/api/auth/');
 
         // Handle 401 Unauthorized - token expired or invalid
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !isAuthEndpoint
+        ) {
           originalRequest._retry = true;
 
-          try {
-            const newToken = await this.refreshAccessToken();
-            if (newToken) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-              return this.api(originalRequest);
-            }
-          } catch (refreshError) {
-            console.log('🔄 Token refresh failed, logging out user');
-            await this.logout();
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
+          const newToken = await this.refreshAccessToken();
+          if (newToken) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return this.api(originalRequest);
           }
+
+          // Refresh token is dead too — end the session instead of retrying.
+          await this.handleSessionExpired();
+          return Promise.reject(error);
         }
 
         // Handle 403 Forbidden - insufficient permissions or invalid token
@@ -135,22 +161,51 @@ class AuthService {
   }
 
   async refreshAccessToken(): Promise<string | null> {
+    // Coalesce concurrent callers onto a single in-flight refresh.
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.performTokenRefresh().finally(() => {
+      this.refreshInFlight = null;
+    });
+
+    return this.refreshInFlight;
+  }
+
+  private async performTokenRefresh(): Promise<string | null> {
     try {
       const refreshToken = this.getRefreshToken();
       if (!refreshToken) {
         return null;
       }
 
-      const response = await this.api.post<AuthResponse>('/api/auth/refresh', {
+      // refreshClient, not api: see the field comment on refreshClient.
+      const response = await this.refreshClient.post<AuthResponse>('/api/auth/refresh', {
         refreshToken
       } as RefreshTokenRequest);
-      
+
       const authData = response.data;
       this.setTokens(authData.accessToken, authData.refreshToken);
+      this.sessionExpiredHandled = false;
       return authData.accessToken;
     } catch (error) {
       console.error('Token refresh failed:', error);
       return null;
+    }
+  }
+
+  private async handleSessionExpired(): Promise<void> {
+    if (this.sessionExpiredHandled) {
+      return;
+    }
+    this.sessionExpiredHandled = true;
+
+    console.log('🔄 Token refresh failed, ending session');
+    await this.logout();
+
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
     }
   }
 
