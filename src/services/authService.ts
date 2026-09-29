@@ -7,6 +7,7 @@ import {
   User 
 } from '../types/auth';
 import { getEnvironmentConfig } from '../config/environments';
+import { applyClientContextHeaders } from './clientContextHeaders';
 import { showErrorToast } from '../utils/toast';
 
 class AuthService {
@@ -38,6 +39,7 @@ class AuthService {
           console.log('🚫 Blocking request - logout in progress');
           return Promise.reject(new Error('Logout in progress'));
         }
+        applyClientContextHeaders(config);
         
         const token = this.getAccessToken();
         if (token) {

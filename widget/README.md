@@ -4,11 +4,11 @@ A simple, elegant widget that displays your current glucose level and trend on y
 
 ## 📱 **Widget Preview**
 ```
-┌─────────────────────┐
+┌---------------------┐
 │     5.8 mmol/L      │
 │        ↗ Glucose    │
 │       2:45 PM       │
-└─────────────────────┘
+└---------------------┘
 ```
 
 ## 🚀 **Installation Options (No Übersicht Required!)**
@@ -82,7 +82,7 @@ const CONFIG = {
 ### **Trend Arrows**
 - **↗↗**: Double Up (rapid rise)
 - **↗**: Single Up (rising)
-- **→**: Flat (stable)
+- **->**: Flat (stable)
 - **↘**: Single Down (falling)
 - **↘↘**: Double Down (rapid fall)
 

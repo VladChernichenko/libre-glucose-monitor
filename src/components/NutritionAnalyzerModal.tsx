@@ -101,4 +101,3 @@ const NutritionAnalyzerModal: React.FC<NutritionAnalyzerModalProps> = ({ isOpen,
 };
 
 export default NutritionAnalyzerModal;
-

@@ -1,23 +1,23 @@
 /**
  * Maps Nightscout `direction` strings to compact Unicode trend arrows.
- * (Avoid duplicating this map — bad encodings produce mojibake in the UI.)
+ * (Avoid duplicating this map - bad encodings produce mojibake in the UI.)
  */
 const NIGHTSCOUT_DIRECTION_ARROWS: Record<string, string> = {
   DoubleUp: '↗↗',
   SingleUp: '↗',
   FortyFiveUp: '↗',
-  Flat: '→',
+  Flat: '->',
   FortyFiveDown: '↘',
   SingleDown: '↘',
   DoubleDown: '↘↘',
-  'NOT COMPUTABLE': '→',
-  'RATE OUT OF RANGE': '→',
+  'NOT COMPUTABLE': '->',
+  'RATE OUT OF RANGE': '->',
 };
 
 export function nightscoutDirectionToArrow(direction: string | undefined | null): string {
-  if (direction == null) return '→';
+  if (direction == null) return '->';
   const key = String(direction).trim();
-  return NIGHTSCOUT_DIRECTION_ARROWS[key] ?? '→';
+  return NIGHTSCOUT_DIRECTION_ARROWS[key] ?? '->';
 }
 
 export function predictionTrendToArrow(trend: string | undefined | null): string {
@@ -27,6 +27,6 @@ export function predictionTrendToArrow(trend: string | undefined | null): string
     case 'falling':
       return '↘';
     default:
-      return '→';
+      return '->';
   }
 }

@@ -1,4 +1,4 @@
-import { GlucoseNote, NoteInputData } from '../types/notes';
+import { GlucoseNote, NoteInputData, MEAL_CATEGORIES, LEGACY_MEAL_CATEGORIES } from '../types/notes';
 import { backendNotesApi } from './backendNotesApi';
 import { notesStorageService } from './notesStorage';
 import { authService } from './authService';
@@ -293,7 +293,9 @@ class HybridNotesApiService implements NotesApiService {
       errors.push('Insulin must be a number between 0 and 100');
     }
     
-    if (!data.meal || !['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Pre-bolus', 'Correction', 'Other'].includes(data.meal)) {
+    // Retired categories stay valid so existing notes can still be saved.
+    const acceptedMeals: readonly string[] = [...MEAL_CATEGORIES, ...LEGACY_MEAL_CATEGORIES];
+    if (!data.meal || !acceptedMeals.includes(data.meal)) {
       errors.push('Invalid meal category');
     }
     

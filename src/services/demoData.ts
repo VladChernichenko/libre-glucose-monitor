@@ -21,7 +21,7 @@ export const generateDemoGlucoseData = (hours: number = 24): GlucoseReading[] =>
     
     // Determine trend based on value changes
     let trend = 0;
-    let trendArrow = '→';
+    let trendArrow = '->';
     
     if (i > 0) {
       const prevValue = data[data.length - 1]?.value || value;
@@ -119,7 +119,7 @@ export const generateTestGlucoseData = (): GlucoseReading[] => {
     
     // Determine trend based on previous value
     let trend = 0;
-    let trendArrow = '→';
+    let trendArrow = '->';
     
     if (index > 0) {
       const prevValue = testValues[index - 1].value;

@@ -42,10 +42,15 @@ export const MEAL_CATEGORIES = [
   'Breakfast',
   'Lunch',
   'Dinner',
-  'Snack',
   'Pre-bolus',
   'Correction',
   'Other'
 ] as const;
 
 export type MealCategory = typeof MEAL_CATEGORIES[number];
+
+/**
+ * Retired categories: no longer offered for new notes, but still accepted so
+ * that existing notes keep their original type when edited.
+ */
+export const LEGACY_MEAL_CATEGORIES = ['Snack'] as const;

@@ -58,15 +58,15 @@ REACT_APP_ENABLE_DEMO_MODE=false
 
 ```
 src/
-├── contexts/
-│   └── AuthContext.tsx          # Authentication state management
-├── services/
-│   └── authService.ts           # JWT authentication service
-├── components/
-│   └── JwtLoginForm.tsx         # Login/Register form
-├── types/
-│   └── auth.ts                  # Authentication type definitions
-└── App.tsx                      # Main app with auth provider
+├-- contexts/
+│   └-- AuthContext.tsx          # Authentication state management
+├-- services/
+│   └-- authService.ts           # JWT authentication service
+├-- components/
+│   └-- JwtLoginForm.tsx         # Login/Register form
+├-- types/
+│   └-- auth.ts                  # Authentication type definitions
+└-- App.tsx                      # Main app with auth provider
 ```
 
 ## Usage

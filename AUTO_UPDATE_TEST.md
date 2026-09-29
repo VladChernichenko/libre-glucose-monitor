@@ -123,4 +123,3 @@ npm start
 ---
 
 **Ready to test?** Start the application and follow the testing steps above!
-

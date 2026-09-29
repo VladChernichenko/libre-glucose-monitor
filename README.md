@@ -103,18 +103,18 @@ This application integrates with the Libre LinkUp API to fetch real-time glucose
 
 ```
 src/
-├── components/          # React components
-│   ├── Dashboard.tsx   # Main dashboard
-│   ├── GlucoseChart.tsx # Glucose trend chart
-│   ├── GlucoseDisplay.tsx # Current glucose display
-│   └── LoginForm.tsx   # Authentication form
-├── services/           # API services
-│   └── libreApi.ts    # Libre LinkUp API integration
-├── types/              # TypeScript type definitions
-│   └── libre.ts       # API data types
-├── App.tsx            # Main application component
-├── index.tsx          # Application entry point
-└── index.css          # Global styles
+├-- components/          # React components
+│   ├-- Dashboard.tsx   # Main dashboard
+│   ├-- GlucoseChart.tsx # Glucose trend chart
+│   ├-- GlucoseDisplay.tsx # Current glucose display
+│   └-- LoginForm.tsx   # Authentication form
+├-- services/           # API services
+│   └-- libreApi.ts    # Libre LinkUp API integration
+├-- types/              # TypeScript type definitions
+│   └-- libre.ts       # API data types
+├-- App.tsx            # Main application component
+├-- index.tsx          # Application entry point
+└-- index.css          # Global styles
 ```
 
 ## Building for Production

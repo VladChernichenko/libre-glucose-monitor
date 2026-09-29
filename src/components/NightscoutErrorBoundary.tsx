@@ -79,4 +79,3 @@ class NightscoutErrorBoundary extends Component<Props, State> {
 }
 
 export default NightscoutErrorBoundary;
-

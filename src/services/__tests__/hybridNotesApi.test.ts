@@ -1,10 +1,11 @@
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 
 describe('hybridNotesApi first authenticated load', () => {
   it('switches to backend notes when auth becomes available after initialization', async () => {
-    jest.resetModules();
+    vi.resetModules();
 
-    const mockBackendGetNotes = jest.fn().mockResolvedValue([
+    const mockBackendGetNotes = vi.fn().mockResolvedValue([
       {
         id: 'note-1',
         timestamp: new Date(),
@@ -13,33 +14,33 @@ describe('hybridNotesApi first authenticated load', () => {
         meal: 'Snack',
       },
     ]);
-    const mockBackendTestConnection = jest.fn().mockResolvedValue(true);
-    const mockStorageGetNotes = jest.fn().mockReturnValue([]);
+    const mockBackendTestConnection = vi.fn().mockResolvedValue(true);
+    const mockStorageGetNotes = vi.fn().mockReturnValue([]);
 
-    const mockIsAuthenticated = jest
+    const mockIsAuthenticated = vi
       .fn()
       .mockReturnValueOnce(false) // constructor initialization path
       .mockReturnValue(true);     // first actual dashboard call
 
-    jest.doMock('../authService', () => ({
+    vi.doMock('../authService', () => ({
       authService: {
         isAuthenticated: mockIsAuthenticated,
-        getIsLoggingOut: jest.fn().mockReturnValue(false),
+        getIsLoggingOut: vi.fn().mockReturnValue(false),
       },
     }));
 
-    jest.doMock('../backendNotesApi', () => ({
+    vi.doMock('../backendNotesApi', () => ({
       backendNotesApi: {
         testConnection: mockBackendTestConnection,
         getNotes: mockBackendGetNotes,
-        createNote: jest.fn(),
+        createNote: vi.fn(),
       },
     }));
 
-    jest.doMock('../notesStorage', () => ({
+    vi.doMock('../notesStorage', () => ({
       notesStorageService: {
         getNotes: mockStorageGetNotes,
-        clearAllNotes: jest.fn(),
+        clearAllNotes: vi.fn(),
       },
     }));
 
